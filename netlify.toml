@@ -2,6 +2,12 @@
   command = "npm run build"
   publish = "dist"
 
+# API 프록시: /api/* 요청을 백엔드로 전달
+[[redirects]]
+  from = "/api/*"
+  to = "https://app.floorida.site/api/:splat"
+  status = 200
+
 # SPA 리다이렉트 설정
 [[redirects]]
   from = "/*"
