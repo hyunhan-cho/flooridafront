@@ -10,4 +10,15 @@ export default defineConfig({
       },
     }),
   ],
+  server: {
+    proxy: {
+      // 개발환경에서 /api/* 요청을 백엔드로 프록시하여 CORS를 우회
+      '/api': {
+        target: 'https://app.floorida.site',
+        changeOrigin: true,
+        secure: true,
+        // don't rewrite path so '/api/..." stays '/api/...'
+      },
+    },
+  },
 })
