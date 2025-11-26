@@ -1361,6 +1361,33 @@
   inset: 0;
   box-shadow: inset 0 0 140px rgba(0, 0, 0, 0.4);
 }
+/* 개인 플랜 상단 헤더: home-header 레이아웃 재사용 */
+.home-header.plan-header {
+  justify-content: flex-start; /* 가운데 → 왼쪽 정렬 */
+  padding-top: 10px;
+  padding-left: 30px; /* 좌우 여백만 추가 */
+  padding-right: 30px;
+  padding-bottom: 30px;
+  gap: 14px; /* 아이콘-텍스트 간 간격 */
+}
+
+/* 개인 플랜용 아이콘/텍스트 스타일 */
+.plan-header-icon {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  object-fit: contain;
+  image-rendering: pixelated;
+  -ms-interpolation-mode: nearest-neighbor;
+}
+
+.plan-header-title {
+  font-size: 30px;
+  font-weight: 900;
+  color: #fff;
+  letter-spacing: 1px;
+  font-family: var(--font-pixel-kr);
+}
 
 @keyframes spin {
   to {
