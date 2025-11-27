@@ -1,79 +1,142 @@
-import React from 'react'
-import useLocalStorage from '../hooks/useLocalStorage'
+import React from "react";
 
 function buildMonthMatrix(date = new Date()) {
-  const year = date.getFullYear()
-  const month = date.getMonth()
-  const first = new Date(year, month, 1)
-  const last = new Date(year, month + 1, 0)
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const first = new Date(year, month, 1);
+  const last = new Date(year, month + 1, 0);
   // Monday-first index (Mon=0,...,Sun=6)
-  const firstWeekday = (first.getDay() + 6) % 7 // Sunday=0 -> 6, Monday=1 -> 0
-  const totalDays = last.getDate()
-  const cells = []
-  for (let i = 0; i < firstWeekday; i++) cells.push(null)
-  for (let d = 1; d <= totalDays; d++) cells.push(new Date(year, month, d))
+  const firstWeekday = (first.getDay() + 6) % 7; // Sunday=0 -> 6, Monday=1 -> 0
+  const totalDays = last.getDate();
+  const cells = [];
+  for (let i = 0; i < firstWeekday; i++) cells.push(null);
+  for (let d = 1; d <= totalDays; d++) cells.push(new Date(year, month, d));
   // fill to full weeks (rows of 7)
-  while (cells.length % 7 !== 0) cells.push(null)
-  return cells
+  while (cells.length % 7 !== 0) cells.push(null);
+  return cells;
 }
 
-const weekdayLabels = ['mon','tue','wed','thu','fri','sat','sun']
+const weekdayLabels = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 
-// 오늘 키와 기본 퀘스트: QuestList와 동일 스키마로 유지
-function todayKey() {
-  const d = new Date()
-  return `quests:${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`
-}
+const defaultProjects = [
+  {
+    id: "project-toefl",
+    text: "TOEFL 교재 끝내기",
+    color: "#f59768",
+    plannedDates: [10, 11, 12],
+  },
+  {
+    id: "project-data",
+    text: "빅데이터 개인 프로젝트",
+    color: "#22c7d5",
+    plannedDates: [13, 14, 15, 16],
+  },
+  {
+    id: "project-home-training",
+    text: "기상 직후 홈트 30분",
+    color: "#f8cf4b",
+    plannedDates: [10, 11, 12, 13, 14, 15, 16],
+  },
+];
 
-const defaultQuests = [
-  { id: 'q1', text: 'TOEFL 교재 끝내기', sub: 'chapter 2-1', done: false },
-  { id: 'q2', text: '빅데이터 개인 프로젝트', sub: '자료조사', done: false },
-  { id: 'q3', text: '기상 직후 홈트 30분', sub: '', done: false },
-]
+export default function MonthProjects() {
+  const today = new Date();
+  const cells = buildMonthMatrix(today);
+  const isToday = (d) =>
+    d &&
+    d.getFullYear() === today.getFullYear() &&
+    d.getMonth() === today.getMonth() &&
+    d.getDate() === today.getDate();
 
-export default function MonthProjects({ onProgressChange }) {
-  const today = new Date()
-  const cells = buildMonthMatrix(today)
-  const isToday = (d) => d && d.getFullYear()===today.getFullYear() && d.getMonth()===today.getMonth() && d.getDate()===today.getDate()
+  const projects = defaultProjects;
 
-  // 오늘 퀘스트(QuestList와 동일 저장소 사용)
-  const [items, setItems] = useLocalStorage(todayKey(), defaultQuests)
-  const doneCount = items?.filter(i => i.done).length ?? 0
-  const total = items?.length ?? 0
-  const progress = total > 0 ? (doneCount / total) * 100 : 0
+  const [activeProjectId, setActiveProjectId] = React.useState(
+    () => projects[0]?.id ?? null
+  );
 
   React.useEffect(() => {
-    onProgressChange?.({ percent: progress, done: doneCount, total })
-  }, [progress, doneCount, total, onProgressChange])
+    if (!projects.length) return;
+    if (!projects.some((project) => project.id === activeProjectId)) {
+      setActiveProjectId(projects[0].id);
+    }
+  }, [projects, activeProjectId]);
 
-  const toggle = (id) => {
-    setItems((prev) => (prev || []).map(i => i.id === id ? { ...i, done: !i.done } : i))
-  }
+  const activeProject = React.useMemo(
+    () => projects.find((project) => project.id === activeProjectId) ?? null,
+    [projects, activeProjectId]
+  );
+
+  const plannedDates = React.useMemo(() => {
+    if (!activeProject?.plannedDates?.length) return new Set();
+    return new Set(activeProject.plannedDates);
+  }, [activeProject]);
+
+  const calendarStyle = React.useMemo(
+    () =>
+      activeProject?.color
+        ? { "--calendar-accent": activeProject.color }
+        : undefined,
+    [activeProject]
+  );
 
   return (
-    // 단일 카드 요소로 통합 (제목 + 요일바 + 캘린더 + 리스트)
     <section className="card card-month">
       <h2 className="card-title month-title">이번 달의 프로젝트</h2>
+
       <div className="month-weekdays">
         {weekdayLabels.map((lb) => (
-          <span key={lb} className="month-wd">{lb}</span>
+          <span key={lb} className="month-wd">
+            {lb}
+          </span>
         ))}
       </div>
-      <div className="month-grid">
-        {cells.map((d, i) => (
-          <div key={i} className={"day" + (isToday(d) ? ' today' : '')}>
-            {d ? <span className="day-num">{d.getDate()}</span> : ''}
-          </div>
-        ))}
+
+      <div className="month-grid" style={calendarStyle}>
+        {cells.map((d, i) => {
+          const isPlanned = d ? plannedDates.has(d.getDate()) : false;
+          return (
+            <div
+              key={i}
+              className={
+                "day" +
+                (isToday(d) ? " today" : "") +
+                (isPlanned ? " planned" : "")
+              }
+            >
+              {d ? <span className="day-num">{d.getDate()}</span> : ""}
+            </div>
+          );
+        })}
       </div>
-      {/* 프로젝트 리스트: 같은 카드 내부에 유지 */}
+
       <div className="project-list">
-        {(items || []).map((i) => (
-          <div key={i.id} className={`project-item ${i.done ? 'done' : ''}`} onClick={() => toggle(i.id)}>
-            {i.text}
-          </div>
-        ))}
+        {projects.map((project) => {
+          const isActive = project.id === activeProjectId;
+          return (
+            <div
+              key={project.id}
+              className={`project-item ${isActive ? "active" : ""}`}
+              style={
+                isActive
+                  ? {
+                      borderColor: project.color,
+                      boxShadow: `0 0 0 3px ${project.color}33`,
+                      background: `${project.color}1a`,
+                    }
+                  : undefined
+              }
+            >
+              <button
+                type="button"
+                className="project-select"
+                onClick={() => setActiveProjectId(project.id)}
+              >
+                <span className="project-title">{project.text}</span>
+              </button>
+            </div>
+          );
+        })}
       </div>
     </section>
-  )
+  );
 }
