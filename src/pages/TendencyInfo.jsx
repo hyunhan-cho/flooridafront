@@ -12,6 +12,75 @@ const PLANNING_OPTIONS = [
 
 const HOURS_OPTIONS = ["0-1", "1-3", "3-6", "6-10", "10시간 이상"];
 
+const PRIMARY_COLOR = "var(--brand-teal)";
+
+const styles = {
+  section: {
+    marginTop: 20,
+  },
+  title: {
+    fontSize: 14,
+    fontWeight: 600,
+    color: "#374151",
+    marginBottom: 8,
+  },
+  box: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 10,
+    padding: "10px 12px",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 8,
+    boxShadow: "0 0 0 1px rgba(0,0,0,0.03) inset",
+  },
+  boxRow: {
+    flexDirection: "row",
+    gap: 4,
+  },
+  chip: {
+    flex: 1,
+    padding: "10px 12px",
+    borderRadius: 5,
+    backgroundColor: "#E1E1E1",
+    fontSize: 13,
+    color: "#4b5563",
+    textAlign: "center",
+    cursor: "pointer",
+    transition:
+      "background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, transform 0.05s ease",
+  },
+  chipSelected: {
+    backgroundColor: PRIMARY_COLOR,
+    color: "#ffffff",
+    border: "none",
+    boxShadow: "0 4px 10px rgba(0,0,0,0.25)",
+  },
+
+  chipSquare: {
+    aspectRatio: "1 / 1",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 0,
+  },
+  chipRowGap: {
+    marginLeft: 4,
+  },
+  skip: {
+    marginTop: 24,
+    marginBottom: 2,
+    background: "transparent",
+    border: "none",
+    fontSize: 13,
+    color: "#6b7280",
+    textDecoration: "underline",
+    cursor: "pointer",
+    display: "block", // 버튼을 블록으로
+    width: "100%", // 카드 안에서 가입 버튼이랑 같은 폭
+    textAlign: "center",
+  },
+};
+
 export default function TendencyInfo() {
   const navigate = useNavigate();
 
@@ -62,44 +131,57 @@ export default function TendencyInfo() {
           </p>
 
           {/* 계획 성향 */}
-          <section className="tendency-section">
-            <div className="tendency-title">계획 성향</div>
-            <div className="tendency-options">
-              {PLANNING_OPTIONS.map((opt) => (
-                <button
-                  key={opt}
-                  type="button"
-                  className={
-                    "tendency-chip" +
-                    (planningTendency === opt ? " tendency-chip--selected" : "")
-                  }
-                  onClick={() => setPlanningTendency(opt)}
-                >
-                  {opt}
-                </button>
-              ))}
+          <section className="tendency-section" style={styles.section}>
+            <div className="tendency-title" style={styles.title}>
+              계획 성향
+            </div>
+            <div className="tendency-options" style={styles.box}>
+              {PLANNING_OPTIONS.map((opt) => {
+                const selected = planningTendency === opt;
+                return (
+                  <button
+                    key={opt}
+                    type="button"
+                    style={{
+                      ...styles.chip,
+                      ...(selected ? styles.chipSelected : null),
+                    }}
+                    onClick={() => setPlanningTendency(opt)}
+                  >
+                    {opt}
+                  </button>
+                );
+              })}
             </div>
           </section>
 
           {/* 하루 학습/작업 시간 */}
-          <section className="tendency-section">
-            <div className="tendency-title">
+          <section className="tendency-section" style={styles.section}>
+            <div className="tendency-title" style={styles.title}>
               하루에 몇 시간 학습/작업을 하시나요?
             </div>
-            <div className="tendency-options tendency-options--row">
-              {HOURS_OPTIONS.map((opt) => (
-                <button
-                  key={opt}
-                  type="button"
-                  className={
-                    "tendency-chip" +
-                    (dailyStudyHours === opt ? " tendency-chip--selected" : "")
-                  }
-                  onClick={() => setDailyStudyHours(opt)}
-                >
-                  {opt}
-                </button>
-              ))}
+            <div
+              className="tendency-options tendency-options--row"
+              style={{ ...styles.box, ...styles.boxRow }}
+            >
+              {HOURS_OPTIONS.map((opt, idx) => {
+                const selected = dailyStudyHours === opt;
+                return (
+                  <button
+                    key={opt}
+                    type="button"
+                    style={{
+                      ...styles.chip,
+                      ...styles.chipSquare, // ⬅️ 시간 칩만 정사각형 적용
+                      ...(idx > 0 ? styles.chipRowGap : null),
+                      ...(selected ? styles.chipSelected : null),
+                    }}
+                    onClick={() => setDailyStudyHours(opt)}
+                  >
+                    {opt}
+                  </button>
+                );
+              })}
             </div>
           </section>
 
@@ -119,6 +201,7 @@ export default function TendencyInfo() {
           <button
             type="button"
             className="tendency-skip"
+            style={styles.skip}
             onClick={() => handleSubmit(true)}
           >
             나중에 하기

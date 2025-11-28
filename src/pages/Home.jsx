@@ -53,7 +53,7 @@ export default function Home() {
 
   return (
     <div className="app home-view">
-      <BackButton onClick={() => navigate("/")} />
+      <BackButton />
 
       <div className="home-header">
         <img className="home-logo" src="/images/logo.png" alt="FLOORIDA" />

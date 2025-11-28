@@ -3,6 +3,7 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import BackButton from "../components/BackButton.jsx";
 import { login } from "../services/auth.js";
+import { getMyProfile } from "../services/profile.js";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -22,9 +23,29 @@ export default function Login() {
 
     try {
       setLoading(true);
+
+      // 1) 로그인 (여기서 토큰 localStorage에 저장된다고 가정)
       await login({ email, password });
-      // ✅ 로그인 성공 → 홈으로 이동
-      navigate("/home");
+
+      // 2) 프로필 조회해서 온보딩 완료 여부 확인
+      try {
+        const profile = await getMyProfile();
+
+        const hasOnboarding =
+          profile && profile.planningTendency && profile.dailyStudyHours;
+
+        if (hasOnboarding) {
+          // 이미 성향 정보 있는 유저 → 바로 홈
+          navigate("/home");
+        } else {
+          // 아직 성향 정보 없는 유저 → 최초 로그인 → TendencyInfo
+          navigate("/tendency");
+        }
+      } catch (err) {
+        console.error("getMyProfile error:", err);
+        // 프로필 조회가 깨지면 최소한 앱은 쓸 수 있게 홈으로 보냄
+        navigate("/home");
+      }
     } catch (e) {
       setError(e?.message || "로그인에 실패했습니다.");
     } finally {
@@ -34,7 +55,6 @@ export default function Login() {
 
   return (
     <div className="login-page">
-      {/* 뒤로가기: 스플래시나 이전 페이지로 */}
       <BackButton onClick={() => navigate("/")} />
 
       <div className="login-header">
@@ -47,7 +67,6 @@ export default function Login() {
           <h2 className="login-title">로그인</h2>
           <p className="login-subtitle">플로리다에 오신 것을 환영합니다!</p>
 
-          {/* 이메일 */}
           <label className="login-label" htmlFor="email">
             아이디
           </label>
@@ -60,7 +79,6 @@ export default function Login() {
             onChange={(e) => setEmail(e.target.value)}
           />
 
-          {/* 비밀번호 */}
           <label className="login-label" htmlFor="password">
             비밀번호
           </label>
@@ -98,7 +116,6 @@ export default function Login() {
 
           <div className="login-footer">
             <span>계정이 없으신가요?</span>
-            {/* a 태그로 하되, 새로고침 막고 클라이언트 라우팅 */}
             <a
               href="/signup"
               onClick={(e) => {
