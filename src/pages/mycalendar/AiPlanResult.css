@@ -1,16 +1,19 @@
 /* src/pages/mycalendar/AiPlanResult.css (최종 디자인 및 기능 CSS) */
 
 .aiResult {
-  padding: 18px;
+  padding: 0;
   box-sizing: border-box;
-  height: 100%;
+  width: 100%;
   font-family: Inter, "Noto Sans KR", system-ui, -apple-system, "Segoe UI",
     Roboto, sans-serif;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
 /* 상단 문구 */
 .aiResultHeader {
-  margin-bottom: 20px;
+  margin-bottom: 0;
 }
 .aiResultTitle {
   font-size: 16px; /* 피그마에 맞춰 조정 */
@@ -27,8 +30,8 @@
 /* 공통 필드 컨테이너 */
 .aiField {
   display: grid;
-  gap: 6px;
-  margin-bottom: 16px;
+  gap: 8px;
+  margin-bottom: 0;
 }
 
 .aiFieldLabel {
@@ -37,7 +40,7 @@
   color: #0f172a;
 }
 
-/* 💡 피그마처럼 “입력 박스” 모양 */
+/* 💡 피그마처럼 "입력 박스" 모양 */
 .aiFieldBox {
   width: 100%;
   display: flex;
@@ -47,15 +50,16 @@
   /* 피그마 확대본에 맞춘 스타일: 1px border */
   border: 1px solid #cbd5e1;
   background: #ffffff;
-  border-radius: 10px;
+  border-radius: 12px;
   padding: 10px 12px;
   box-sizing: border-box;
+  min-height: auto;
 }
 
 /* 텍스트/입력 필드 스타일 공통 */
 .aiFieldText,
 .aiEditInput {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
   color: #0f172a;
   flex: 1;
@@ -73,18 +77,19 @@
 /* 💡 목표 기간 수정 모드 스타일 */
 .aiDateFieldBox {
   justify-content: flex-start;
+  min-height: auto;
 }
 .aiDateInput {
   border: none;
   padding: 0;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
   color: #0f172a;
   outline: none;
   background: transparent;
 }
 .aiDateSeparator {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
   color: #0f172a;
 }
@@ -123,8 +128,8 @@
 
 /* 캘린더 섹션 */
 .aiCalendarSection {
-  margin-top: 10px;
-  margin-bottom: 30px;
+  margin-top: 0;
+  margin-bottom: 0;
 }
 
 .aiCalendarSectionTitle {
@@ -217,7 +222,7 @@
   font-weight: 900;
   padding: 12px 14px;
   cursor: pointer;
-  margin-top: 14px;
+  margin-top: 0;
 }
 
 .aiSecondaryBtn {
@@ -230,13 +235,13 @@
   font-weight: 700;
   padding: 12px 14px;
   cursor: pointer;
-  margin-top: 10px;
+  margin-top: 0;
 }
 
 .aiNotice {
   font-size: 12px;
   color: #515151;
-  margin: 4px 0 10px;
+  margin: 4px 0 0;
   text-align: center;
   font-weight: 400;
 }
