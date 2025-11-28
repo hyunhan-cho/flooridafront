@@ -46,9 +46,7 @@ function buildFallbackSchedule({ goal, startDate, endDate }) {
 
   const days =
     Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-
   const steps = Math.min(8, Math.max(3, Math.round(days / 2)));
-
   const floors = [];
   for (let i = 0; i < steps; i++) {
     const d = new Date(start);
@@ -71,7 +69,8 @@ function buildFallbackSchedule({ goal, startDate, endDate }) {
   };
 }
 
-const defaultTasks = [
+// 1. 초기 데이터는 상수로 빼고, 아래 컴포넌트 안에서 useState로 사용합니다.
+const INITIAL_TASKS = [
   {
     id: "task-1",
     title: "TOEFL 교재 끝내기",
@@ -94,6 +93,10 @@ export default function MyCalendar() {
   const [showAiPlanForm, setShowAiPlanForm] = useState(false);
   const [aiPlanStep, setAiPlanStep] = useState("form"); // "form" | "loading" | "result"
   const [schedule, setSchedule] = useState(null);
+
+  // 2. tasks를 상태(State)로 선언해야 화면이 업데이트됩니다.
+  const [tasks, setTasks] = useState(INITIAL_TASKS);
+
   const cells = buildMonthMatrix(currentDate);
   const today = new Date();
   const isToday = (d) =>
@@ -118,7 +121,43 @@ export default function MyCalendar() {
     );
   };
 
-  // AI 플랜 폼이 표시되면 폼만 보여주기
+  // ✅ AI 생성 일정을 메인 목록에 추가하는 핸들러
+  const handleConfirmAiSchedule = () => {
+    if (!schedule) return;
+
+    // API 응답 데이터(floors)를 화면용 형식(subtasks)으로 변환
+    const newSubtasks = (schedule.floors || []).map((floor, index) => ({
+      id: floor.floorId || `new-sub-${Date.now()}-${index}`,
+      text: floor.title,
+      done: false,
+    }));
+
+    // 중복 ID 방지를 위해 ID 생성 (API ID가 없거나 -1인 경우 대비)
+    const uniqueId =
+      schedule.scheduleId && schedule.scheduleId !== -1
+        ? schedule.scheduleId
+        : `ai-task-${Date.now()}`;
+
+    const newTask = {
+      id: uniqueId,
+      title: schedule.title,
+      progress: `0/${newSubtasks.length}`,
+      subtasks: newSubtasks,
+      color: schedule.color || "#3a8284",
+    };
+
+    // 상태 업데이트: 기존 목록(...prev) 뒤에 새 일정(newTask) 추가
+    setTasks((prev) => [...prev, newTask]);
+
+    alert("일정이 캘린더 목록에 추가되었습니다!");
+
+    // 화면 전환
+    setShowAiPlanForm(false);
+    setAiPlanStep("form");
+    setSchedule(null);
+  };
+
+  // AI 플랜 폼 화면
   if (showAiPlanForm) {
     return (
       <div className="app home-view">
@@ -137,14 +176,10 @@ export default function MyCalendar() {
             <AiPlanFormNew
               onSubmit={async ({ goal, startDate, endDate }) => {
                 setAiPlanStep("loading");
-
                 const payload = { goal, startDate, endDate, teamId: null };
 
                 try {
-                  // ✅ 공용 설정과 동일한 키로 토큰 읽기
                   const token = localStorage.getItem(AUTH_TOKEN_KEY);
-
-                  // ✅ 공용 BASE_URL과 동일하게 사용
                   const res = await fetch(
                     `${API_BASE_URL.replace(/\/$/, "")}/api/schedules/ai`,
                     {
@@ -159,13 +194,6 @@ export default function MyCalendar() {
                   );
 
                   if (!res.ok) {
-                    const text = await res.text().catch(() => "");
-                    console.warn(
-                      "AI API 실패, fallback 일정으로 대체합니다.",
-                      res.status,
-                      text
-                    );
-
                     const fallback = buildFallbackSchedule(payload);
                     setSchedule(fallback);
                     setAiPlanStep("result");
@@ -227,12 +255,8 @@ export default function MyCalendar() {
             >
               <AiPlanResult
                 schedule={schedule}
-                onConfirm={() => {
-                  alert("일정이 나의 개인 캘린더에 추가되었습니다.");
-                  setShowAiPlanForm(false);
-                  setAiPlanStep("form");
-                  setSchedule(null);
-                }}
+                // 2. 여기서 onConfirm 이벤트에 핸들러를 연결합니다.
+                onConfirm={handleConfirmAiSchedule}
                 onRestart={() => {
                   setSchedule(null);
                   setAiPlanStep("form");
@@ -247,6 +271,7 @@ export default function MyCalendar() {
     );
   }
 
+  // 메인 캘린더 화면
   return (
     <div className="app home-view">
       <PersonalHeader />
@@ -266,7 +291,7 @@ export default function MyCalendar() {
           paddingTop: "0",
         }}
       >
-        {/* 캘린더 섹션 */}
+        {/* 달력 섹션 */}
         <div
           style={{
             background: "#EEEEEE",
@@ -323,7 +348,6 @@ export default function MyCalendar() {
             </button>
           </div>
 
-          {/* 요일 레이블 */}
           <div
             style={{
               display: "grid",
@@ -346,7 +370,6 @@ export default function MyCalendar() {
             ))}
           </div>
 
-          {/* 날짜 그리드 */}
           <div
             style={{
               display: "grid",
@@ -379,7 +402,7 @@ export default function MyCalendar() {
           </div>
         </div>
 
-        {/* 액션 버튼 섹션 */}
+        {/* 액션 버튼 */}
         <div
           style={{
             display: "flex",
@@ -429,8 +452,8 @@ export default function MyCalendar() {
           </button>
         </div>
 
-        {/* 작업 목록 섹션 */}
-        {defaultTasks.map((task) => (
+        {/* 3. 작업 목록 섹션 (반드시 tasks.map을 사용해야 합니다!) */}
+        {tasks.map((task) => (
           <div
             key={task.id}
             className="card"
@@ -446,7 +469,6 @@ export default function MyCalendar() {
               gap: "12px",
             }}
           >
-            {/* 색상 아이콘 */}
             <div
               style={{
                 width: "24px",
@@ -457,7 +479,6 @@ export default function MyCalendar() {
                 marginTop: "2px",
               }}
             />
-            {/* 작업 내용 */}
             <div style={{ flex: 1 }}>
               <div
                 style={{
@@ -491,7 +512,6 @@ export default function MyCalendar() {
                   {task.progress}
                 </span>
               </div>
-              {/* 서브태스크 */}
               {task.subtasks.map((subtask) => (
                 <div
                   key={subtask.id}
@@ -502,6 +522,7 @@ export default function MyCalendar() {
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
+                    marginBottom: "4px",
                   }}
                 >
                   <span
@@ -516,7 +537,18 @@ export default function MyCalendar() {
                   <input
                     type="checkbox"
                     checked={subtask.done}
-                    onChange={() => {}}
+                    onChange={() => {
+                      const newTasks = tasks.map((t) => {
+                        if (t.id !== task.id) return t;
+                        return {
+                          ...t,
+                          subtasks: t.subtasks.map((s) =>
+                            s.id === subtask.id ? { ...s, done: !s.done } : s
+                          ),
+                        };
+                      });
+                      setTasks(newTasks);
+                    }}
                     style={{
                       width: "18px",
                       height: "18px",
@@ -532,7 +564,7 @@ export default function MyCalendar() {
 
       <Navbar />
 
-      {/* 프로젝트 추가하기 모달 */}
+      {/* 모달 */}
       {showAddProjectModal && (
         <div
           style={{
@@ -584,11 +616,7 @@ export default function MyCalendar() {
               어떤 방식으로 하시겠습니까?
             </p>
             <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "12px",
-              }}
+              style={{ display: "flex", flexDirection: "column", gap: "12px" }}
             >
               <button
                 onClick={() => {
@@ -612,10 +640,7 @@ export default function MyCalendar() {
                 AI로 추가하기
               </button>
               <button
-                onClick={() => {
-                  // 직접 추가하기 로직
-                  setShowAddProjectModal(false);
-                }}
+                onClick={() => setShowAddProjectModal(false)}
                 style={{
                   width: "100%",
                   background: "#2A9699",

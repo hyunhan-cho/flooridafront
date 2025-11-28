@@ -2,41 +2,38 @@
 import React from "react";
 import "./AiPlanResult.css";
 import HomeMonthCalendar from "./HomeMonthCalendar.jsx";
+// config에서 공통 설정 가져오기
+import { API_BASE_URL, AUTH_TOKEN_KEY } from "../../config.js";
 
-// 💡 연필 SVG 아이콘 컴포넌트 (요청하신 모양에 맞춤)
 const PencilIcon = () => (
   <svg className="aiIconSvg" viewBox="0 0 24 24" fill="currentColor">
     <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
   </svg>
 );
 
-// 💡 달력 SVG 아이콘 컴포넌트는 사용하지 않으므로, 이 부분을 주석 처리하거나 제거할 수 있습니다.
-const CalendarIcon = () => (
-  <svg className="aiIconSvg" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M19 4h-3V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11zM5 7V6h14v1H5z" />
-  </svg>
-);
-
-// 💡 PATCH API 호출 헬퍼 함수 (기존과 동일하게 유지)
+// PATCH API 호출 함수
 async function patchSchedule(scheduleId, body) {
-  const token = localStorage.getItem("accessToken");
+  const token = localStorage.getItem(AUTH_TOKEN_KEY);
+
   if (!token) {
-    throw new Error("Authentication token not found.");
+    throw new Error("로그인이 필요합니다.");
   }
-  const res = await fetch(
-    `https://app.floorida.site/api/schedules/${scheduleId}`,
-    {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(body),
-    }
-  );
+
+  const baseUrl = API_BASE_URL.replace(/\/$/, "");
+  const res = await fetch(`${baseUrl}/api/schedules/${scheduleId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(body),
+  });
 
   if (!res.ok) {
     const errorText = await res.text().catch(() => "Unknown error");
+    if (res.status === 403) {
+      throw new Error("수정 권한이 없습니다.");
+    }
     throw new Error(`API Error: ${res.status} - ${errorText}`);
   }
   return res.json();
@@ -66,6 +63,8 @@ export default function AiPlanResult({
 
   const handleSave = async (field) => {
     let payload = {};
+
+    // 1. 변경 사항 확인
     if (field === "title" && editedTitle !== title) {
       payload = { title: editedTitle.trim() };
     } else if (field === "dates") {
@@ -77,6 +76,7 @@ export default function AiPlanResult({
         payload = { startDate: editedStartDate, endDate: editedEndDate };
       }
     } else {
+      // 변경 없음
       field === "title" ? setIsEditingTitle(false) : setIsEditingDates(false);
       return;
     }
@@ -86,13 +86,27 @@ export default function AiPlanResult({
       return;
     }
 
+    // ✅ 수정 로직 분기 (핵심 변경 사항)
+
+    // Case A: 임시 일정 (ID가 없거나 -1) -> 로컬 상태만 업데이트 (API 호출 X)
+    if (!scheduleId || scheduleId === -1) {
+      const updatedSchedule = { ...schedule, ...payload };
+      onScheduleUpdate(updatedSchedule); // 부모 상태 업데이트
+
+      field === "title" ? setIsEditingTitle(false) : setIsEditingDates(false);
+      return; // 여기서 종료
+    }
+
+    // Case B: 실제 서버 일정 -> PATCH API 호출
     try {
       const updatedSchedule = await patchSchedule(scheduleId, payload);
       onScheduleUpdate(updatedSchedule);
       field === "title" ? setIsEditingTitle(false) : setIsEditingDates(false);
     } catch (error) {
       console.error("일정 수정 실패:", error);
-      alert("일정 수정에 실패했습니다. (권한 또는 API 오류 확인)");
+      alert(error.message || "일정 수정에 실패했습니다.");
+
+      // 실패 시 원래 값으로 복구
       setEditedTitle(title);
       setEditedStartDate(startDate);
       setEditedEndDate(endDate);
@@ -113,7 +127,7 @@ export default function AiPlanResult({
         <p className="aiResultSub">수정할 부분이 있는지 확인해주세요.</p>
       </div>
 
-      {/* 1. 프로젝트 이름 필드 (수정 가능) */}
+      {/* 1. 프로젝트 이름 필드 */}
       <div className="aiField">
         <div className="aiFieldLabel">프로젝트 이름</div>
         <div className="aiFieldBox">
@@ -143,7 +157,7 @@ export default function AiPlanResult({
         </div>
       </div>
 
-      {/* 2. 목표 기간 필드 (수정 가능) */}
+      {/* 2. 목표 기간 필드 */}
       <div className="aiField">
         <div className="aiFieldLabel">목표 기간</div>
         <div className="aiFieldBox aiDateFieldBox">
@@ -178,13 +192,12 @@ export default function AiPlanResult({
               isEditingDates ? handleSave("dates") : setIsEditingDates(true)
             }
           >
-            {/* 💡 달력 대신 연필 아이콘 사용 */}
             {isEditingDates ? "저장" : <PencilIcon />}
           </button>
         </div>
       </div>
 
-      {/* 3. AI 계획 설명 박스 (goalSummary) */}
+      {/* 3. AI 계획 설명 박스 */}
       <div className="aiField">
         <div className="aiFieldLabel">AI 계획 설명</div>
         <div className="aiDescBox">
