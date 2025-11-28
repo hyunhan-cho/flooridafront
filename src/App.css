@@ -17,12 +17,16 @@
 
 :root {
   --brand-teal: #3a8284;
-  /* 기본 산세리프 폰트 (원래 글씨체) */
-  --font-sans: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial,
-    sans-serif;
+  /* 기본 폰트 - 한글은 DungGeunMo, 영어는 Kongtext */
+  --font-sans: "DungGeunMo", "Kongtext", system-ui, sans-serif;
   /* NES 스타일 픽셀 폰트 변수 */
-  --font-pixel-latin: "Press Start 2P", system-ui, sans-serif;
-  --font-pixel-kr: "NeoDunggeunmo", "Press Start 2P", system-ui, sans-serif;
+  --font-pixel-latin: "Kongtext", system-ui, sans-serif;
+  --font-pixel-kr: "DungGeunMo", system-ui, sans-serif;
+}
+
+/* 전역 폰트 설정 - 한글과 영어 자동 구분 */
+* {
+  font-family: "DungGeunMo", "Kongtext", system-ui, sans-serif !important;
 }
 
 /* 고정 하단 네비게이션 (반응형) */
@@ -240,6 +244,19 @@
   background-repeat: no-repeat;
   /* 외곽 라운드와 일치 */
   border-radius: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 엘리베이터 내부 캐릭터 */
+.elevator-character {
+  position: absolute;
+  z-index: 15;
+  max-width: 60%;
+  max-height: 60%;
+  object-fit: contain;
+  pointer-events: none;
 }
 
 /* 엘리베이터 문 */
@@ -577,20 +594,34 @@
   justify-content: space-between;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
 }
-.quest-item.done {
-  background: #c7cbd1;
-  border-color: #c7cbd1;
-  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.08);
+/* 완료 이미지 효과 */
+.quest-complete-image {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1000;
+  animation: quest-image-pop 0.5s ease-out;
+  pointer-events: none;
 }
-.quest-item.done .quest-text {
-  color: #1f2937;
+.quest-complete-image img {
+  width: 120px;
+  height: auto;
+  filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.3));
 }
-.quest-item.done .quest-sub {
-  color: #374151;
-}
-.quest-item.done .quest-checkbox {
-  background: #111827;
-  border-color: #111827;
+@keyframes quest-image-pop {
+  0% {
+    transform: translate(-50%, -50%) scale(0.5);
+    opacity: 0;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0;
+  }
 }
 .quest-texts {
   display: flex;
@@ -741,11 +772,83 @@
 .card-month * {
   font-family: var(--font-sans);
 }
+.month-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
 .card-month .month-title {
-  margin: 2px 2px 10px;
+  margin: 0;
   font-size: clamp(18px, 4.8vw, 22px);
   font-weight: 900;
   color: #0f172a;
+}
+
+.month-toggle-wrapper {
+  display: flex;
+  align-items: center;
+}
+
+.month-toggle {
+  position: relative;
+  width: 60px;
+  height: 28px;
+  border-radius: 14px;
+  border: none;
+  background: #2a9699;
+  cursor: pointer;
+  padding: 0;
+  transition: background-color 0.3s ease;
+  overflow: hidden;
+}
+
+.month-toggle--team {
+  background: #2a9699;
+}
+
+.month-toggle-label {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffffff;
+  pointer-events: none;
+  z-index: 3;
+  width: auto;
+}
+
+/* 개인 모드: 개인만 보이고 오른쪽 정렬 */
+.month-toggle:not(.month-toggle--team) .month-toggle-label {
+  right: 8px;
+  left: auto;
+  text-align: right;
+}
+
+/* 팀 모드: 팀만 보이고 handle 기준 왼쪽 정렬 */
+.month-toggle--team .month-toggle-label {
+  left: 14px;
+  right: auto;
+  text-align: left;
+}
+
+.month-toggle-handle {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #ffffff;
+  transition: transform 0.3s ease;
+  z-index: 2;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.month-toggle--team .month-toggle-handle {
+  transform: translateX(32px);
 }
 .month-weekdays {
   display: grid;
@@ -797,24 +900,28 @@
 
 .month-grid {
   --calendar-accent: #f97316;
+  --calendar-fill: #fde1d1;
 }
-.day.planned::after {
+.day.planned::before {
   content: "";
   position: absolute;
-  inset: 18%;
-  border-radius: 18px;
-  background: var(--calendar-accent);
-  opacity: 0.28;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16);
+  top: 5%;
+  bottom: 5%;
+  left: 5%;
+  right: 5%;
+  border-radius: 50%;
+  background: var(--calendar-fill);
+  z-index: 0;
 }
 .day.planned .day-num {
+  position: relative;
+  z-index: 1;
   font-weight: 900;
   color: #0f172a;
 }
-.day.planned.today::after {
-  inset: 12%;
-  border: 2px solid #111827;
-  opacity: 0.4;
+.day.planned.today::before {
+  background: var(--calendar-accent);
+  opacity: 0.9;
 }
 .day.planned.today .day-num {
   color: #0f172a;
@@ -844,6 +951,53 @@
 .project-item.active {
   transform: translateY(-1px);
   box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
+}
+.project-checkbox {
+  all: unset;
+  width: 26px;
+  height: 26px;
+  border-radius: 4px;
+  border: 2.5px solid #0b0f19;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+.project-checkbox--checked {
+  background: #0b0f19;
+  border-color: #0b0f19;
+}
+.project-checkbox--checked .project-checkbox-mark {
+  opacity: 1;
+  transform: scale(1);
+  background: transparent;
+}
+.project-checkbox-mark {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  background: transparent;
+  opacity: 0;
+  transform: scale(0.6);
+  transition: opacity 0.2s ease, transform 0.2s ease, background 0.2s ease;
+  position: relative;
+}
+.project-checkbox--checked .project-checkbox-mark::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 8px;
+  height: 12px;
+  border: solid #ffffff;
+  border-width: 0 3px 3px 0;
+  transform: translate(-50%, -60%) rotate(45deg);
+}
+.project-checkbox--anim {
+  animation: shake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
 }
 .project-select {
   all: unset;
@@ -1446,4 +1600,120 @@
     transform: translate(1px, 0);
     text-shadow: 1px 0 rgba(0, 255, 255, 0.6), -1px 0 rgba(255, 0, 255, 0.6);
   }
+}
+
+/* 주간 달성률 모달 */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.weekly-achievement-modal {
+  background: #e5e7eb;
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 400px;
+  width: 100%;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.weekly-achievement-title {
+  font-size: 18px;
+  font-weight: 900;
+  color: #111827;
+  margin: 0 0 20px;
+  text-align: center;
+}
+
+.weekly-achievement-calendar {
+  margin-bottom: 20px;
+}
+
+.weekly-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.weekly-wd {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #6b7280;
+  text-transform: lowercase;
+}
+
+.weekly-dates {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+}
+
+.weekly-date {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-weight: 900;
+  font-size: 14px;
+  color: #111827;
+}
+
+.weekly-date--normal {
+  background: transparent;
+}
+
+.weekly-date--red {
+  background: #ff6a6a;
+  color: #ffffff;
+}
+
+.weekly-date--yellow {
+  background: #e9dd3b;
+  color: #111827;
+}
+
+.weekly-date--green {
+  background: #67d856;
+  color: #ffffff;
+}
+
+.weekly-date--current {
+  background: transparent;
+  border: 2px solid #111827;
+  color: #111827;
+}
+
+.weekly-date--current[style*="background-color"] {
+  border: 2px solid #111827;
+  color: #111827;
+}
+
+.weekly-achievement-confirm {
+  width: 100%;
+  padding: 12px;
+  background: #d1d5db;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #111827;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.weekly-achievement-confirm:hover {
+  background: #9ca3af;
+}
+
+.weekly-achievement-confirm:active {
+  background: #6b7280;
 }

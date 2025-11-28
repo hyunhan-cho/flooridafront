@@ -1,0 +1,247 @@
+/* src/pages/mycalendar/AiPlanResult.css (최종 디자인 및 기능 CSS) */
+
+.aiResult {
+  padding: 0;
+  box-sizing: border-box;
+  width: 100%;
+  font-family: Inter, "Noto Sans KR", system-ui, -apple-system, "Segoe UI",
+    Roboto, sans-serif;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* 상단 문구 */
+.aiResultHeader {
+  margin-bottom: 0;
+}
+.aiResultTitle {
+  font-size: 16px; /* 피그마에 맞춰 조정 */
+  font-weight: 900;
+  color: #258285; /* 피그마 민트색 */
+  margin: 0 0 4px;
+}
+.aiResultSub {
+  font-size: 12px;
+  color: #64748b;
+  margin: 0;
+}
+
+/* 공통 필드 컨테이너 */
+.aiField {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 0;
+}
+
+.aiFieldLabel {
+  font-size: 12px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+/* 💡 피그마처럼 "입력 박스" 모양 */
+.aiFieldBox {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  /* 피그마 확대본에 맞춘 스타일: 1px border */
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 10px 12px;
+  box-sizing: border-box;
+  min-height: auto;
+}
+
+/* 텍스트/입력 필드 스타일 공통 */
+.aiFieldText,
+.aiEditInput {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  border: none;
+  outline: none;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+}
+
+/* 💡 목표 기간 수정 모드 스타일 */
+.aiDateFieldBox {
+  justify-content: flex-start;
+  min-height: auto;
+}
+.aiDateInput {
+  border: none;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+  outline: none;
+  background: transparent;
+}
+.aiDateSeparator {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+/* 연필/달력/저장 버튼 컨테이너 */
+.aiIconBtn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: #0f172a;
+  padding: 0;
+  line-height: 1;
+}
+
+/* 💡 SVG 아이콘 크기 및 색상 (채워진 아이콘에 맞춤) */
+.aiIconSvg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor; /* .aiIconBtn의 color 속성을 상속받아 사용 */
+}
+
+/* AI 설명 박스 */
+.aiDescBox {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 10px 12px;
+  box-sizing: border-box;
+
+  font-size: 13px;
+  color: #334155;
+  line-height: 1.4;
+  font-weight: 500;
+}
+
+/* 캘린더 섹션 */
+.aiCalendarSection {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.aiCalendarSectionTitle {
+  font-size: 12px;
+  font-weight: 800;
+  color: #475569;
+  margin: 0 0 10px;
+}
+
+/* 캘린더를 감싸는 네모 박스 */
+.aiCalendarBox {
+  width: 100%;
+  border-radius: 12px;
+  background: #f1f5f9; /* 달력 배경색 */
+  padding: 12px;
+  box-sizing: border-box;
+}
+
+/* 캘린더 월 헤더 */
+.aiCalendarMonth {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+/* === MonthProjects.jsx/HomeMonthCalendar.jsx 달력 스타일 재현 === */
+
+.month-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-size: 11px;
+  color: #64748b;
+  margin-bottom: 6px;
+}
+
+.month-wd {
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  padding: 4px 0;
+}
+
+/* 날짜 셀 */
+.day {
+  aspect-ratio: 1 / 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 13px;
+  color: #0f172a;
+  position: relative;
+  font-weight: 500;
+}
+
+/* 계획된 날짜 (planned) 스타일 */
+.day.planned {
+  background-color: var(--calendar-accent, #3a8284); /* 강조 색상 */
+  color: white;
+  border-radius: 50%;
+  font-weight: 700;
+}
+
+/* 오늘 날짜 (today) 스타일 */
+.day.today {
+  background: #f0f0f0;
+  color: #0f172a;
+  border-radius: 50%;
+}
+.day.today.planned {
+  border: none;
+  background-color: var(--calendar-accent, #3a8284);
+  color: white;
+}
+
+/* 버튼 스타일 (피그마와 일치) */
+.aiPrimaryBtn {
+  width: 100%;
+  border: none;
+  border-radius: 12px;
+  background: #3a8284;
+  color: white;
+  font-weight: 900;
+  padding: 12px 14px;
+  cursor: pointer;
+  margin-top: 0;
+}
+
+.aiSecondaryBtn {
+  width: 100%;
+  /* 피그마에 맞춘 border와 배경색 */
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #e5e7eb;
+  color: #0f172a;
+  font-weight: 700;
+  padding: 12px 14px;
+  cursor: pointer;
+  margin-top: 0;
+}
+
+.aiNotice {
+  font-size: 12px;
+  color: #515151;
+  margin: 4px 0 0;
+  text-align: center;
+  font-weight: 400;
+}
