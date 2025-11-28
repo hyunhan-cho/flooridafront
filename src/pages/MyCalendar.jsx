@@ -5,6 +5,7 @@ import PersonalHeader from "../components/PersonalHeader.jsx";
 import AiPlanFormNew from "./mycalendar/AiPlanFormNew.jsx";
 import AiPlanLoading from "./mycalendar/AiPlanLoading.jsx";
 import AiPlanResult from "./mycalendar/AiPlanResult.jsx";
+import { API_BASE_URL, AUTH_TOKEN_KEY } from "../config.js";
 
 function buildMonthMatrix(date = new Date()) {
   const year = date.getFullYear();
@@ -140,10 +141,12 @@ export default function MyCalendar() {
                 const payload = { goal, startDate, endDate, teamId: null };
 
                 try {
-                  const token = localStorage.getItem("accessToken");
+                  // ✅ 공용 설정과 동일한 키로 토큰 읽기
+                  const token = localStorage.getItem(AUTH_TOKEN_KEY);
 
+                  // ✅ 공용 BASE_URL과 동일하게 사용
                   const res = await fetch(
-                    "https://app.floorida.site/api/schedules/ai",
+                    `${API_BASE_URL.replace(/\/$/, "")}/api/schedules/ai`,
                     {
                       method: "POST",
                       headers: {
@@ -163,7 +166,6 @@ export default function MyCalendar() {
                       text
                     );
 
-                    // Fallback schedule 생성
                     const fallback = buildFallbackSchedule(payload);
                     setSchedule(fallback);
                     setAiPlanStep("result");
