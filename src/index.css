@@ -1,5 +1,22 @@
+/* 폰트 선언 - 한글은 DungGeunMo, 영어는 kongtext */
+@font-face {
+  font-family: "DungGeunMo";
+  src: url("./assets/font/DungGeunMo.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  unicode-range: U+AC00-D7A3, U+1100-11FF, U+3130-318F, U+A960-A97F, U+D7B0-D7FF, U+3040-309F, U+30A0-30FF;
+}
+
+@font-face {
+  font-family: "Kongtext";
+  src: url("./assets/font/kongtext.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  unicode-range: U+0020-007F, U+00A0-00FF, U+0100-017F, U+0180-024F, U+1E00-1EFF;
+}
+
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: "DungGeunMo", "Kongtext", system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
@@ -16,6 +33,7 @@
 html, body, #root {
   width: 100%;
   height: 100%;
+  font-family: "DungGeunMo", "Kongtext", system-ui, sans-serif;
 }
 
 a {
