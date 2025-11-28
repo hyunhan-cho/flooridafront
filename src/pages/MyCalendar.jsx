@@ -1,13 +1,26 @@
 // pages/MyCalendar.jsx
-import React from "react";
+import React, { useState } from "react";
 import Navbar from "../components/Navbar.jsx";
 import PersonalHeader from "../components/PersonalHeader.jsx";
-
-// ✅ mycalendar 폴더에서 정확하게 컴포넌트들을 불러옵니다.
-import AiPlanForm from "./mycalendar/AiPlanForm.jsx";
+import AiPlanFormNew from "./mycalendar/AiPlanFormNew.jsx";
 import AiPlanLoading from "./mycalendar/AiPlanLoading.jsx";
 import AiPlanResult from "./mycalendar/AiPlanResult.jsx";
-import "./mycalendar/MyCalendarAi.css";
+
+function buildMonthMatrix(date = new Date()) {
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const first = new Date(year, month, 1);
+  const last = new Date(year, month + 1, 0);
+  const firstWeekday = (first.getDay() + 6) % 7;
+  const totalDays = last.getDate();
+  const cells = [];
+  for (let i = 0; i < firstWeekday; i++) cells.push(null);
+  for (let d = 1; d <= totalDays; d++) cells.push(new Date(year, month, d));
+  while (cells.length % 7 !== 0) cells.push(null);
+  return cells;
+}
+
+const weekdayLabels = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 
 // AI 호출 실패했을 때 임시로 보여줄 더미 일정
 function buildFallbackSchedule({ goal, startDate, endDate }) {
@@ -57,83 +70,6 @@ function buildFallbackSchedule({ goal, startDate, endDate }) {
   };
 }
 
-export default function MyCalendar() {
-  const [step, setStep] = React.useState("form"); // "form" | "loading" | "result"
-  const [schedule, setSchedule] = React.useState(null); // schedule state
-  const [error, setError] = React.useState(null);
-
-  const handleSubmit = async ({ goal, startDate, endDate }) => {
-    setStep("loading");
-    setError(null);
-
-    const payload = { goal, startDate, endDate, teamId: null };
-
-    try {
-      const token = localStorage.getItem("accessToken");
-
-      const res = await fetch("https://app.floorida.site/api/schedules/ai", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        console.warn(
-          "AI API 실패, fallback 일정으로 대체합니다.",
-          res.status,
-          text
-        );
-
-        const fallback = buildFallbackSchedule(payload);
-        setSchedule(fallback);
-        setStep("result");
-        return;
-      }
-
-      const data = await res.json();
-      setSchedule(data);
-      setStep("result");
-    } catch (e) {
-      console.error(e);
-      const fallback = buildFallbackSchedule(payload);
-      setSchedule(fallback);
-      setStep("result");
-    }
-  };
-
-  const handleRestart = () => {
-    setSchedule(null);
-    setError(null);
-    setStep("form");
-  };
-
-  const handleConfirm = () => {
-    alert("일정이 나의 개인 캘린더에 추가되었다고 가정하는 자리입니다.");
-import React, { useState } from "react";
-import Navbar from "../components/Navbar.jsx";
-import PersonalHeader from "../components/PersonalHeader.jsx";
-
-function buildMonthMatrix(date = new Date()) {
-  const year = date.getFullYear();
-  const month = date.getMonth();
-  const first = new Date(year, month, 1);
-  const last = new Date(year, month + 1, 0);
-  const firstWeekday = (first.getDay() + 6) % 7;
-  const totalDays = last.getDate();
-  const cells = [];
-  for (let i = 0; i < firstWeekday; i++) cells.push(null);
-  for (let d = 1; d <= totalDays; d++) cells.push(new Date(year, month, d));
-  while (cells.length % 7 !== 0) cells.push(null);
-  return cells;
-}
-
-const weekdayLabels = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
-
 const defaultTasks = [
   {
     id: "task-1",
@@ -154,6 +90,9 @@ const defaultTasks = [
 export default function MyCalendar() {
   const [currentDate, setCurrentDate] = useState(new Date(2025, 9, 15)); // 2025년 10월
   const [showAddProjectModal, setShowAddProjectModal] = useState(false);
+  const [showAiPlanForm, setShowAiPlanForm] = useState(false);
+  const [aiPlanStep, setAiPlanStep] = useState("form"); // "form" | "loading" | "result"
+  const [schedule, setSchedule] = useState(null);
   const cells = buildMonthMatrix(currentDate);
   const today = new Date();
   const isToday = (d) =>
@@ -178,6 +117,134 @@ export default function MyCalendar() {
     );
   };
 
+  // AI 플랜 폼이 표시되면 폼만 보여주기
+  if (showAiPlanForm) {
+    return (
+      <div className="app home-view">
+        <PersonalHeader />
+        <main
+          className="page-content"
+          style={{
+            width: "100%",
+            display: "flex",
+            justifyContent: "center",
+            marginTop: "15px",
+            marginBottom: "15px",
+          }}
+        >
+          {aiPlanStep === "form" && (
+            <AiPlanFormNew
+              onSubmit={async ({ goal, startDate, endDate }) => {
+                setAiPlanStep("loading");
+
+                const payload = { goal, startDate, endDate, teamId: null };
+
+                try {
+                  const token = localStorage.getItem("accessToken");
+
+                  const res = await fetch(
+                    "https://app.floorida.site/api/schedules/ai",
+                    {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Accept: "application/json",
+                        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                      },
+                      body: JSON.stringify(payload),
+                    }
+                  );
+
+                  if (!res.ok) {
+                    const text = await res.text().catch(() => "");
+                    console.warn(
+                      "AI API 실패, fallback 일정으로 대체합니다.",
+                      res.status,
+                      text
+                    );
+
+                    // Fallback schedule 생성
+                    const fallback = buildFallbackSchedule(payload);
+                    setSchedule(fallback);
+                    setAiPlanStep("result");
+                    return;
+                  }
+
+                  const data = await res.json();
+                  setSchedule(data);
+                  setAiPlanStep("result");
+                } catch (e) {
+                  console.error(e);
+                  const fallback = buildFallbackSchedule(payload);
+                  setSchedule(fallback);
+                  setAiPlanStep("result");
+                }
+              }}
+              error={null}
+              onBack={() => {
+                setShowAiPlanForm(false);
+                setAiPlanStep("form");
+                setSchedule(null);
+              }}
+            />
+          )}
+          {aiPlanStep === "loading" && (
+            <div
+              className="card"
+              style={{
+                background: "#ffffff",
+                borderRadius: "28px",
+                minHeight: "870px",
+                boxShadow: "0 20px 40px rgba(0,0,0,0.35)",
+                margin: 0,
+                padding: "20px",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <AiPlanLoading />
+            </div>
+          )}
+          {aiPlanStep === "result" && schedule && (
+            <div
+              className="card"
+              style={{
+                background: "#ffffff",
+                borderRadius: "28px",
+                minHeight: "870px",
+                boxShadow: "0 20px 40px rgba(0,0,0,0.35)",
+                margin: 0,
+                padding: "20px",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "flex-start",
+              }}
+            >
+              <AiPlanResult
+                schedule={schedule}
+                onConfirm={() => {
+                  alert("일정이 나의 개인 캘린더에 추가되었습니다.");
+                  setShowAiPlanForm(false);
+                  setAiPlanStep("form");
+                  setSchedule(null);
+                }}
+                onRestart={() => {
+                  setSchedule(null);
+                  setAiPlanStep("form");
+                }}
+                onScheduleUpdate={setSchedule}
+              />
+            </div>
+          )}
+        </main>
+        <Navbar />
+      </div>
+    );
+  }
+
   return (
     <div className="app home-view">
       <PersonalHeader />
@@ -200,37 +267,13 @@ export default function MyCalendar() {
         {/* 캘린더 섹션 */}
         <div
           style={{
-            background: "#ffffff",
-            borderRadius: "28px",
-            minHeight: "870px",
-            // 💡 수정: 문제의 원인이 된 box-shadow를 제거합니다.
-            // boxShadow: "0 20px 40px rgba(0,0,0,0.35)",
             background: "#EEEEEE",
             borderRadius: "0",
             width: "100%",
             padding: "12px 0",
             margin: 0,
-            padding: 0,
-            display: "flex",
-            flexDirection: "column",
           }}
         >
-          <div className="aiContainer">
-            {step === "form" && (
-              <AiPlanForm onSubmit={handleSubmit} error={error} />
-            )}
-            {step === "loading" && <AiPlanLoading />}
-            {step === "result" && schedule && (
-              <AiPlanResult
-                schedule={schedule}
-                onConfirm={handleConfirm}
-                onRestart={handleRestart}
-                // 💡 일정 수정 시 부모 상태를 업데이트하는 함수 전달
-                onScheduleUpdate={setSchedule}
-              />
-            )}
-          </div>
-        </div>
           {/* 월/년 헤더 */}
           <div
             style={{
@@ -547,8 +590,9 @@ export default function MyCalendar() {
             >
               <button
                 onClick={() => {
-                  // AI로 추가하기 로직
                   setShowAddProjectModal(false);
+                  setShowAiPlanForm(true);
+                  setAiPlanStep("form");
                 }}
                 style={{
                   width: "100%",

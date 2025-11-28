@@ -1,0 +1,109 @@
+/* src/pages/mycalendar/AiPlanFormNew.css */
+.aiForm {
+  width: 100%;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: Inter, "Noto Sans KR", system-ui, -apple-system, "Segoe UI",
+    Roboto, sans-serif;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.aiFormTop {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-bottom: 10px;
+  width: 100%;
+}
+
+.aiBackBtn {
+  width: 34px;
+  height: 34px;
+  border: none;
+  background: transparent;
+  font-size: 28px;
+  line-height: 34px;
+  cursor: pointer;
+  color: #0f172a;
+  padding: 0;
+}
+
+.aiFormTitle {
+  width: 100%;
+  margin-bottom: 14px;
+  text-align: left;
+}
+
+.aiFormTitle h2 {
+  margin: 0 0 6px;
+  font-size: 16px;
+  font-weight: 900;
+  color: #258285;
+}
+
+.aiFormTitle p {
+  margin: 0;
+  font-size: 12px;
+  color: #475569;
+  line-height: 1.35;
+}
+
+.aiFormBody {
+  margin-top: 14px;
+  display: grid;
+  gap: 14px;
+  width: 100%;
+}
+
+.aiLabel {
+  display: grid;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.aiTextarea {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 13px;
+  resize: none;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.aiInput {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 13px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.aiPrimaryBtn {
+  width: 100%;
+  border: none;
+  border-radius: 12px;
+  background: var(--brand-teal, #3a8284);
+  color: white;
+  font-weight: 900;
+  padding: 12px 14px;
+  cursor: pointer;
+  margin-top: 2px;
+}
+
+.aiError {
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  color: #9f1239;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+}
