@@ -6,7 +6,13 @@ import AiPlanFormNew from "./mycalendar/AiPlanFormNew.jsx";
 import AiPlanLoading from "./mycalendar/AiPlanLoading.jsx";
 import AiPlanResult from "./mycalendar/AiPlanResult.jsx";
 import { API_BASE_URL, AUTH_TOKEN_KEY } from "../config.js";
-import { getSchedules, getSchedule } from "../services/api.js";
+import {
+  getSchedules,
+  getSchedule,
+  getFloorsStatusByDate,
+  deleteSchedule,
+  updateFloorCompletion,
+} from "../services/api.js";
 
 function buildMonthMatrix(date = new Date()) {
   const year = date.getFullYear();
@@ -70,12 +76,21 @@ function buildFallbackSchedule({ goal, startDate, endDate }) {
   };
 }
 
+// 날짜를 YYYY-MM-DD 형식으로 변환
+function formatDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export default function MyCalendar() {
   const [currentDate, setCurrentDate] = useState(() => new Date()); //
   const [showAddProjectModal, setShowAddProjectModal] = useState(false);
   const [showAiPlanForm, setShowAiPlanForm] = useState(false);
   const [aiPlanStep, setAiPlanStep] = useState("form"); // "form" | "loading" | "result"
   const [schedule, setSchedule] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(null); // 선택된 날짜
 
   // 2. tasks를 상태(State)로 선언해야 화면이 업데이트됩니다.
   const [tasks, setTasks] = useState([]);
@@ -105,14 +120,118 @@ export default function MyCalendar() {
     );
   };
 
+  // 선택된 날짜의 할 일 불러오기
+  const loadTasksForDate = async (date) => {
+    if (!date) {
+      // 날짜가 선택되지 않으면 전체 일정 불러오기
+      await loadTasks();
+      return;
+    }
+
+    const dateStr = formatDate(date);
+    const token = localStorage.getItem(AUTH_TOKEN_KEY);
+
+    setLoading(true);
+
+    if (!token) {
+      setTasks([]);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const floors = await getFloorsStatusByDate(dateStr);
+      console.log(`날짜 ${dateStr}의 floors status:`, floors);
+      if (Array.isArray(floors) && floors.length > 0) {
+        console.log(`첫 번째 floor 구조:`, floors[0]);
+      }
+
+      if (Array.isArray(floors) && floors.length > 0) {
+        // floors를 scheduleId별로 그룹화
+        const scheduleMap = new Map();
+
+        floors.forEach((floor) => {
+          const scheduleId = floor.scheduleId;
+          const totalFloors =
+            floor.totalFloors ||
+            floor.totalFloorCount ||
+            floor.scheduleFloorCount ||
+            floor.floorCount;
+
+          if (!scheduleMap.has(scheduleId)) {
+            scheduleMap.set(scheduleId, {
+              scheduleId,
+              title: floor.scheduleTitle || "제목 없음",
+              color: floor.scheduleColor || "#3a8284",
+              totalFloors: totalFloors || 0, // 전체 계획 수 (있다면 저장)
+              floors: [],
+            });
+          }
+          const entry = scheduleMap.get(scheduleId);
+          // 혹시 뒤에서 온 floor에 totalFloors 정보가 있다면 갱신
+          if (totalFloors && !entry.totalFloors) {
+            entry.totalFloors = totalFloors;
+          }
+          entry.floors.push(floor);
+        });
+
+        // tasks 형식으로 변환
+        const convertedTasks = Array.from(scheduleMap.values()).map(
+          (schedule) => {
+            const subtasks = schedule.floors.map((floor, index) => {
+              // API 응답 구조에 따라 title 필드 확인
+              const floorTitle =
+                floor.title ||
+                floor.floorTitle ||
+                floor.name ||
+                floor.description;
+              return {
+                id: floor.floorId || `sub-${schedule.scheduleId}-${index}`,
+                floorId: floor.floorId, // API 호출을 위해 floorId 저장
+                scheduleId: schedule.scheduleId, // API 호출을 위해 scheduleId 저장
+                text: floorTitle || `단계 ${index + 1}`,
+                done: floor.completed || floor.done || false,
+              };
+            });
+
+            const doneCount = subtasks.filter((s) => s.done).length;
+            // 전체 계획 수: API에서 내려주는 totalFloors가 있으면 사용, 없으면 현재 보이는 단계 수 사용
+            const totalSteps =
+              schedule.totalFloors && schedule.totalFloors > 0
+                ? schedule.totalFloors
+                : subtasks.length;
+
+            return {
+              id: schedule.scheduleId?.toString() || `task-${Date.now()}`,
+              title: schedule.title,
+              progress: `${doneCount}/${totalSteps}`,
+              subtasks,
+              color: schedule.color,
+            };
+          }
+        );
+
+        console.log("변환된 tasks:", convertedTasks);
+        setTasks(convertedTasks);
+      } else {
+        setTasks([]);
+      }
+    } catch (error) {
+      console.error("날짜별 할 일 로드 실패:", error);
+      setTasks([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // API에서 일정 목록 불러오기
   const loadTasks = async () => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth() + 1;
     const token = localStorage.getItem(AUTH_TOKEN_KEY);
-    
+
     setLoading(true);
-    
+
     if (!token) {
       setTasks([]);
       setLoading(false);
@@ -128,23 +247,31 @@ export default function MyCalendar() {
         const convertedTasks = await Promise.all(
           data.map(async (schedule) => {
             let floors = schedule.floors || [];
-            
+
             // floors가 없거나 비어있으면 getSchedule로 상세 정보 가져오기
             if (!floors || floors.length === 0) {
               try {
                 const detail = await getSchedule(schedule.scheduleId);
                 floors = detail.floors || [];
-                console.log(`Schedule ${schedule.scheduleId} 상세 정보:`, detail);
+                console.log(
+                  `Schedule ${schedule.scheduleId} 상세 정보:`,
+                  detail
+                );
               } catch (err) {
-                console.warn(`Schedule ${schedule.scheduleId} 상세 정보 로드 실패:`, err);
+                console.warn(
+                  `Schedule ${schedule.scheduleId} 상세 정보 로드 실패:`,
+                  err
+                );
                 floors = [];
               }
             }
 
             const subtasks = floors.map((floor, index) => ({
               id: floor.floorId || `sub-${schedule.scheduleId}-${index}`,
+              floorId: floor.floorId, // API 호출을 위해 floorId 저장
+              scheduleId: schedule.scheduleId, // API 호출을 위해 scheduleId 저장
               text: floor.title || `단계 ${index + 1}`,
-              done: false, // TODO: 실제 완료 상태를 API에서 가져와야 함
+              done: floor.completed || false,
             }));
 
             // 완료된 subtask 개수 계산
@@ -176,11 +303,23 @@ export default function MyCalendar() {
 
   // 컴포넌트 마운트 시 및 currentDate 변경 시 일정 불러오기
   useEffect(() => {
-    loadTasks();
+    if (selectedDate) {
+      loadTasksForDate(selectedDate);
+    } else {
+      loadTasks();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentDate]);
 
-  // ✅ AI 생성 일정을 메인 목록에 추가하는 핸들러
+  // selectedDate 변경 시 해당 날짜의 할 일 불러오기
+  useEffect(() => {
+    if (selectedDate) {
+      loadTasksForDate(selectedDate);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDate]);
+
+  // AI 생성 일정을 메인 목록에 추가하는 핸들러
   const handleConfirmAiSchedule = async () => {
     if (!schedule) return;
 
@@ -193,6 +332,32 @@ export default function MyCalendar() {
 
     // 일정 목록 다시 불러오기 (서버에 저장된 최신 데이터 반영)
     await loadTasks();
+  };
+
+  // 일정 삭제 핸들러
+  const handleDeleteSchedule = async (scheduleId) => {
+    if (
+      !window.confirm(
+        "정말로 이 일정을 삭제하시겠습니까? 삭제된 일정은 복구할 수 없습니다."
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await deleteSchedule(scheduleId);
+      alert("일정이 삭제되었습니다.");
+
+      // 일정 목록 다시 불러오기
+      if (selectedDate) {
+        await loadTasksForDate(selectedDate);
+      } else {
+        await loadTasks();
+      }
+    } catch (error) {
+      console.error("일정 삭제 실패:", error);
+      alert("일정 삭제에 실패했습니다. 다시 시도해주세요.");
+    }
   };
 
   // AI 플랜 폼 화면
@@ -418,9 +583,21 @@ export default function MyCalendar() {
           >
             {cells.map((d, i) => {
               const isTodayCell = isToday(d);
+              const isSelected =
+                selectedDate &&
+                d &&
+                selectedDate.getFullYear() === d.getFullYear() &&
+                selectedDate.getMonth() === d.getMonth() &&
+                selectedDate.getDate() === d.getDate();
+
               return (
                 <div
                   key={i}
+                  onClick={() => {
+                    if (d) {
+                      setSelectedDate(d);
+                    }
+                  }}
                   style={{
                     aspectRatio: "1",
                     display: "flex",
@@ -429,8 +606,24 @@ export default function MyCalendar() {
                     fontSize: "14px",
                     fontWeight: 900,
                     color: d ? "#111827" : "transparent",
-                    background: isTodayCell ? "#d1d5db" : "transparent",
-                    borderRadius: isTodayCell ? "50%" : "8px",
+                    background: isSelected
+                      ? "#9ca3af"
+                      : isTodayCell
+                      ? "#d1d5db"
+                      : "transparent",
+                    borderRadius: isTodayCell || isSelected ? "50%" : "8px",
+                    cursor: d ? "pointer" : "default",
+                    transition: "background-color 0.2s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (d && !isSelected && !isTodayCell) {
+                      e.currentTarget.style.backgroundColor = "#e5e7eb";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (d && !isSelected && !isTodayCell) {
+                      e.currentTarget.style.backgroundColor = "transparent";
+                    }
                   }}
                 >
                   {d ? d.getDate() : ""}
@@ -515,116 +708,174 @@ export default function MyCalendar() {
           </div>
         ) : (
           tasks.map((task) => (
-          <div
-            key={task.id}
-            className="card"
-            style={{
-              background: "#e5e7eb",
-              borderRadius: "18px",
-              width: "100%",
-              maxWidth: "var(--panel-width)",
-              padding: "14px",
-              margin: "0 16px 12px 16px",
-              display: "flex",
-              alignItems: "flex-start",
-              gap: "12px",
-            }}
-          >
             <div
+              key={task.id}
+              className="card"
               style={{
-                width: "24px",
-                height: "24px",
-                borderRadius: "50%",
-                background: task.color,
-                flexShrink: 0,
-                marginTop: "2px",
+                background: "#e5e7eb",
+                borderRadius: "18px",
+                width: "100%",
+                maxWidth: "var(--panel-width)",
+                padding: "14px",
+                margin: "0 16px 12px 16px",
+                display: "flex",
+                alignItems: "flex-start",
+                gap: "12px",
               }}
-            />
-            <div style={{ flex: 1 }}>
+            >
               <div
                 style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: "8px",
+                  width: "24px",
+                  height: "24px",
+                  borderRadius: "50%",
+                  background: task.color,
+                  flexShrink: 0,
+                  marginTop: "2px",
                 }}
-              >
-                <span
-                  style={{
-                    fontSize: "15px",
-                    fontWeight: 800,
-                    color: "#111827",
-                    fontFamily: "var(--font-sans)",
-                  }}
-                >
-                  {task.title}
-                </span>
-                <span
-                  style={{
-                    background: "#d1d5db",
-                    color: "#111827",
-                    padding: "4px 10px",
-                    borderRadius: "12px",
-                    fontSize: "12px",
-                    fontWeight: 700,
-                    fontFamily: "var(--font-sans)",
-                  }}
-                >
-                  {task.progress}
-                </span>
-              </div>
-              {task.subtasks.map((subtask) => (
+              />
+              <div style={{ flex: 1 }}>
                 <div
-                  key={subtask.id}
                   style={{
-                    background: subtask.done ? "#9ca3af" : "#f3f4f6",
-                    borderRadius: "8px",
-                    padding: "8px 12px",
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
-                    marginBottom: "4px",
-                    opacity: subtask.done ? 0.7 : 1,
+                    marginBottom: "8px",
                   }}
                 >
                   <span
                     style={{
-                      fontSize: "13px",
-                      color: subtask.done ? "#6b7280" : "#111827",
+                      fontSize: "15px",
+                      fontWeight: 800,
+                      color: "#111827",
                       fontFamily: "var(--font-sans)",
-                      textDecoration: subtask.done ? "line-through" : "none",
                     }}
                   >
-                    {subtask.text}
+                    {task.title}
                   </span>
-                  <input
-                    type="checkbox"
-                    checked={subtask.done}
-                    onChange={() => {
-                      const newTasks = tasks.map((t) => {
-                        if (t.id !== task.id) return t;
-                        const updatedSubtasks = t.subtasks.map((s) =>
-                          s.id === subtask.id ? { ...s, done: !s.done } : s
-                        );
-                        const doneCount = updatedSubtasks.filter((s) => s.done).length;
-                        return {
-                          ...t,
-                          subtasks: updatedSubtasks,
-                          progress: `${doneCount}/${updatedSubtasks.length}`,
-                        };
-                      });
-                      setTasks(newTasks);
-                    }}
+                  <div
                     style={{
-                      width: "18px",
-                      height: "18px",
-                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
                     }}
-                  />
+                  >
+                    <span
+                      style={{
+                        background: "#d1d5db",
+                        color: "#111827",
+                        padding: "4px 10px",
+                        borderRadius: "12px",
+                        fontSize: "12px",
+                        fontWeight: 700,
+                        fontFamily: "var(--font-sans)",
+                      }}
+                    >
+                      {task.progress}
+                    </span>
+                    <button
+                      onClick={() => handleDeleteSchedule(task.id)}
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        color: "#111827",
+                        fontSize: "18px",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        padding: "4px 8px",
+                        fontFamily: "var(--font-sans)",
+                      }}
+                      title="일정 삭제"
+                    >
+                      X
+                    </button>
+                  </div>
                 </div>
-              ))}
+                {task.subtasks.map((subtask) => (
+                  <div
+                    key={subtask.id}
+                    style={{
+                      background: subtask.done ? "#9ca3af" : "#f3f4f6",
+                      borderRadius: "8px",
+                      padding: "8px 12px",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: "4px",
+                      opacity: subtask.done ? 0.7 : 1,
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: "13px",
+                        color: subtask.done ? "#6b7280" : "#111827",
+                        fontFamily: "var(--font-sans)",
+                        textDecoration: subtask.done ? "line-through" : "none",
+                      }}
+                    >
+                      {subtask.text}
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={subtask.done}
+                      onChange={async () => {
+                        const newDoneState = !subtask.done;
+
+                        // API에 완료 상태 저장
+                        if (subtask.floorId) {
+                          try {
+                            console.log("Floor 완료 상태 업데이트:", {
+                              floorId: subtask.floorId,
+                              scheduleId: subtask.scheduleId,
+                              completed: newDoneState,
+                            });
+                            await updateFloorCompletion(
+                              subtask.floorId,
+                              newDoneState,
+                              subtask.scheduleId
+                            );
+                          } catch (error) {
+                            console.error("완료 상태 업데이트 실패:", error);
+                            console.error("에러 상세:", {
+                              status: error.status,
+                              message: error.message,
+                              data: error.data,
+                              floorId: subtask.floorId,
+                              scheduleId: subtask.scheduleId,
+                            });
+                            // 에러가 발생해도 로컬 상태는 업데이트 (사용자 경험 개선)
+                            // alert는 제거하고 조용히 처리
+                          }
+                        }
+
+                        // 로컬 상태 업데이트
+                        const newTasks = tasks.map((t) => {
+                          if (t.id !== task.id) return t;
+                          const updatedSubtasks = t.subtasks.map((s) =>
+                            s.id === subtask.id
+                              ? { ...s, done: newDoneState }
+                              : s
+                          );
+                          const doneCount = updatedSubtasks.filter(
+                            (s) => s.done
+                          ).length;
+                          return {
+                            ...t,
+                            subtasks: updatedSubtasks,
+                            progress: `${doneCount}/${updatedSubtasks.length}`,
+                          };
+                        });
+                        setTasks(newTasks);
+                      }}
+                      style={{
+                        width: "18px",
+                        height: "18px",
+                        cursor: "pointer",
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
           ))
         )}
       </main>

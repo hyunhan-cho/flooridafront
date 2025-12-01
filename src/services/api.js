@@ -68,7 +68,7 @@ export async function getSchedule(id) {
   return await http.get(`/api/schedules/${id}`);
 }
 
-// ✅ 월간 일정 목록 조회
+// 월간 일정 목록 조회
 // GET /api/floors/calendar/month?year=2025&month=11
 export function getSchedules({ year, month }) {
   return http.get(
@@ -76,4 +76,32 @@ export function getSchedules({ year, month }) {
       year
     )}&month=${encodeURIComponent(month)}`
   );
+}
+
+// 특정 날짜의 Floor 상태 조회
+// GET /api/floors/status/date/{date}
+export async function getFloorsStatusByDate(date) {
+  return await http.get(`/api/floors/status/date/${date}`);
+}
+
+// 일정 삭제 API
+// DELETE /api/schedules/{id}
+export async function deleteSchedule(id) {
+  return await http.del(`/api/schedules/${id}`);
+}
+
+// Floor 완료 상태 업데이트 API (백엔드 엔드포인트 미구현으로 일단 더미 처리)
+// 현재 백엔드 스펙에는 PATCH /api/floors/{id} 가 없어 404가 발생하므로
+// 일단 프론트엔드에서만 상태를 유지하고, 서버 호출은 하지 않습니다.
+export async function updateFloorCompletion(
+  floorId,
+  completed,
+  scheduleId = null
+) {
+  console.warn(
+    "updateFloorCompletion: 백엔드에 완료 상태를 저장하는 엔드포인트가 없어,",
+    "프론트엔드에서만 상태를 변경합니다.",
+    { floorId, completed, scheduleId }
+  );
+  return;
 }
