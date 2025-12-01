@@ -14,6 +14,7 @@ export async function request(
   const url = path.startsWith("http")
     ? path
     : `${API_BASE_URL.replace(/\/$/, "")}${path}`;
+
   const res = await fetch(url, {
     method,
     headers: buildHeaders(headers),
@@ -67,10 +68,12 @@ export async function getSchedule(id) {
   return await http.get(`/api/schedules/${id}`);
 }
 
-// 일정 목록 조회 API (추정)
-export async function getSchedules(params = {}) {
-  const queryString = new URLSearchParams(params).toString();
-  return await http.get(
-    `/api/schedules${queryString ? `?${queryString}` : ""}`
+// ✅ 월간 일정 목록 조회
+// GET /api/floors/calendar/month?year=2025&month=11
+export function getSchedules({ year, month }) {
+  return http.get(
+    `/api/floors/calendar/month?year=${encodeURIComponent(
+      year
+    )}&month=${encodeURIComponent(month)}`
   );
 }

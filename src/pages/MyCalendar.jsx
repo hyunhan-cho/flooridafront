@@ -6,6 +6,9 @@ import AiPlanFormNew from "./mycalendar/AiPlanFormNew.jsx";
 import AiPlanLoading from "./mycalendar/AiPlanLoading.jsx";
 import AiPlanResult from "./mycalendar/AiPlanResult.jsx";
 import { API_BASE_URL, AUTH_TOKEN_KEY } from "../config.js";
+import { getSchedules, getSchedule } from "../services/api.js";
+// !!!!!숭이야!!!! 막줄이 하위 플랜 불러오는 api! 일단 추가만 해둠. 아래 로직은 아마 변경하라고 할듯!
+// 이거 불러와서 api다시 연결하면 될듯!
 
 function buildMonthMatrix(date = new Date()) {
   const year = date.getFullYear();
@@ -88,7 +91,7 @@ const INITIAL_TASKS = [
 ];
 
 export default function MyCalendar() {
-  const [currentDate, setCurrentDate] = useState(new Date(2025, 9, 15)); // 2025년 10월
+  const [currentDate, setCurrentDate] = useState(() => new Date()); //
   const [showAddProjectModal, setShowAddProjectModal] = useState(false);
   const [showAiPlanForm, setShowAiPlanForm] = useState(false);
   const [aiPlanStep, setAiPlanStep] = useState("form"); // "form" | "loading" | "result"

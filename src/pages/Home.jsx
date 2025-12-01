@@ -10,6 +10,7 @@ import MonthProjects from "../components/MonthProjects.jsx";
 import WeeklyAchievementModal from "../components/WeeklyAchievementModal.jsx";
 import { getMyCharacter, getCalendarStats } from "../services/api.js";
 import { AUTH_TOKEN_KEY } from "../config.js";
+
 import "../App.css";
 
 // 날짜를 YYYY-MM-DD 형식으로 변환
