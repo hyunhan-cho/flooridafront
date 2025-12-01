@@ -252,6 +252,9 @@
 /* 엘리베이터 내부 캐릭터 */
 .elevator-character {
   position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 15;
   max-width: 60%;
   max-height: 60%;
@@ -905,10 +908,11 @@
 .day.planned::before {
   content: "";
   position: absolute;
-  top: 5%;
-  bottom: 5%;
-  left: 5%;
-  right: 5%;
+  width: 35%;
+  height: 35%;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
   border-radius: 50%;
   background: var(--calendar-fill);
   z-index: 0;

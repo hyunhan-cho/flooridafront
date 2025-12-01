@@ -41,6 +41,7 @@ export default function Home() {
     done: 0,
     total: 0,
   });
+  const [projectCount, setProjectCount] = useState(0);
   const [showWeeklyModal, setShowWeeklyModal] = useState(false);
 
   const goToFloor = (targetFloor) => {
@@ -81,8 +82,9 @@ export default function Home() {
             data.find((item) => item.date === todayStr) || data[0];
 
           if (todayData) {
-            const total = todayData.totalCount || 0;
             const done = todayData.completedCount || 0;
+            // total은 프로젝트 개수로 설정 (projectCount가 있으면 사용, 없으면 API 값 사용)
+            const total = projectCount > 0 ? projectCount : (todayData.totalCount || 0);
             const percent = total > 0 ? Math.round((done / total) * 100) : 0;
 
             setTodayProgress({
@@ -93,8 +95,9 @@ export default function Home() {
           }
         } else if (data && data.totalCount !== undefined) {
           // 단일 객체로 반환되는 경우
-          const total = data.totalCount || 0;
           const done = data.completedCount || 0;
+          // total은 프로젝트 개수로 설정 (projectCount가 있으면 사용, 없으면 API 값 사용)
+          const total = projectCount > 0 ? projectCount : (data.totalCount || 0);
           const percent = total > 0 ? Math.round((done / total) * 100) : 0;
 
           setTodayProgress({
@@ -112,7 +115,21 @@ export default function Home() {
       }
     };
     loadTodayProgress();
-  }, []);
+  }, [projectCount]);
+
+  // 프로젝트 개수 변경 시 todayProgress의 total 업데이트
+  useEffect(() => {
+    if (projectCount > 0) {
+      setTodayProgress((prev) => {
+        const percent = projectCount > 0 ? Math.round((prev.done / projectCount) * 100) : 0;
+        return {
+          ...prev,
+          total: projectCount,
+          percent,
+        };
+      });
+    }
+  }, [projectCount]);
 
   // 캐릭터 이미지 로드
   useEffect(() => {
@@ -156,6 +173,22 @@ export default function Home() {
     }
   }, [progressInfo, currentFloor, isMoving, isOpen]);
 
+  // progressInfo의 done 값이 변경될 때 todayProgress 업데이트
+  useEffect(() => {
+    if (projectCount > 0) {
+      setTodayProgress((prev) => {
+        const done = progressInfo.done || 0;
+        const percent = projectCount > 0 ? Math.round((done / projectCount) * 100) : 0;
+        return {
+          ...prev,
+          done,
+          total: projectCount,
+          percent,
+        };
+      });
+    }
+  }, [progressInfo.done, projectCount]);
+
   return (
     <div className="app home-view">
       <BackButton />
@@ -195,7 +228,10 @@ export default function Home() {
         done={todayProgress.done}
         total={todayProgress.total}
       />
-      <MonthProjects onProgressChange={setProgressInfo} />
+      <MonthProjects 
+        onProgressChange={setProgressInfo}
+        onProjectCountChange={setProjectCount}
+      />
 
       <Navbar
         onNavigate={(key) => {

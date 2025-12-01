@@ -1,4 +1,5 @@
 import React, { useMemo, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { getSchedules } from "../services/api.js";
 import { AUTH_TOKEN_KEY } from "../config.js";
 
@@ -46,7 +47,8 @@ function extractPlannedDatesFromRange(startDateStr, endDateStr, year, month) {
   return result;
 }
 
-export default function MonthProjects({ onProgressChange }) {
+export default function MonthProjects({ onProgressChange, onProjectCountChange }) {
+  const navigate = useNavigate();
   const today = new Date();
   const cells = buildMonthMatrix(today);
   const currentYear = today.getFullYear();
@@ -111,6 +113,11 @@ export default function MonthProjects({ onProgressChange }) {
 
     loadSchedules();
   }, [currentYear, currentMonth, isTeamMode]);
+
+  // 프로젝트 개수 변경 시 상위(Home)에 전달
+  useEffect(() => {
+    onProjectCountChange?.(schedules.length);
+  }, [schedules.length, onProjectCountChange]);
 
   // 현재는 팀/개인 데이터가 따로 없어서 그냥 전부 보여줌
   const projects = useMemo(() => {
@@ -211,7 +218,22 @@ export default function MonthProjects({ onProgressChange }) {
         ))}
       </div>
 
-      <div className="month-grid" style={calendarStyle}>
+      <div 
+        className="month-grid" 
+        onClick={() => navigate("/mycalendar")}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            navigate("/mycalendar");
+          }
+        }}
+        style={{
+          ...calendarStyle,
+          cursor: "pointer",
+        }}
+      >
         {cells.map((d, i) => {
           const isPlanned = d ? plannedDates.has(d.getDate()) : false;
           const dayClasses = [

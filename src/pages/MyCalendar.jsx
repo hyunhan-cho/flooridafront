@@ -1,5 +1,5 @@
 // pages/MyCalendar.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Navbar from "../components/Navbar.jsx";
 import PersonalHeader from "../components/PersonalHeader.jsx";
 import AiPlanFormNew from "./mycalendar/AiPlanFormNew.jsx";
@@ -7,8 +7,6 @@ import AiPlanLoading from "./mycalendar/AiPlanLoading.jsx";
 import AiPlanResult from "./mycalendar/AiPlanResult.jsx";
 import { API_BASE_URL, AUTH_TOKEN_KEY } from "../config.js";
 import { getSchedules, getSchedule } from "../services/api.js";
-// !!!!!숭이야!!!! 막줄이 하위 플랜 불러오는 api! 일단 추가만 해둠. 아래 로직은 아마 변경하라고 할듯!
-// 이거 불러와서 api다시 연결하면 될듯!
 
 function buildMonthMatrix(date = new Date()) {
   const year = date.getFullYear();
@@ -72,24 +70,6 @@ function buildFallbackSchedule({ goal, startDate, endDate }) {
   };
 }
 
-// 1. 초기 데이터는 상수로 빼고, 아래 컴포넌트 안에서 useState로 사용합니다.
-const INITIAL_TASKS = [
-  {
-    id: "task-1",
-    title: "TOEFL 교재 끝내기",
-    progress: "7/10",
-    subtasks: [{ id: "sub-1", text: "chapter 2-1 풀기", done: false }],
-    color: "#f59768",
-  },
-  {
-    id: "task-2",
-    title: "빅데이터 개인 프로젝트",
-    progress: "0/7",
-    subtasks: [{ id: "sub-2", text: "2차 회의", done: false }],
-    color: "#22c7d5",
-  },
-];
-
 export default function MyCalendar() {
   const [currentDate, setCurrentDate] = useState(() => new Date()); //
   const [showAddProjectModal, setShowAddProjectModal] = useState(false);
@@ -98,7 +78,8 @@ export default function MyCalendar() {
   const [schedule, setSchedule] = useState(null);
 
   // 2. tasks를 상태(State)로 선언해야 화면이 업데이트됩니다.
-  const [tasks, setTasks] = useState(INITIAL_TASKS);
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const cells = buildMonthMatrix(currentDate);
   const today = new Date();
@@ -124,33 +105,84 @@ export default function MyCalendar() {
     );
   };
 
+  // API에서 일정 목록 불러오기
+  const loadTasks = async () => {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth() + 1;
+    const token = localStorage.getItem(AUTH_TOKEN_KEY);
+    
+    setLoading(true);
+    
+    if (!token) {
+      setTasks([]);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const data = await getSchedules({ year, month });
+      console.log("API 응답 데이터:", data);
+
+      if (Array.isArray(data) && data.length > 0) {
+        // 각 일정의 floors를 가져오기 위해 getSchedule API 호출
+        const convertedTasks = await Promise.all(
+          data.map(async (schedule) => {
+            let floors = schedule.floors || [];
+            
+            // floors가 없거나 비어있으면 getSchedule로 상세 정보 가져오기
+            if (!floors || floors.length === 0) {
+              try {
+                const detail = await getSchedule(schedule.scheduleId);
+                floors = detail.floors || [];
+                console.log(`Schedule ${schedule.scheduleId} 상세 정보:`, detail);
+              } catch (err) {
+                console.warn(`Schedule ${schedule.scheduleId} 상세 정보 로드 실패:`, err);
+                floors = [];
+              }
+            }
+
+            const subtasks = floors.map((floor, index) => ({
+              id: floor.floorId || `sub-${schedule.scheduleId}-${index}`,
+              text: floor.title || `단계 ${index + 1}`,
+              done: false, // TODO: 실제 완료 상태를 API에서 가져와야 함
+            }));
+
+            // 완료된 subtask 개수 계산
+            const doneCount = subtasks.filter((s) => s.done).length;
+
+            return {
+              id: schedule.scheduleId?.toString() || `task-${Date.now()}`,
+              title: schedule.title || "제목 없음",
+              progress: `${doneCount}/${subtasks.length}`,
+              subtasks,
+              color: schedule.color || "#3a8284",
+            };
+          })
+        );
+
+        console.log("변환된 tasks:", convertedTasks);
+        setTasks(convertedTasks);
+      } else {
+        // 데이터가 없으면 빈 배열
+        setTasks([]);
+      }
+    } catch (error) {
+      console.error("일정 로드 실패:", error);
+      setTasks([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 컴포넌트 마운트 시 및 currentDate 변경 시 일정 불러오기
+  useEffect(() => {
+    loadTasks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDate]);
+
   // ✅ AI 생성 일정을 메인 목록에 추가하는 핸들러
-  const handleConfirmAiSchedule = () => {
+  const handleConfirmAiSchedule = async () => {
     if (!schedule) return;
-
-    // API 응답 데이터(floors)를 화면용 형식(subtasks)으로 변환
-    const newSubtasks = (schedule.floors || []).map((floor, index) => ({
-      id: floor.floorId || `new-sub-${Date.now()}-${index}`,
-      text: floor.title,
-      done: false,
-    }));
-
-    // 중복 ID 방지를 위해 ID 생성 (API ID가 없거나 -1인 경우 대비)
-    const uniqueId =
-      schedule.scheduleId && schedule.scheduleId !== -1
-        ? schedule.scheduleId
-        : `ai-task-${Date.now()}`;
-
-    const newTask = {
-      id: uniqueId,
-      title: schedule.title,
-      progress: `0/${newSubtasks.length}`,
-      subtasks: newSubtasks,
-      color: schedule.color || "#3a8284",
-    };
-
-    // 상태 업데이트: 기존 목록(...prev) 뒤에 새 일정(newTask) 추가
-    setTasks((prev) => [...prev, newTask]);
 
     alert("일정이 캘린더 목록에 추가되었습니다!");
 
@@ -158,6 +190,9 @@ export default function MyCalendar() {
     setShowAiPlanForm(false);
     setAiPlanStep("form");
     setSchedule(null);
+
+    // 일정 목록 다시 불러오기 (서버에 저장된 최신 데이터 반영)
+    await loadTasks();
   };
 
   // AI 플랜 폼 화면
@@ -456,7 +491,30 @@ export default function MyCalendar() {
         </div>
 
         {/* 3. 작업 목록 섹션 (반드시 tasks.map을 사용해야 합니다!) */}
-        {tasks.map((task) => (
+        {loading ? (
+          <div
+            style={{
+              textAlign: "center",
+              padding: "40px",
+              color: "#6b7280",
+              fontFamily: "var(--font-pixel-kr)",
+            }}
+          >
+            로딩 중...
+          </div>
+        ) : tasks.length === 0 ? (
+          <div
+            style={{
+              textAlign: "center",
+              padding: "40px",
+              color: "#6b7280",
+              fontFamily: "var(--font-pixel-kr)",
+            }}
+          >
+            등록된 계획이 없습니다.
+          </div>
+        ) : (
+          tasks.map((task) => (
           <div
             key={task.id}
             className="card"
@@ -519,20 +577,22 @@ export default function MyCalendar() {
                 <div
                   key={subtask.id}
                   style={{
-                    background: "#f3f4f6",
+                    background: subtask.done ? "#9ca3af" : "#f3f4f6",
                     borderRadius: "8px",
                     padding: "8px 12px",
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
                     marginBottom: "4px",
+                    opacity: subtask.done ? 0.7 : 1,
                   }}
                 >
                   <span
                     style={{
                       fontSize: "13px",
-                      color: "#111827",
+                      color: subtask.done ? "#6b7280" : "#111827",
                       fontFamily: "var(--font-sans)",
+                      textDecoration: subtask.done ? "line-through" : "none",
                     }}
                   >
                     {subtask.text}
@@ -543,11 +603,14 @@ export default function MyCalendar() {
                     onChange={() => {
                       const newTasks = tasks.map((t) => {
                         if (t.id !== task.id) return t;
+                        const updatedSubtasks = t.subtasks.map((s) =>
+                          s.id === subtask.id ? { ...s, done: !s.done } : s
+                        );
+                        const doneCount = updatedSubtasks.filter((s) => s.done).length;
                         return {
                           ...t,
-                          subtasks: t.subtasks.map((s) =>
-                            s.id === subtask.id ? { ...s, done: !s.done } : s
-                          ),
+                          subtasks: updatedSubtasks,
+                          progress: `${doneCount}/${updatedSubtasks.length}`,
                         };
                       });
                       setTasks(newTasks);
@@ -562,7 +625,8 @@ export default function MyCalendar() {
               ))}
             </div>
           </div>
-        ))}
+          ))
+        )}
       </main>
 
       <Navbar />
