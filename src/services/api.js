@@ -53,6 +53,8 @@ export const http = {
   del: (path, opts) => request(path, { ...opts, method: "DELETE" }),
 };
 
+export default http;
+
 // 캐릭터 API
 export async function getMyCharacter() {
   return await http.get("/api/characters/me");
