@@ -9,9 +9,12 @@ import Home from "./pages/Home.jsx";
 import TendencyInfo from "./pages/TendencyInfo.jsx";
 import Mypage from "./pages/Mypage.jsx";
 import MyCalendar from "./pages/MyCalendar.jsx";
-import TeamPlace from "./pages/TeamPlace.jsx";
+import JoinedTeamPlace from "./pages/JoinedTeamPlace.jsx";
 import Customize from "./pages/Customize.jsx";
-
+import TeamCalendar from "./pages/TeamCalendar.jsx";
+import TeamPlaceHome from "./pages/TeamPlaceHome.jsx";
+import RoomManagement from "./pages/RoomManagement.jsx";
+import MemberRemoval from "./pages/MemberRemoval.jsx";
 export default function App() {
   return (
     <Routes>
@@ -22,8 +25,12 @@ export default function App() {
       <Route path="/tendency" element={<TendencyInfo />} />
       <Route path="/mypage" element={<Mypage />} />
       <Route path="/mycalendar" element={<MyCalendar />} />
-      <Route path="/teamplace" element={<TeamPlace />} />
+      <Route path="/joinedteamplace" element={<JoinedTeamPlace />} />
       <Route path="/customize" element={<Customize />} />
+      <Route path="/teamcalendar" element={<TeamCalendar />} />
+      <Route path="/teamplacehome" element={<TeamPlaceHome />} />
+      <Route path="/roommanagement" element={<RoomManagement />} />
+      <Route path="/memberremoval" element={<MemberRemoval />} />
     </Routes>
   );
 }

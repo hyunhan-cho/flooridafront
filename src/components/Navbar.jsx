@@ -9,7 +9,12 @@ import paintIcon from "../assets/navvar/button_paint.png";
 import settingIcon from "../assets/navvar/button_setting.png";
 
 const ITEMS = [
-  { key: "team", label: "팀플레이스", icon: teamIcon, path: "/teamplace" },
+  {
+    key: "team",
+    label: "팀플레이스",
+    icon: teamIcon,
+    path: "/joinedteamplace",
+  },
   {
     key: "calendar",
     label: "내캘린더",

@@ -105,3 +105,8 @@ export async function updateFloorCompletion(
   );
   return;
 }
+
+// 팀플레이스 팀 목록 조회
+export async function getTeams() {
+  return await http.get("/api/teams");
+}

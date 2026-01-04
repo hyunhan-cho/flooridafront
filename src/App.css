@@ -17,6 +17,8 @@
 
 :root {
   --brand-teal: #3a8284;
+  --nav-height: clamp(68px, 10dvh, 96px);
+  --nav-icon-size: clamp(28px, 8vw, 40px);
   /* 기본 폰트 - 한글은 DungGeunMo, 영어는 Kongtext */
   --font-sans: "DungGeunMo", "Kongtext", system-ui, sans-serif;
   /* NES 스타일 픽셀 폰트 변수 */
@@ -35,7 +37,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  min-height: var(--nav-height);
+  min-height: var(--nav-height, 80px);
   background: var(--brand-teal);
   display: grid;
   grid-template-columns: repeat(5, 1fr);
@@ -58,8 +60,8 @@
   padding: 2px 4px;
 }
 .nav-icon {
-  width: var(--nav-icon-size);
-  height: var(--nav-icon-size);
+  width: var(--nav-icon-size, 36px);
+  height: var(--nav-icon-size, 36px);
   object-fit: contain;
   image-rendering: pixelated;
   -ms-interpolation-mode: nearest-neighbor;
