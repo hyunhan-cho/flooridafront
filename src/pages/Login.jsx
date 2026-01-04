@@ -1,4 +1,3 @@
-// src/pages/Login.jsx
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import BackButton from "../components/BackButton.jsx";
@@ -24,27 +23,30 @@ export default function Login() {
     try {
       setLoading(true);
 
-      // 1) 로그인 (여기서 토큰 localStorage에 저장된다고 가정)
+      // 1) 로그인
       await login({ email, password });
 
       // 2) 프로필 조회해서 온보딩 완료 여부 확인
       try {
         const profile = await getMyProfile();
+        console.log("로그인 후 프로필 조회 결과:", profile);
 
         const hasOnboarding =
           profile && profile.planningTendency && profile.dailyStudyHours;
 
         if (hasOnboarding) {
-          // 이미 성향 정보 있는 유저 → 바로 홈
-          navigate("/home");
+          // [기존 유저] 이미 성향 정보 있음 -> 홈으로 (달성률 팝업)
+          navigate("/home", { state: { isFirstLogin: false } });
         } else {
-          // 아직 성향 정보 없는 유저 → 최초 로그인 → TendencyInfo
+          // [신규 유저] 정보가 비어있음 -> 성향 조사로
           navigate("/tendency");
         }
       } catch (err) {
-        console.error("getMyProfile error:", err);
-        // 프로필 조회가 깨지면 최소한 앱은 쓸 수 있게 홈으로 보냄
-        navigate("/home");
+        console.error("프로필 조회 실패 (신규 유저 가능성):", err);
+
+        // [핵심 수정] 프로필을 가져오지 못했다면(404 등),
+        // 아직 프로필이 없는 '완전 신규 유저'로 간주하고 성향 조사로 보냅니다.
+        navigate("/tendency");
       }
     } catch (e) {
       setError(e?.message || "로그인에 실패했습니다.");

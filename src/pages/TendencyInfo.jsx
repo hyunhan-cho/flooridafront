@@ -1,4 +1,3 @@
-// src/pages/TendencyInfo.jsx
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import BackButton from "../components/BackButton.jsx";
@@ -11,19 +10,11 @@ const PLANNING_OPTIONS = [
 ];
 
 const HOURS_OPTIONS = ["0-1", "1-3", "3-6", "6-10", "10시간 이상"];
-
 const PRIMARY_COLOR = "var(--brand-teal)";
 
 const styles = {
-  section: {
-    marginTop: 20,
-  },
-  title: {
-    fontSize: 14,
-    fontWeight: 600,
-    color: "#374151",
-    marginBottom: 8,
-  },
+  section: { marginTop: 20 },
+  title: { fontSize: 14, fontWeight: 600, color: "#374151", marginBottom: 8 },
   box: {
     display: "flex",
     flexDirection: "column",
@@ -33,10 +24,7 @@ const styles = {
     borderRadius: 8,
     boxShadow: "0 0 0 1px rgba(0,0,0,0.03) inset",
   },
-  boxRow: {
-    flexDirection: "row",
-    gap: 4,
-  },
+  boxRow: { flexDirection: "row", gap: 4 },
   chip: {
     flex: 1,
     padding: "10px 12px",
@@ -55,7 +43,6 @@ const styles = {
     border: "none",
     boxShadow: "0 4px 10px rgba(0,0,0,0.25)",
   },
-
   chipSquare: {
     aspectRatio: "1 / 1",
     display: "flex",
@@ -63,9 +50,7 @@ const styles = {
     justifyContent: "center",
     padding: 0,
   },
-  chipRowGap: {
-    marginLeft: 4,
-  },
+  chipRowGap: { marginLeft: 4 },
   skip: {
     marginTop: 24,
     marginBottom: 2,
@@ -75,15 +60,14 @@ const styles = {
     color: "#6b7280",
     textDecoration: "underline",
     cursor: "pointer",
-    display: "block", // 버튼을 블록으로
-    width: "100%", // 카드 안에서 가입 버튼이랑 같은 폭
+    display: "block",
+    width: "100%",
     textAlign: "center",
   },
 };
 
 export default function TendencyInfo() {
   const navigate = useNavigate();
-
   const [planningTendency, setPlanningTendency] = React.useState("");
   const [dailyStudyHours, setDailyStudyHours] = React.useState("");
   const [loading, setLoading] = React.useState(false);
@@ -92,9 +76,9 @@ export default function TendencyInfo() {
   const handleSubmit = async (skip = false) => {
     setError("");
 
-    // "나중에 하기" 버튼
+    // 나중에 하기 (건너뛰어도 첫 진입이므로 50코인 팝업 표시)
     if (skip) {
-      navigate("/home");
+      navigate("/home", { state: { isFirstLogin: true } });
       return;
     }
 
@@ -106,7 +90,8 @@ export default function TendencyInfo() {
     try {
       setLoading(true);
       await saveTendency({ planningTendency, dailyStudyHours });
-      navigate("/home");
+      // 설정 완료 후 첫 진입이므로 50코인 팝업 표시
+      navigate("/home", { state: { isFirstLogin: true } });
     } catch (e) {
       setError(e?.data?.message || e.message || "정보 저장에 실패했습니다.");
     } finally {
@@ -172,7 +157,7 @@ export default function TendencyInfo() {
                     type="button"
                     style={{
                       ...styles.chip,
-                      ...styles.chipSquare, // ⬅️ 시간 칩만 정사각형 적용
+                      ...styles.chipSquare,
                       ...(idx > 0 ? styles.chipRowGap : null),
                       ...(selected ? styles.chipSelected : null),
                     }}
@@ -186,18 +171,11 @@ export default function TendencyInfo() {
           </section>
 
           {error && (
-            <div
-              style={{
-                color: "#ef4444",
-                fontSize: 12,
-                marginTop: 8,
-              }}
-            >
+            <div style={{ color: "#ef4444", fontSize: 12, marginTop: 8 }}>
               {error}
             </div>
           )}
 
-          {/* 나중에 하기 */}
           <button
             type="button"
             className="tendency-skip"
@@ -207,7 +185,6 @@ export default function TendencyInfo() {
             나중에 하기
           </button>
 
-          {/* 가입 완료하기 */}
           <button
             className="login-button"
             type="button"
