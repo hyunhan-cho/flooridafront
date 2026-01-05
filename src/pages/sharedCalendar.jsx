@@ -1,4 +1,4 @@
-// pages/MyCalendar.jsx
+// pages/공유용캘린더.jsx
 import React, { useState, useEffect } from "react";
 import Navbar from "../components/Navbar.jsx";
 import PersonalHeader from "../components/PersonalHeader.jsx";
@@ -65,7 +65,7 @@ function buildFallbackSchedule({ goal, startDate, endDate }) {
   };
 }
 
-export default function MyCalendar() {
+export default function 공유용캘린더() {
   const [currentDate, setCurrentDate] = useState(() => new Date()); //
   const [showAiPlanForm, setShowAiPlanForm] = useState(false);
   const [aiPlanStep, setAiPlanStep] = useState("form"); // "form" | "loading" | "result"
@@ -167,11 +167,11 @@ export default function MyCalendar() {
     }
   };
 
-  // 컴포넌트 마운트 시 및 currentDate 변경 시 일정 불러오기
+  // 컴포넌트 마운트 시 일정 불러오기
   useEffect(() => {
     loadTasks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentDate]);
+  }, []);
 
   // AI 생성 일정을 메인 목록에 추가하는 핸들러
   const handleConfirmAiSchedule = async () => {

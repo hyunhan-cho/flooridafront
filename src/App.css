@@ -214,10 +214,19 @@
 .floor-scene {
   position: absolute;
   inset: 0;
-  transition: all 0.5s ease-in-out;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  overflow: hidden;
+  z-index: 1;
+}
+.floor-background-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: bottom center;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  image-rendering: pixelated;
+  -ms-interpolation-mode: nearest-neighbor;
 }
 .scene-label {
   position: absolute;
@@ -256,8 +265,8 @@
   left: 50%;
   transform: translateX(-50%);
   z-index: 15;
-  max-width: 60%;
-  max-height: 60%;
+  max-width: 50%;
+  max-height: 50%;
   object-fit: contain;
   pointer-events: none;
 }
@@ -1197,6 +1206,41 @@
   letter-spacing: 0.3px;
   font-family: var(--font-pixel-latin);
   font-variant-numeric: tabular-nums;
+}
+
+/* 층수 표시 - 이미지 사용 */
+.floor-indicator-box {
+  position: absolute;
+  left: 50%;
+  top: 16px;
+  transform: translateX(-50%);
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+.floor-indicator-bg {
+  width: auto;
+  height: clamp(70px, 14vw, 105px);
+  image-rendering: pixelated;
+  -ms-interpolation-mode: nearest-neighbor;
+  display: block;
+}
+.floor-indicator-number {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-weight: 900;
+  font-size: clamp(32px, 8vw, 48px);
+  font-family: var(--font-pixel-latin);
+  font-variant-numeric: tabular-nums;
+  color: #000;
+  line-height: 1;
+  image-rendering: pixelated;
+  -ms-interpolation-mode: nearest-neighbor;
+  white-space: nowrap;
 }
 
 /* 로그인 화면 */
