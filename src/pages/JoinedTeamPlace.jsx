@@ -1,10 +1,13 @@
-// src/pages/TeamPlace.jsx
+// src/pages/JoinedTeamPlace.jsx
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar.jsx";
 import TeamHeader from "../components/TeamHeader.jsx";
 import { getTeams } from "../services/api.js";
 
 export default function JoinedTeamPlace() {
+  const navigate = useNavigate();
+
   const [teams, setTeams] = useState([]); // [{ teamId, name, startDate, endDate }]
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -22,7 +25,6 @@ export default function JoinedTeamPlace() {
 
         if (!ignore) setTeams(list);
       } catch (err) {
-        // 로그인 안했거나 권한 없음 → Home.jsx처럼 조용히 처리
         if (err?.status === 403) {
           if (!ignore) setTeams([]);
           return;
@@ -94,15 +96,23 @@ export default function JoinedTeamPlace() {
         }
 
        .joined-teamplace .teamplace-teamcard{
-        height: 160px;                 
+        height: 160px;
         background: rgba(142, 142, 142, 0.08);
         border-radius: 14px;
         overflow: hidden;
         margin-bottom: 14px;
 
-        display: flex;              
+        display: flex;
         flex-direction: column;
-        }
+
+        cursor: pointer;
+        border: 0;
+        width: 100%;
+        text-align: left;
+       }
+       .joined-teamplace .teamplace-teamcard:active{
+        transform: translateY(1px);
+       }
 
         .joined-teamplace .teamplace-teamcard-top{
           padding: 10px 14px;
@@ -114,35 +124,19 @@ export default function JoinedTeamPlace() {
           color: #111;
         }
         .joined-teamplace .teamplace-period{
-         
           font-size: 10px;
           color: rgba(0,0,0,0.55);
         }
 
         .joined-teamplace .teamplace-teamcard-bottom{
-         flex: 0 0 40px;             
-         height: 1px;   
-         display:flex;
+          flex: 0 0 40px;
+          display:flex;
           align-items:center;
-          justify-content:space-between;  
-          padding: 1px 14px 14px;
-          
+          justify-content:flex-start;
+          padding: 8px 14px 14px;
         }
 
-        .joined-teamplace .teamplace-enter{
-          width:52px;
-          height:44px;
-          border-radius:12px;
-          border:0;
-          background: rgba(63,127,134,0.9);
-          color:#fff;
-          font-size:22px;
-          font-weight:900;
-          cursor:pointer;
-        }
-
-        .joined-teamplace .teamplace-btn:active,
-        .joined-teamplace .teamplace-enter:active{
+        .joined-teamplace .teamplace-btn:active{
           transform: translateY(1px);
         }
       `}</style>
@@ -171,7 +165,21 @@ export default function JoinedTeamPlace() {
               <p className="teamplace-empty">아직 입장한 팀이 없어요.</p>
             ) : (
               teams.map((team) => (
-                <article className="teamplace-teamcard" key={team.teamId}>
+                <article
+                  className="teamplace-teamcard"
+                  key={team.teamId}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => {
+                    // ✅ 여기서 teamId를 URL로 들고 넘어감
+                    navigate(`/teamplacehome/${team.teamId}`);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      navigate(`/teamplacehome/${team.teamId}`);
+                    }
+                  }}
+                >
                   <div className="teamplace-teamcard-top">
                     <div className="teamplace-teamname">{team.name}</div>
                   </div>

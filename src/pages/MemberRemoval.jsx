@@ -1,34 +1,90 @@
 // src/pages/MemberRemoval.jsx
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import TeamHeader from "../components/TeamHeader.jsx";
 import Navbar from "../components/Navbar.jsx";
+import { getTeamCharacters } from "../services/api.js";
 
 export default function MemberRemoval() {
   const navigate = useNavigate();
+  const { teamId } = useParams(); // ✅ URL에서 teamId 받기
 
-  // 아직 API 전이니까 더미 선택 상태만
-  const [selectedIds, setSelectedIds] = useState([]);
+  const [selectedIds, setSelectedIds] = useState([]); // userId들
+  const [members, setMembers] = useState([]); // [{ userId, username, equippedItems }]
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const toggle = (id) => {
+  // ✅ teamId 없이 들어오면 튕김
+  useEffect(() => {
+    if (!teamId) navigate("/joinedteamplace");
+  }, [teamId, navigate]);
+
+  // ✅ teamId 기반으로 유저 목록 로드
+  useEffect(() => {
+    let ignore = false;
+
+    const fetchMembers = async () => {
+      if (!teamId) return;
+
+      try {
+        setLoading(true);
+        setError("");
+
+        const data = await getTeamCharacters(teamId);
+        const list = Array.isArray(data) ? data : [];
+
+        // username 없는 케이스 방어(혹시 백에서 안 주면)
+        const normalized = list
+          .filter((x) => x && x.userId != null)
+          .map((x) => ({
+            userId: x.userId,
+            username: x.username ?? `user-${x.userId}`,
+            equippedItems: Array.isArray(x.equippedItems)
+              ? x.equippedItems
+              : [],
+          }));
+
+        if (!ignore) {
+          setMembers(normalized);
+          // 팀 바뀌면 선택 초기화(팀 A 선택했다가 팀 B로 넘어가는 경우 방지)
+          setSelectedIds([]);
+        }
+      } catch (err) {
+        if (!ignore) {
+          setError(err?.message ?? "팀원 목록을 불러오지 못했어요.");
+          setMembers([]);
+        }
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    };
+
+    fetchMembers();
+    return () => {
+      ignore = true;
+    };
+  }, [teamId]);
+
+  const toggle = (userId) => {
     setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+      prev.includes(userId)
+        ? prev.filter((x) => x !== userId)
+        : [...prev, userId]
     );
   };
 
+  const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+
   return (
     <div className="app home-view member-removal">
-      {/* ✅ 헤더/네브바는 RoomManagement랑 동일하게 */}
       <TeamHeader />
 
-      {/* ✅ 이 페이지 전용 CSS (전역 배경 건드리지 않음) */}
       <style>{`
         .member-removal .mr-wrap{
           width: var(--panel-width);
           max-width: 100%;
         }
 
-        /* 상단: 백버튼 + 타이틀 + 서브텍스트 (RoomManagement랑 동일 톤) */
         .member-removal .mr-top{
           margin-top: 10px;
           padding: 10px 2px 6px;
@@ -52,20 +108,7 @@ export default function MemberRemoval() {
           padding: 0;
           transform: translateY(-1px);
         }
-        .member-removal .mr-title{
-          font-size: 22px;
-          font-weight: 900;
-          letter-spacing: -0.2px;
-          margin: 0;
-        }
-        .member-removal .mr-sub{
-          margin: 0 0 12px 44px; 
-          font-size: 14px;
-          opacity: 0.9;
-          font-weight: 700;
-        }
 
-        /* 큰 흰 박스 (스크린샷의 둥근 카드) */
         .member-removal .mr-card{
           width: 92%;
           margin: 12px auto 0;
@@ -75,7 +118,6 @@ export default function MemberRemoval() {
           box-shadow: 0 14px 28px rgba(0,0,0,0.22);
         }
 
-        /* 카드 안 타이틀/설명 */
         .member-removal .mr-card-title{
           margin: 0 0 8px;
           font-size: 20px;
@@ -97,7 +139,6 @@ export default function MemberRemoval() {
           color: rgba(0,0,0,0.65);
         }
 
-        /* (다음 단계용) 리스트 영역 틀만 잡아둠 */
         .member-removal .mr-list{
           display: flex;
           flex-direction: column;
@@ -105,7 +146,6 @@ export default function MemberRemoval() {
           margin-top: 8px;
         }
 
-        /* (다음 단계용) 아이템 기본 스타일 */
         .member-removal .mr-item{
           border: 1px solid rgba(0,0,0,0.14);
           border-radius: 12px;
@@ -115,9 +155,9 @@ export default function MemberRemoval() {
           justify-content: space-between;
           cursor: pointer;
           background: #fff;
+          user-select: none;
         }
 
-        /* 선택된 상태 */
         .member-removal .mr-item.selected{
           background: rgba(47,111,109,0.12);
           border-color: rgba(47,111,109,0.85);
@@ -140,13 +180,26 @@ export default function MemberRemoval() {
           font-weight: 900;
           color: #fff;
           background: transparent;
+          flex: 0 0 22px;
         }
         .member-removal .mr-item.selected .mr-check{
           background: rgba(47,111,109,0.9);
           border-color: rgba(47,111,109,0.9);
         }
 
-        /* 하단 버튼 */
+        .member-removal .mr-hint{
+          margin-top: 8px;
+          font-size: 12px;
+          color: rgba(0,0,0,0.45);
+          font-weight: 700;
+        }
+        .member-removal .mr-error{
+          margin-top: 8px;
+          font-size: 12px;
+          color: rgba(220, 38, 38, 0.9);
+          font-weight: 900;
+        }
+
         .member-removal .mr-cta{
           margin-top: 18px;
           width: 100%;
@@ -170,7 +223,6 @@ export default function MemberRemoval() {
 
       <main className="page-content">
         <div className="mr-wrap">
-          {/* ✅ 상단 텍스트/백버튼: RoomManagement 구조 그대로 */}
           <section className="mr-top">
             <div className="mr-title-row">
               <button
@@ -184,45 +236,54 @@ export default function MemberRemoval() {
             </div>
           </section>
 
-          {/* ✅ 하얀 박스(카드) + 텍스트들 먼저 */}
           <section className="mr-card">
             <h3 className="mr-card-title">팀원 관리</h3>
             <p className="mr-card-desc">팀에서 팀원을 퇴출시킬 수 있습니다.</p>
 
             <p className="mr-label">팀원 선택 (최소 1명)</p>
 
-            {/* 더미 리스트(API 전이라서) — 원하면 바로 지워도 됨 */}
-            <div className="mr-list">
-              {[
-                { id: 1, name: "시은" },
-                { id: 2, name: "현한" },
-                { id: 3, name: "수진" },
-              ].map((m) => {
-                const selected = selectedIds.includes(m.id);
-                return (
-                  <div
-                    key={m.id}
-                    className={`mr-item ${selected ? "selected" : ""}`}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => toggle(m.id)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") toggle(m.id);
-                    }}
-                  >
-                    <div className="mr-name">{m.name}</div>
-                    <div className="mr-check">{selected ? "✓" : ""}</div>
-                  </div>
-                );
-              })}
-            </div>
+            {loading ? (
+              <div className="mr-hint">불러오는 중...</div>
+            ) : error ? (
+              <div className="mr-error">{error}</div>
+            ) : members.length === 0 ? (
+              <div className="mr-hint">표시할 팀원이 없어요.</div>
+            ) : (
+              <div className="mr-list">
+                {members.map((m) => {
+                  const selected = selectedSet.has(m.userId);
+                  return (
+                    <div
+                      key={m.userId}
+                      className={`mr-item ${selected ? "selected" : ""}`}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => toggle(m.userId)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ")
+                          toggle(m.userId);
+                      }}
+                    >
+                      <div className="mr-name">{m.username}</div>
+                      <div className="mr-check">{selected ? "✓" : ""}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             <button
               className="mr-cta"
               type="button"
-              disabled={selectedIds.length === 0}
+              disabled={selectedIds.length === 0 || loading || !!error}
               onClick={() => {
-                console.log("퇴출 대상:", selectedIds);
+                console.log(
+                  "퇴출 teamId:",
+                  teamId,
+                  "대상 userIds:",
+                  selectedIds
+                );
+                // TODO: DELETE /api/teams/{teamId}/members (or whatever backend spec)
               }}
             >
               퇴출시키기

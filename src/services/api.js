@@ -110,3 +110,14 @@ export async function updateFloorCompletion(
 export async function getTeams() {
   return await http.get("/api/teams");
 }
+//* ✅ 팀 멤버(유저명 포함) 조회
+// * GET /api/items/{teamId}/characters
+// * 응답 예시:
+// * [
+// *   { userId, username, equippedItems: [...] }
+// * ]
+// */
+export async function getTeamCharacters(teamId) {
+  if (teamId == null) throw new Error("teamId is required");
+  return await http.get(`/api/items/${teamId}/characters`);
+}

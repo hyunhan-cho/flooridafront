@@ -15,6 +15,7 @@ import TeamCalendar from "./pages/TeamCalendar.jsx";
 import TeamPlaceHome from "./pages/TeamPlaceHome.jsx";
 import RoomManagement from "./pages/RoomManagement.jsx";
 import MemberRemoval from "./pages/MemberRemoval.jsx";
+
 export default function App() {
   return (
     <Routes>
@@ -28,9 +29,11 @@ export default function App() {
       <Route path="/joinedteamplace" element={<JoinedTeamPlace />} />
       <Route path="/customize" element={<Customize />} />
       <Route path="/teamcalendar" element={<TeamCalendar />} />
-      <Route path="/teamplacehome" element={<TeamPlaceHome />} />
-      <Route path="/roommanagement" element={<RoomManagement />} />
-      <Route path="/memberremoval" element={<MemberRemoval />} />
+
+      {/* ✅ teamId를 URL로 들고 다니기 */}
+      <Route path="/teamplacehome/:teamId" element={<TeamPlaceHome />} />
+      <Route path="/roommanagement/:teamId" element={<RoomManagement />} />
+      <Route path="/memberremoval/:teamId" element={<MemberRemoval />} />
     </Routes>
   );
 }
