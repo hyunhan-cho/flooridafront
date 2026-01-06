@@ -90,6 +90,12 @@ export async function deleteSchedule(id) {
   return await http.del(`/api/schedules/${id}`);
 }
 
+// Floor 삭제 API
+// DELETE /api/floors/{id}
+export async function deleteFloor(id) {
+  return await http.del(`/api/floors/${id}`);
+}
+
 // Floor 완료 상태 업데이트 API (백엔드 엔드포인트 미구현으로 일단 더미 처리)
 // 현재 백엔드 스펙에는 PATCH /api/floors/{id} 가 없어 404가 발생하므로
 // 일단 프론트엔드에서만 상태를 유지하고, 서버 호출은 하지 않습니다.
@@ -104,6 +110,18 @@ export async function updateFloorCompletion(
     { floorId, completed, scheduleId }
   );
   return;
+}
+
+// Schedule 부분 수정 API
+// PATCH /api/schedules/{id}
+export async function updateSchedule(id, data) {
+  return await http.patch(`/api/schedules/${id}`, data);
+}
+
+// Floor 수정 API
+// PATCH /api/floors/{id}
+export async function updateFloor(id, data) {
+  return await http.patch(`/api/floors/${id}`, data);
 }
 
 // 팀플레이스 팀 목록 조회

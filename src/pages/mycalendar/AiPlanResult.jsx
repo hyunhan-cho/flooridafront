@@ -1,7 +1,6 @@
 // src/pages/mycalendar/AiPlanResult.jsx
 import React from "react";
 import "./AiPlanResult.css";
-import HomeMonthCalendar from "./HomeMonthCalendar.jsx";
 // config에서 공통 설정 가져오기
 import { API_BASE_URL, AUTH_TOKEN_KEY } from "../../config.js";
 
@@ -201,20 +200,75 @@ export default function AiPlanResult({
       <div className="aiField">
         <div className="aiFieldLabel">AI 계획 설명</div>
         <div className="aiDescBox">
-          {goalSummary || "선택한 기간 안에서 단계별 계획 일정을 생성했어요."}
+          {(() => {
+            if (!goalSummary) {
+              return "선택한 기간 안에서 단계별 계획 일정을 생성했어요.";
+            }
+            // "목표:" 다음 부분만 추출
+            const goalMatch = goalSummary.match(/목표:\s*([^|]+)/);
+            if (goalMatch && goalMatch[1]) {
+              return goalMatch[1].trim();
+            }
+            // "목표:" 형식이 없으면 전체 텍스트에서 첫 번째 부분만 사용
+            const parts = goalSummary.split('|');
+            if (parts.length > 0) {
+              const firstPart = parts[0].trim();
+              // "목표:" 제거
+              return firstPart.replace(/^목표:\s*/, '').trim() || goalSummary;
+            }
+            return goalSummary;
+          })()}
         </div>
       </div>
 
-      {/* 4. 캘린더 섹션 */}
+      {/* 4. 일정 간략히 보기 섹션 */}
       <div className="aiCalendarSection">
-        <div className="aiCalendarSectionTitle">캘린더로 한눈에 보기</div>
-        <div className="aiCalendarBox">
-          <HomeMonthCalendar
-            startDate={startDate}
-            endDate={endDate}
-            floors={floors}
-            accentColor={color}
-          />
+        <div className="aiCalendarSectionTitle">일정 간략히 보기</div>
+        <p style={{
+          fontSize: "14px",
+          color: "#6b7280",
+          marginTop: "8px",
+          marginBottom: "16px",
+          fontFamily: "var(--font-sans)",
+        }}>상위 5일 분량을 확인하세요</p>
+        <div className="aiScheduleList">
+          {floors && floors.length > 0 ? (
+            floors.slice(0, 5).map((floor, index) => {
+              const floorDate = floor.scheduledDate 
+                ? new Date(floor.scheduledDate)
+                : (() => {
+                    const date = new Date(startDate);
+                    date.setDate(date.getDate() + index);
+                    return date;
+                  })();
+              
+              const weekdays = ["일", "월", "화", "수", "목", "금", "토"];
+              const weekday = weekdays[floorDate.getDay()];
+              const month = floorDate.getMonth() + 1;
+              const day = floorDate.getDate();
+              
+              return (
+                <div key={floor.floorId || index} className="aiScheduleItem">
+                  <div className="aiScheduleDate">
+                    {month}/{day}({weekday})
+                  </div>
+                  <div className="aiScheduleDivider"></div>
+                  <div className="aiScheduleTask">
+                    {floor.title || `단계 ${index + 1}`}
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div style={{
+              padding: "20px",
+              textAlign: "center",
+              color: "#6b7280",
+              fontFamily: "var(--font-sans)",
+            }}>
+              계획 항목이 없습니다.
+            </div>
+          )}
         </div>
       </div>
 

@@ -195,7 +195,7 @@ export default function MonthProjects({ onProgressChange, onProjectCountChange }
   return (
     <section className="card card-month">
       <div className="month-header">
-        <h2 className="card-title month-title">이번 달의 프로젝트</h2>
+      <h2 className="card-title month-title">이번 달의 프로젝트</h2>
         <div className="month-toggle-wrapper">
           <button
             type="button"

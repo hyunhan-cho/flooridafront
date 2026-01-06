@@ -1,0 +1,142 @@
+/* src/pages/mycalendar/DirectAddForm.css */
+
+.directAddHeader {
+  margin-top: 20px;
+  margin-bottom: 24px;
+}
+
+.directAddTitle {
+  font-size: 18px;
+  font-weight: 900;
+  color: var(--brand-teal);
+  margin: 0 0 8px;
+  font-family: var(--font-pixel-kr);
+}
+
+.directAddSub {
+  font-size: 14px;
+  color: #64748b;
+  margin: 0;
+  font-family: var(--font-sans);
+}
+
+/* 공통 필드 컨테이너 */
+.directField {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.directFieldLabel {
+  font-size: 12px;
+  font-weight: 800;
+  color: #0f172a;
+  font-family: var(--font-sans);
+}
+
+/* 입력 박스 */
+.directFieldBox {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 10px 12px;
+  box-sizing: border-box;
+  min-height: auto;
+}
+
+/* 텍스트/입력 필드 스타일 공통 */
+.directFieldText,
+.directEditInput {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  border: none;
+  outline: none;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  font-family: var(--font-sans);
+}
+
+.directEditInput::placeholder {
+  color: #9ca3af;
+}
+
+.directDateText {
+  font-size: 11px;
+}
+
+/* 목표 기간 수정 모드 스타일 */
+.directDateFieldBox {
+  justify-content: flex-start;
+}
+
+.directDateInput {
+  border: none;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+  outline: none;
+  background: transparent;
+  flex: 0 0 auto;
+  font-family: var(--font-sans);
+}
+
+.directDateSeparator {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+  flex: 0 0 auto;
+  font-family: var(--font-sans);
+}
+
+/* 연필 아이콘 버튼 */
+.directIconBtn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: #0f172a;
+  padding: 0;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.directIconSvg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+/* 계획 생성하기 버튼 */
+.directPrimaryBtn {
+  width: 100%;
+  border: none;
+  border-radius: 12px;
+  background: var(--brand-teal);
+  color: white;
+  font-weight: 900;
+  padding: 14px;
+  cursor: pointer;
+  margin-top: auto;
+  font-size: 14px;
+  font-family: var(--font-pixel-kr);
+}
+
+.directPrimaryBtn:hover {
+  opacity: 0.9;
+}
+
+.directPrimaryBtn:active {
+  transform: scale(0.98);
+}
+
