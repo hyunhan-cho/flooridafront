@@ -67,7 +67,7 @@ export default function RoomManagement() {
             <button
               className="rm-card"
               type="button"
-              onClick={() => console.log("방 폭파")}
+              onClick={() => navigate(`/roomremoval/${teamId}`)}
             >
               <div className="rm-card-texts">
                 <h3 className="rm-card-title">방 폭파</h3>

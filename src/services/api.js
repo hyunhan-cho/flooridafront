@@ -159,13 +159,41 @@ export async function removeTeamMember(teamId, targetUserId) {
   return await http.del(`/api/teams/${teamId}/members/${targetUserId}`);
 }
 
-// services/api.js
-
-// services/api.js
-
 // 팀 나가기
 // DELETE /api/teams/{teamId}/leave
 export async function leaveTeam(teamId) {
   if (teamId == null) throw new Error("teamId is required");
   return await http.del(`/api/teams/${teamId}/leave`);
+}
+// 팀 폭파(방 폭파)
+// DELETE /api/teams/{teamId}
+// body: { password: "string" }
+export async function deleteTeam(teamId, password) {
+  if (teamId == null) throw new Error("teamId is required");
+  if (!password) throw new Error("password is required");
+
+  // http.del은 body를 못 받으니까 request 직접 호출
+  return await request(`/api/teams/${teamId}`, {
+    method: "DELETE",
+    body: { password },
+  });
+}
+// 팀 할 일 목록 조회
+// GET /api/teams/{teamId}/floors
+export async function getTeamFloors(teamId) {
+  if (teamId == null) throw new Error("teamId is required");
+  return await http.get(`/api/teams/${teamId}/floors`);
+}
+
+// 팀 할 일 완료
+// post /api/teams/floors/{teamfloorId}/complete
+export async function completeTeamFloor(teamFloorId) {
+  if (teamFloorId == null) throw new Error("teamFloorId is required");
+  return await http.post(`/api/teams/floors/${teamFloorId}/complete`, {});
+}
+// 팀 할 일 완료 취소
+//post /api/teams/floors/{teamfloorId}/cancel
+export async function cancelTeamFloor(teamFloorId) {
+  if (teamFloorId == null) throw new Error("teamFloorId is required");
+  return await http.post(`/api/teams/floors/${teamFloorId}/cancel`, {});
 }

@@ -113,12 +113,12 @@ export default function MemberRemoval() {
       <style>{`
         .member-removal .mr-wrap{ width: var(--panel-width); max-width: 100%; }
         .member-removal .mr-top{ margin-top: 10px; padding: 10px 2px 6px; color:#fff; }
-        .member-removal .mr-back{ width:34px; height:34px; border:0; background:transparent; color:#fff; font-size:34px; cursor:pointer; }
+        .member-removal .mr-back{ width:34px; height:34px; border:0; background:transparent; color:#fff; font-size:34px; cursor:pointer; padding:0; line-height:1; }
         .member-removal .mr-card{
           width:92%; margin:12px auto 0; background:#fff; border-radius:28px;
-          padding:22px 22px 26px; box-shadow:0 14px 28px rgba(0,0,0,.22);
+          padding:28px 26px 24px; box-shadow:0 14px 28px rgba(0,0,0,.22);
         }
-        .member-removal .mr-card-title{ margin:0 0 8px; font-size:20px; font-weight:900; color:#2f6f6d; }
+        .member-removal .mr-card-title{ margin:0 0 8px; font-size:20px; font-weight:900; color: #2f6f6d; }
         .member-removal .mr-card-desc{ margin:0 0 18px; font-size:14px; font-weight:700; color:rgba(0,0,0,.6); }
         .member-removal .mr-list{ display:flex; flex-direction:column; gap:10px; margin-top:8px; }
         .member-removal .mr-item{
@@ -141,8 +141,14 @@ export default function MemberRemoval() {
         .member-removal .mr-cta:disabled{ opacity:.5; cursor:not-allowed; }
         .member-removal .mr-error{ margin-top:8px; font-size:12px; color:rgba(220,38,38,.9); font-weight:900; }
         .member-removal .mr-card,
-.member-removal .mr-card *{
-  color: #111;
+
+        .member-removal .mr-card { color: #111; }
+.member-removal .mr-card * { color: inherit; }
+
+.member-removal .mr-card-title { color: #2f6f6d; } /* 제목만 다시 컬러 */
+.member-removal .mr-error { color: rgba(220,38,38,.9); } /* 에러는 빨강 유지 */
+
+
 }
 
       `}</style>
