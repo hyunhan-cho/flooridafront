@@ -121,3 +121,33 @@ export async function getTeamCharacters(teamId) {
   if (teamId == null) throw new Error("teamId is required");
   return await http.get(`/api/items/${teamId}/characters`);
 }
+// 팀 단건 조회 (myRole 확인용)
+export async function getTeam(teamId) {
+  if (teamId == null) throw new Error("teamId is required");
+  return await http.get(`/api/teams/${teamId}`);
+}
+
+// 팀 멤버 목록 조회
+// GET /api/teams/{teamId}/members
+export async function getTeamMembers(teamId) {
+  if (teamId == null) throw new Error("teamId is required");
+  return await http.get(`/api/teams/${teamId}/members`);
+}
+// 팀 멤버 퇴출
+// DELETE /api/teams/{teamId}/members/{targetUserId}
+export async function removeTeamMember(teamId, targetUserId) {
+  if (teamId == null) throw new Error("teamId is required");
+  if (targetUserId == null) throw new Error("targetUserId is required");
+  return await http.del(`/api/teams/${teamId}/members/${targetUserId}`);
+}
+
+// services/api.js
+
+// services/api.js
+
+// 팀 나가기
+// DELETE /api/teams/{teamId}/leave
+export async function leaveTeam(teamId) {
+  if (teamId == null) throw new Error("teamId is required");
+  return await http.del(`/api/teams/${teamId}/leave`);
+}
