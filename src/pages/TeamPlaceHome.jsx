@@ -1,11 +1,11 @@
 // src/pages/TeamPlaceHome.jsx
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import ElevatorDoor from "../components/ElevatorDoor.jsx";
 import QuestList from "../components/QuestList.jsx";
 import BackButton from "../components/BackButton.jsx";
 import Navbar from "../components/Navbar.jsx";
-import { floors } from "../constants/floors.js"; // ✅ 층 clamp용
+
 import {
   getMyCharacter,
   getTeam,
@@ -42,9 +42,6 @@ function formatDdayLabel(diff) {
 
 const elevatorInsideImg = "/images/frame.png";
 
-// ✅ localStorage key (팀별 저장)
-const floorKey = (teamId) => `teamplace:${teamId}:currentFloor`;
-
 export default function TeamPlaceHome() {
   const navigate = useNavigate();
   const { teamId: teamIdParam } = useParams();
@@ -52,7 +49,11 @@ export default function TeamPlaceHome() {
 
   const [isOpen, setIsOpen] = useState(true);
   const [isMoving, setIsMoving] = useState(false);
+
+  // ✅ 화면에 표시되는 층수 = 서버 teamLevel (SSOT)
   const [currentFloor, setCurrentFloor] = useState(1);
+  const [teamLevel, setTeamLevel] = useState(1);
+
   const [characterImageUrl, setCharacterImageUrl] = useState(null);
 
   // ✅ 오늘의 진행도(=팀 할일 진행도로 쓰기)
@@ -71,7 +72,7 @@ export default function TeamPlaceHome() {
   const [checkedMap, setCheckedMap] = useState({});
   const [savingMap, setSavingMap] = useState({});
 
-  const roomCode = "23572633";
+  const [joinCode, setJoinCode] = useState("");
 
   // ✅ myRole
   const [myRole, setMyRole] = useState(null);
@@ -93,28 +94,46 @@ export default function TeamPlaceHome() {
     }, 3500);
   };
 
-  // ✅ 층수 clamp + state/localStorage 동기화
-  const applyTeamLevel = (teamLevel) => {
-    const raw = Number(teamLevel);
+  // ✅ state 타이밍 꼬임 방지용 ref
+  const currentFloorRef = useRef(1);
+  const lastAppliedLevelRef = useRef(null);
+  const didInitFromServerRef = useRef(false);
+
+  useEffect(() => {
+    currentFloorRef.current = currentFloor;
+  }, [currentFloor]);
+
+  // ✅ 서버 teamLevel 적용
+  // - 첫 진입/새로고침: 애니메이션 없이 currentFloor만 세팅
+  // - 완료/취소 액션으로 변할 때: 애니메이션 허용
+  const applyTeamLevel = (nextLevel, { animate = true } = {}) => {
+    const raw = Number(nextLevel);
     if (!Number.isFinite(raw) || raw < 1) return;
 
-    const maxFloor = Object.keys(floors).length || 1;
-    const next = Math.max(1, Math.min(raw, maxFloor));
+    // 같은 레벨이면 아무것도 안 함 (새로고침 액션 방지)
+    if (lastAppliedLevelRef.current === raw) return;
+    lastAppliedLevelRef.current = raw;
 
-    localStorage.setItem(floorKey(teamId), String(next));
-    if (next !== currentFloor) goToFloor(next);
-    else setCurrentFloor(next);
+    setTeamLevel(raw);
+
+    const now = currentFloorRef.current;
+
+    const first = !didInitFromServerRef.current;
+    if (first) didInitFromServerRef.current = true;
+
+    if (raw !== now) {
+      // 첫 로딩은 무조건 애니메이션 X
+      if (first || !animate) setCurrentFloor(raw);
+      else goToFloor(raw);
+    }
   };
 
-  // ✅ 초기 층수 localStorage에서 로드 (getTeam에 teamLevel 없으니까 fallback)
+  // ✅ teamId 바뀌면 refs 초기화 + 일단 1층 표시
   useEffect(() => {
-    if (!Number.isFinite(teamId)) return;
-
-    const saved = Number(localStorage.getItem(floorKey(teamId)));
-    const n = Number.isFinite(saved) && saved >= 1 ? saved : 1;
-
-    setCurrentFloor(n);
-    localStorage.setItem(floorKey(teamId), String(n));
+    didInitFromServerRef.current = false;
+    lastAppliedLevelRef.current = null;
+    setTeamLevel(1);
+    setCurrentFloor(1);
   }, [teamId]);
 
   // ✅ teamId로 팀 정보 로드 (myRole)
@@ -127,9 +146,8 @@ export default function TeamPlaceHome() {
         const team = await getTeam(teamId);
         setMyRole(team?.myRole ?? null);
 
-        // ⚠️ teamLevel이 아직 없으니 여기선 적용 안 함.
-        // 나중에 team.teamLevel 들어오면:
-        // if (team?.teamLevel) applyTeamLevel(team.teamLevel);
+        // ✅ /api/teams 응답: { teamId, joinCode }
+        setJoinCode(team?.joinCode ?? "");
       } catch (e) {
         if (e?.status === 401) return navigate("/login", { replace: true });
         navigate("/home", { replace: true });
@@ -138,7 +156,7 @@ export default function TeamPlaceHome() {
     loadTeam();
   }, [teamId, navigate]);
 
-  // ✅ 팀 할 일 목록 로드
+  // ✅ 팀 할 일 목록 + teamLevel 로드 (새 스펙 대응: { teamLevel, floors })
   useEffect(() => {
     let ignore = false;
 
@@ -151,7 +169,26 @@ export default function TeamPlaceHome() {
         setFloorsError("");
 
         const data = await getTeamFloors(teamId);
-        const list = Array.isArray(data) ? data : [];
+
+        // ✅ 새 스펙 파싱
+        const nextTeamLevel =
+          data && typeof data === "object" && !Array.isArray(data)
+            ? data.teamLevel
+            : null;
+
+        const list =
+          data &&
+          typeof data === "object" &&
+          !Array.isArray(data) &&
+          Array.isArray(data.floors)
+            ? data.floors
+            : Array.isArray(data)
+            ? data
+            : [];
+
+        // ✅ 첫 진입/새로고침에서는 애니메이션 없이 층만 맞춤
+        if (nextTeamLevel != null)
+          applyTeamLevel(nextTeamLevel, { animate: false });
 
         if (!ignore) setTeamFloors(list);
       } catch (e) {
@@ -259,16 +296,14 @@ export default function TeamPlaceHome() {
     try {
       let res;
       if (nextChecked) {
-        // ✅ 응답: { alreadyCompleted, levelUp, teamLevel }
         res = await completeTeamFloor(teamFloorId);
       } else {
-        // ✅ (언니 말대로) cancel도 teamLevel 준다면 여기서도 반영 가능
         res = await cancelTeamFloor(teamFloorId);
       }
 
-      // ✅ 팀 레벨 반영 (서버가 최신 teamLevel 주는 경우)
+      // ✅ 완료/취소에서는 애니메이션 허용
       if (res?.teamLevel != null) {
-        applyTeamLevel(res.teamLevel);
+        applyTeamLevel(res.teamLevel, { animate: true });
       }
 
       // ✅ teamFloors completed 동기화(팀 단위)
@@ -356,33 +391,69 @@ export default function TeamPlaceHome() {
           padding: 6px 2px;
         }
 
-        .everyone-row{
-          display: grid;
-          grid-template-columns: 44px 1fr;
-          align-items: start;
-          gap: 10px;
-        }
+       .everyone-row {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  align-items: center;
+  gap: 12px;
+}
 
-        .member-name {
-          font-size: 14px;
-          font-weight: 800;
-          color: #222;
-          margin-bottom: 6px;
-        }
+/* 왼쪽: 캐릭터 + 이름(아래) */
+.member-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+}
 
-        .task-box {
-          height: 70px;
-          border-radius: 14px;
-          background: #fff;
-          border: 1px solid rgba(0, 0, 0, 0.12);
-          padding: 10px 12px;
-          display: grid;
-          grid-template-columns: 64px 1fr 34px;
-          column-gap: 10px;
-          align-items: center;
-          width: 100%;
-          box-sizing: border-box;
-        }
+.member-name {
+  margin-top: 6px;
+  font-size: 9px;
+  font-weight: 800;
+  color: #222;
+  line-height: 1;
+}
+
+/* 오른쪽: D-day(위) + 할일(아래) + 체크박스(오른쪽) */
+.task-box {
+  height: 70px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  padding: 10px 12px;
+
+  display: grid;
+  grid-template-columns: 1fr 34px;
+  align-items: center;
+  column-gap: 10px;
+
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.task-left {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0; /* 긴 글자 줄바꿈/말줄임 안정 */
+}
+
+.task-meta {
+  font-size: 14px;
+  font-weight: 900;
+  color: rgba(0, 0, 0, 0.45);
+}
+
+.task-title {
+  font-size: 16px;
+  font-weight: 900;
+  color: #111;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 
         /* ✅ D+1부터 빨간 처리 */
         .task-box--overdue{
@@ -509,7 +580,8 @@ export default function TeamPlaceHome() {
               alt="층수 표시판"
               className="floor-indicator-bg"
             />
-            <span className="floor-indicator-number">{currentFloor}</span>
+            {/* ✅ 보여주는 값 = 서버 teamLevel */}
+            <span className="floor-indicator-number">{teamLevel}</span>
           </div>
 
           <div className="floor-scene">
@@ -573,16 +645,21 @@ export default function TeamPlaceHome() {
 
               return (
                 <div className="everyone-row" key={r.rowKey}>
-                  <div className="avatar-placeholder" aria-hidden="true" />
-
-                  <div>
+                  {/* 왼쪽: 캐릭터 + 이름(아래) */}
+                  <div className="member-col">
+                    <div className="avatar-placeholder" aria-hidden="true" />
                     <div className="member-name">{r.username}</div>
+                  </div>
 
-                    <div
-                      className={`task-box ${
-                        isOverdue ? "task-box--overdue" : ""
-                      }`}
-                    >
+                  {/* 오른쪽: 테스크 박스 */}
+                  <div
+                    className={`task-box ${
+                      isOverdue ? "task-box--overdue" : ""
+                    }`}
+                    role="group"
+                    aria-label="팀 할 일"
+                  >
+                    <div className="task-left">
                       <div
                         className={`task-meta ${
                           isOverdue ? "task-meta--overdue" : ""
@@ -590,24 +667,23 @@ export default function TeamPlaceHome() {
                       >
                         {metaText}
                       </div>
-
                       <div className="task-title">{r.title}</div>
-
-                      <label
-                        className="checkbox-wrap"
-                        style={{
-                          opacity: busy ? 0.55 : 1,
-                          pointerEvents: busy ? "none" : "auto",
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={!!checkedMap[r.rowKey]}
-                          onChange={() => onToggleTask(r)}
-                        />
-                        <span className="checkbox-ui" />
-                      </label>
                     </div>
+
+                    <label
+                      className="checkbox-wrap"
+                      style={{
+                        opacity: busy ? 0.55 : 1,
+                        pointerEvents: busy ? "none" : "auto",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={!!checkedMap[r.rowKey]}
+                        onChange={() => onToggleTask(r)}
+                      />
+                      <span className="checkbox-ui" />
+                    </label>
                   </div>
                 </div>
               );
@@ -637,7 +713,7 @@ export default function TeamPlaceHome() {
 
       <div className="room-code">
         <div className="room-code-label">방 입장코드</div>
-        <div className="room-code-value">{roomCode}</div>
+        <div className="room-code-value">{joinCode || "-"}</div>
       </div>
 
       <Navbar onNavigate={(key) => key === "home" && navigate("/home")} />

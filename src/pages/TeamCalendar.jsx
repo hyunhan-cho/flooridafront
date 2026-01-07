@@ -1,49 +1,64 @@
 // src/pages/TeamCalendar.jsx
 import React, { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom"; // ✅ 추가
+import { useNavigate, useParams } from "react-router-dom";
 import Navbar from "../components/Navbar.jsx";
 import TeamHeader from "../components/TeamHeader.jsx";
 import DirectAddForm from "./mycalendar/DirectAddForm.jsx";
 import CalendarView from "../components/CalendarView.jsx";
-import { API_BASE_URL, AUTH_TOKEN_KEY } from "../config.js";
 import editIcon from "../assets/img/Vector.png";
+import { AUTH_TOKEN_KEY } from "../config.js";
 import {
   getSchedules,
   getSchedule,
-  getFloorsStatusByDate,
   deleteSchedule,
-  updateFloorCompletion,
   updateFloor,
   deleteFloor,
+  getTeam,
 } from "../services/api.js";
 
 export default function TeamCalendar() {
-  const navigate = useNavigate(); // ✅ 추가
-  const { teamId: teamIdParam } = useParams(); // ✅ 추가
-  const teamId = Number(teamIdParam); // ✅ 추가
+  const navigate = useNavigate();
+  const { teamId: teamIdParam } = useParams();
+  const teamId = Number(teamIdParam);
 
-  const [currentDate, setCurrentDate] = useState(() => new Date()); //
-  const [showAiPlanForm, setShowAiPlanForm] = useState(false);
-  const [aiPlanStep, setAiPlanStep] = useState("form"); // "form" | "loading" | "result"
-  const [schedule, setSchedule] = useState(null);
+  // ✅ role
+  const [myRole, setMyRole] = useState(null);
+  const isOwner = (myRole ?? "").toLowerCase() === "owner";
+
+  const [currentDate, setCurrentDate] = useState(() => new Date());
   const [showDirectAddForm, setShowDirectAddForm] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(null); // 선택된 날짜
-  const [selectedTask, setSelectedTask] = useState(null); // 선택된 작업
-  const [editingTask, setEditingTask] = useState(null); // 수정 중인 작업
-  const [editingFloor, setEditingFloor] = useState(null); // 편집 중인 floor (id)
-  const [editingFloorText, setEditingFloorText] = useState(""); // 편집 중인 floor의 텍스트
 
-  // 2. tasks를 상태(State)로 선언해야 화면이 업데이트됩니다.
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [editingTask, setEditingTask] = useState(null);
+  const [editingFloor, setEditingFloor] = useState(null);
+  const [editingFloorText, setEditingFloorText] = useState("");
+
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 선택된 날짜의 할 일 불러오기 (모든 floors를 가져온 후 날짜에 맞는 것만 필터링)
-  const loadTasksForDate = async (date) => {
-    // 항상 loadTasks를 사용해서 모든 floors를 가져옴
-    await loadTasks();
-  };
+  // ✅ owner 여부 로드
+  useEffect(() => {
+    const loadRole = async () => {
+      const token = localStorage.getItem(AUTH_TOKEN_KEY);
+      if (!token || !Number.isFinite(teamId)) {
+        setMyRole(null);
+        return;
+      }
 
-  // API에서 일정 목록 불러오기
+      try {
+        const team = await getTeam(teamId);
+        setMyRole(team?.myRole ?? null);
+      } catch (e) {
+        if (e?.status === 401) return navigate("/login", { replace: true });
+        setMyRole(null); // 못 불러오면 버튼 숨김
+      }
+    };
+
+    loadRole();
+  }, [teamId, navigate]);
+
+  // ✅ 일정 목록 불러오기
   const loadTasks = async (targetDate = null) => {
     const dateToUse = targetDate || new Date();
     const year = dateToUse.getFullYear();
@@ -63,12 +78,10 @@ export default function TeamCalendar() {
       console.log("API 응답 데이터:", data);
 
       if (Array.isArray(data) && data.length > 0) {
-        // 각 일정의 floors를 가져오기 위해 getSchedule API 호출
         const convertedTasks = await Promise.all(
           data.map(async (schedule) => {
             let floors = schedule.floors || [];
 
-            // floors가 없거나 비어있으면 getSchedule로 상세 정보 가져오기
             if (!floors || floors.length === 0) {
               try {
                 const detail = await getSchedule(schedule.scheduleId);
@@ -88,13 +101,12 @@ export default function TeamCalendar() {
 
             const subtasks = floors.map((floor, index) => ({
               id: floor.floorId || `sub-${schedule.scheduleId}-${index}`,
-              floorId: floor.floorId, // API 호출을 위해 floorId 저장
-              scheduleId: schedule.scheduleId, // API 호출을 위해 scheduleId 저장
+              floorId: floor.floorId,
+              scheduleId: schedule.scheduleId,
               text: floor.title || `단계 ${index + 1}`,
-              done: floor.completed || false,
+              done: !!floor.completed,
             }));
 
-            // 완료된 subtask 개수 계산
             const doneCount = subtasks.filter((s) => s.done).length;
 
             return {
@@ -112,7 +124,6 @@ export default function TeamCalendar() {
         console.log("변환된 tasks:", convertedTasks);
         setTasks(convertedTasks);
       } else {
-        // 데이터가 없으면 빈 배열
         setTasks([]);
       }
     } catch (error) {
@@ -123,13 +134,16 @@ export default function TeamCalendar() {
     }
   };
 
-  // 컴포넌트 마운트 시 및 currentDate 변경 시 일정 불러오기
   useEffect(() => {
     loadTasks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentDate]);
 
-  // 일정 삭제 핸들러
+  const loadTasksForDate = async () => {
+    await loadTasks();
+  };
+
+  // ✅ 일정 삭제
   const handleDeleteSchedule = async (scheduleId) => {
     if (
       !window.confirm(
@@ -143,24 +157,20 @@ export default function TeamCalendar() {
       await deleteSchedule(scheduleId);
       alert("일정이 삭제되었습니다.");
 
-      // 일정 목록 다시 불러오기
-      if (selectedDate) {
-        await loadTasksForDate(selectedDate);
-      } else {
-        await loadTasks();
-      }
+      if (selectedDate) await loadTasksForDate(selectedDate);
+      else await loadTasks();
     } catch (error) {
       console.error("일정 삭제 실패:", error);
       alert("일정 삭제에 실패했습니다. 다시 시도해주세요.");
     }
   };
 
-  // 직접 추가하기 폼 화면
+  // ✅ 직접 추가하기 폼
   if (showDirectAddForm) {
     return (
       <DirectAddForm
         onBack={() => setShowDirectAddForm(false)}
-        onSuccess={async (data) => {
+        onSuccess={async () => {
           setShowDirectAddForm(false);
           await loadTasks();
         }}
@@ -168,7 +178,6 @@ export default function TeamCalendar() {
     );
   }
 
-  // 메인 캘린더 화면
   return (
     <div className="app home-view">
       <TeamHeader />
@@ -188,7 +197,6 @@ export default function TeamCalendar() {
           paddingTop: "0",
         }}
       >
-        {/* 달력과 작업 목록 컨테이너 */}
         <CalendarView
           tasks={tasks}
           loading={loading}
@@ -208,9 +216,7 @@ export default function TeamCalendar() {
           onEditingFloorChange={setEditingFloor}
           editingFloorText={editingFloorText}
           onEditingFloorTextChange={setEditingFloorText}
-          onTaskUpdate={async (updatedTasks) => {
-            setTasks(updatedTasks);
-          }}
+          onTaskUpdate={async (updatedTasks) => setTasks(updatedTasks)}
           onFloorDelete={async (floorId) => {
             await deleteFloor(floorId);
             await loadTasks();
@@ -220,48 +226,51 @@ export default function TeamCalendar() {
             await loadTasks();
           }}
           editIcon={editIcon}
+          // (CalendarView 안에서 쓰고 있으면) 삭제 핸들러도 내려줘
+          onDeleteSchedule={handleDeleteSchedule}
         />
 
-        {/* 액션 버튼 */}
-        <div
-          style={{
-            display: "flex",
-            gap: "12px",
-            width: "100%",
-            maxWidth: "var(--panel-width)",
-            position: "relative",
-            marginTop: "20px",
-            marginBottom: "20px",
-            marginLeft: "16px",
-            marginRight: "16px",
-            padding: "0",
-          }}
-        >
-          <button
-            onClick={() => {
-              // ✅ SpecificTeamPlans로 이동 (teamId 유지)
-              if (!Number.isFinite(teamId)) {
-                alert("teamId가 없어서 이동할 수 없어요. 라우트 확인 필요!");
-                return;
-              }
-              navigate(`/specificteamplans/${teamId}/`);
-            }}
+        {/* ✅ owner만 보이게 */}
+        {isOwner && (
+          <div
             style={{
-              flex: 1,
-              background: "var(--brand-teal)",
-              color: "#fff",
-              border: "none",
-              borderRadius: "12px",
-              padding: "14px",
-              fontSize: "14px",
-              fontWeight: 800,
-              cursor: "pointer",
-              fontFamily: "var(--font-pixel-kr)",
+              display: "flex",
+              gap: "12px",
+              width: "100%",
+              maxWidth: "var(--panel-width)",
+              position: "relative",
+              marginTop: "20px",
+              marginBottom: "20px",
+              marginLeft: "16px",
+              marginRight: "16px",
+              padding: "0",
             }}
           >
-            세부 계획 생성하기
-          </button>
-        </div>
+            <button
+              onClick={() => {
+                if (!Number.isFinite(teamId)) {
+                  alert("teamId가 없어서 이동할 수 없어요. 라우트 확인 필요!");
+                  return;
+                }
+                navigate(`/specificteamplans/${teamId}/`);
+              }}
+              style={{
+                flex: 1,
+                background: "var(--brand-teal)",
+                color: "#fff",
+                border: "none",
+                borderRadius: "12px",
+                padding: "14px",
+                fontSize: "14px",
+                fontWeight: 800,
+                cursor: "pointer",
+                fontFamily: "var(--font-pixel-kr)",
+              }}
+            >
+              세부 계획 생성하기
+            </button>
+          </div>
+        )}
       </main>
 
       <Navbar />

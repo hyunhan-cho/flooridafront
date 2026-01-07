@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import TeamHeader from "../components/TeamHeader.jsx";
 import Navbar from "../components/Navbar.jsx";
-import BackButton from "../components/BackButton.jsx";
+
 import { API_BASE_URL, AUTH_TOKEN_KEY } from "../config.js";
 import { getTeamMembers } from "../services/api.js";
 
@@ -142,7 +142,14 @@ export default function SpecificTeamPlans({ onBack, onSuccess }) {
   const removeSelected = (userId) => {
     setSelectedUserIds((prev) => prev.filter((id) => id !== userId));
   };
-
+  const handleBack = (e) => {
+    if (onBack) {
+      onBack(e);
+      return;
+    }
+    if (window.history.length > 1) navigate(-1);
+    else navigate(`/teamcalendar/${teamId}`);
+  };
   const handleCreate = async () => {
     if (!title.trim()) return alert("세부 계획을 입력해주세요.");
     if (!dueDate) return alert("마감일을 선택해주세요.");
@@ -573,6 +580,23 @@ export default function SpecificTeamPlans({ onBack, onSuccess }) {
   opacity: .45;
   cursor: not-allowed;
 }
+  /* BackButton이 absolute/fixed로 박혀있을 때만 강제 정상화 */
+.stp-backWrap { margin-bottom: 10px;
+ }
+
+/* BackButton 내부에 어떤 태그가 와도 position 강제로 풀어버림 */
+.stp-backWrap *{
+  position: static !important;
+  top: auto !important;
+  left: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+}
+.stp-backWrap .back-btn{
+  margin-left: -10px;   /* 왼쪽으로 당김 (원하는 만큼 숫자 조절) */
+  margin-top: -8px;    /* 위로 올림 */
+}
+
 
       `}</style>
 
@@ -580,15 +604,41 @@ export default function SpecificTeamPlans({ onBack, onSuccess }) {
 
       <main className="page-content stp-page">
         <div className="card stp-card">
-          <BackButton
-            onClick={onBack || (() => navigate(`/teamcalendar/${teamId}`))}
-          />
-
           <div className="stp-header">
-            <h2 className="stp-title">세부 계획을 정해주세요.</h2>
-            <p className="stp-sub">
-              팀원을 골라 배정할 세부 계획을 만들어보세요.
-            </p>
+            <div className="stp-backWrap">
+              <button
+                className="back-btn"
+                aria-label="뒤로"
+                onClick={handleBack}
+              >
+                <svg
+                  width="28"
+                  height="28"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M15 18L9 12L15 6"
+                    stroke="#000000"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M20 12H9"
+                    stroke="#000000"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </button>
+
+              <h2 className="stp-title">세부 계획을 정해주세요.</h2>
+              <p className="stp-sub">
+                팀원을 골라 배정할 세부 계획을 만들어보세요.
+              </p>
+            </div>
           </div>
 
           {/* 세부 계획 */}
