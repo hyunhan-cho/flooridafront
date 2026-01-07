@@ -5,7 +5,7 @@ import ElevatorDoor from "../components/ElevatorDoor.jsx";
 import QuestList from "../components/QuestList.jsx";
 import BackButton from "../components/BackButton.jsx";
 import Navbar from "../components/Navbar.jsx";
-import { floors } from "../constants/floors.js"; // ✅ 홈처럼 층 이동에 사용
+import { floors } from "../constants/floors.js"; // ✅ 층 clamp용
 import {
   getMyCharacter,
   getTeam,
@@ -42,32 +42,8 @@ function formatDdayLabel(diff) {
 
 const elevatorInsideImg = "/images/frame.png";
 
-// ✅ localStorage keys (팀별로 저장)
+// ✅ localStorage key (팀별 저장)
 const floorKey = (teamId) => `teamplace:${teamId}:currentFloor`;
-const clearedSetKey = (teamId) => `teamplace:${teamId}:clearedSetKey`;
-
-/**
- * ✅ "현재 목록(세트)"를 대표하는 키
- * - teamFloorId, title, dueDate, assigneeUserIds를 섞어서 만들면
- *   '목록이 바뀌면 키도 바뀜'
- * - 완벽한 보장은 아니지만, 백에서 setId가 나오기 전 임시로 쓰기에 충분함
- */
-function buildSetKey(teamFloors) {
-  const list = Array.isArray(teamFloors) ? teamFloors : [];
-
-  const normalized = list
-    .map((f) => ({
-      id: f?.teamFloorId ?? null,
-      title: f?.title ?? "",
-      dueDate: f?.dueDate ?? "",
-      assigneeUserIds: Array.isArray(f?.assigneeUserIds)
-        ? [...f.assigneeUserIds].sort((a, b) => a - b)
-        : [],
-    }))
-    .sort((a, b) => (a.id ?? 0) - (b.id ?? 0));
-
-  return JSON.stringify(normalized);
-}
 
 export default function TeamPlaceHome() {
   const navigate = useNavigate();
@@ -76,8 +52,7 @@ export default function TeamPlaceHome() {
 
   const [isOpen, setIsOpen] = useState(true);
   const [isMoving, setIsMoving] = useState(false);
-  const [currentFloor, setCurrentFloor] = useState(1); // ✅ 층수 표시판에 보여줄 값
-  const [direction, setDirection] = useState("up");
+  const [currentFloor, setCurrentFloor] = useState(1);
   const [characterImageUrl, setCharacterImageUrl] = useState(null);
 
   // ✅ 오늘의 진행도(=팀 할일 진행도로 쓰기)
@@ -92,9 +67,9 @@ export default function TeamPlaceHome() {
   const [floorsLoading, setFloorsLoading] = useState(true);
   const [floorsError, setFloorsError] = useState("");
 
-  // ✅ 체크박스 상태 (rowKey 기반) — "팀 완료"라서 결국 floor.completed를 따라감
+  // ✅ 체크박스 상태 (rowKey 기반)
   const [checkedMap, setCheckedMap] = useState({});
-  const [savingMap, setSavingMap] = useState({}); // rowKey별 저장중(연타 방지)
+  const [savingMap, setSavingMap] = useState({});
 
   const roomCode = "23572633";
 
@@ -106,10 +81,9 @@ export default function TeamPlaceHome() {
   const [leaving, setLeaving] = useState(false);
   const [leaveOpen, setLeaveOpen] = useState(false);
 
-  // ✅ 홈.jsx랑 같은 이동 함수 (엘리베이터 애니메이션)
+  // ✅ 홈.jsx랑 같은 이동 함수(엘리베이터 애니메이션)
   const goToFloor = (targetFloor) => {
     if (isMoving || !isOpen || currentFloor === targetFloor) return;
-    setDirection(targetFloor > currentFloor ? "up" : "down");
     setIsOpen(false);
     setTimeout(() => setIsMoving(true), 1500);
     setTimeout(() => {
@@ -119,18 +93,28 @@ export default function TeamPlaceHome() {
     }, 3500);
   };
 
-  // ✅ 초기 층수 localStorage에서 로드
+  // ✅ 층수 clamp + state/localStorage 동기화
+  const applyTeamLevel = (teamLevel) => {
+    const raw = Number(teamLevel);
+    if (!Number.isFinite(raw) || raw < 1) return;
+
+    const maxFloor = Object.keys(floors).length || 1;
+    const next = Math.max(1, Math.min(raw, maxFloor));
+
+    localStorage.setItem(floorKey(teamId), String(next));
+    if (next !== currentFloor) goToFloor(next);
+    else setCurrentFloor(next);
+  };
+
+  // ✅ 초기 층수 localStorage에서 로드 (getTeam에 teamLevel 없으니까 fallback)
   useEffect(() => {
     if (!Number.isFinite(teamId)) return;
 
-    const saved = localStorage.getItem(floorKey(teamId));
-    const n = Number(saved);
-    if (Number.isFinite(n) && n >= 1) {
-      setCurrentFloor(n);
-    } else {
-      setCurrentFloor(1);
-      localStorage.setItem(floorKey(teamId), "1");
-    }
+    const saved = Number(localStorage.getItem(floorKey(teamId)));
+    const n = Number.isFinite(saved) && saved >= 1 ? saved : 1;
+
+    setCurrentFloor(n);
+    localStorage.setItem(floorKey(teamId), String(n));
   }, [teamId]);
 
   // ✅ teamId로 팀 정보 로드 (myRole)
@@ -142,12 +126,15 @@ export default function TeamPlaceHome() {
       try {
         const team = await getTeam(teamId);
         setMyRole(team?.myRole ?? null);
+
+        // ⚠️ teamLevel이 아직 없으니 여기선 적용 안 함.
+        // 나중에 team.teamLevel 들어오면:
+        // if (team?.teamLevel) applyTeamLevel(team.teamLevel);
       } catch (e) {
         if (e?.status === 401) return navigate("/login", { replace: true });
         navigate("/home", { replace: true });
       }
     };
-
     loadTeam();
   }, [teamId, navigate]);
 
@@ -212,14 +199,14 @@ export default function TeamPlaceHome() {
           username: a.username ?? `user-${a.userId}`,
           title: f.title ?? "(제목 없음)",
           dueDate: f.dueDate ?? null,
-          completed: !!f.completed, // ✅ 팀 완료라서 동일 task는 모두 동일 상태로 보임
+          completed: !!f.completed, // ✅ 팀 완료라 동일 task는 동일 상태
         });
       }
     }
     return rows;
   }, [teamFloors]);
 
-  // ✅ 오늘의 진행도 = "팀 할 일 목록" 기준(분모: floors 개수, 분자: completed true 개수)
+  // ✅ 팀 진행도 = floors 단위 (분모: floor 수, 분자: completed true 수)
   const teamProgress = useMemo(() => {
     const list = Array.isArray(teamFloors) ? teamFloors : [];
     const total = list.length;
@@ -232,7 +219,7 @@ export default function TeamPlaceHome() {
     setTodayProgress(teamProgress);
   }, [teamProgress]);
 
-  // ✅ 체크박스 초기값 = 서버 completed(팀 완료)
+  // ✅ 체크박스 초기값 = 서버 completed
   useEffect(() => {
     const next = {};
     taskRows.forEach((r) => {
@@ -255,46 +242,7 @@ export default function TeamPlaceHome() {
     loadCharacter();
   }, []);
 
-  /**
-   * ✅ (핵심) 세트키 중복 +1 방지 + 층수 localStorage 저장
-   * - "현재 목록(세트)"의 모든 floor가 completed=true가 되는 순간
-   * - 그 세트키가 이전에 보상 처리된 적이 없으면(currentClearedSetKey와 다르면)
-   *   층수 +1 하고, clearedSetKey(teamId)를 현재 세트키로 저장
-   */
-  useEffect(() => {
-    if (!Number.isFinite(teamId)) return;
-
-    const list = Array.isArray(teamFloors) ? teamFloors : [];
-    if (list.length === 0) return;
-
-    const allDone = list.every((f) => !!f?.completed);
-    if (!allDone) return;
-
-    const setKey = buildSetKey(list);
-    const lastCleared = localStorage.getItem(clearedSetKey(teamId)) || "";
-
-    // ✅ 같은 세트면 중복 +1 금지
-    if (lastCleared === setKey) return;
-
-    // ✅ 층수 +1 (임시 저장)
-    const saved = Number(localStorage.getItem(floorKey(teamId)));
-    const base = Number.isFinite(saved) && saved >= 1 ? saved : 1;
-
-    // maxFloor는 floors 상수 길이에 맞춰 clamp
-    const maxFloor = Object.keys(floors).length || 1;
-    const nextFloor = Math.max(1, Math.min(base + 1, maxFloor));
-
-    localStorage.setItem(floorKey(teamId), String(nextFloor));
-    localStorage.setItem(clearedSetKey(teamId), setKey);
-
-    // ✅ 홈처럼 엘리베이터 이동 애니메이션
-    if (nextFloor !== currentFloor) {
-      goToFloor(nextFloor);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [teamFloors, teamId]); // goToFloor/currentFloor는 내부에서 안전하게 사용
-
-  // ✅ 체크 토글 + 서버 반영(complete/cancel) — 팀 완료 그대로
+  // ✅ 체크 토글 + 서버 반영(complete/cancel)
   const onToggleTask = async (row) => {
     const { rowKey, teamFloorId } = row;
 
@@ -309,10 +257,18 @@ export default function TeamPlaceHome() {
     setFloorsError("");
 
     try {
+      let res;
       if (nextChecked) {
-        await completeTeamFloor(teamFloorId);
+        // ✅ 응답: { alreadyCompleted, levelUp, teamLevel }
+        res = await completeTeamFloor(teamFloorId);
       } else {
-        await cancelTeamFloor(teamFloorId);
+        // ✅ (언니 말대로) cancel도 teamLevel 준다면 여기서도 반영 가능
+        res = await cancelTeamFloor(teamFloorId);
+      }
+
+      // ✅ 팀 레벨 반영 (서버가 최신 teamLevel 주는 경우)
+      if (res?.teamLevel != null) {
+        applyTeamLevel(res.teamLevel);
       }
 
       // ✅ teamFloors completed 동기화(팀 단위)
@@ -420,12 +376,10 @@ export default function TeamPlaceHome() {
           background: #fff;
           border: 1px solid rgba(0, 0, 0, 0.12);
           padding: 10px 12px;
-
           display: grid;
           grid-template-columns: 64px 1fr 34px;
           column-gap: 10px;
           align-items: center;
-
           width: 100%;
           box-sizing: border-box;
         }
@@ -546,10 +500,9 @@ export default function TeamPlaceHome() {
         <img className="home-logo" src="/images/logo.png" alt="FLOORIDA" />
       </div>
 
-      {/* ✅ 홈이랑 동일한 구조로 "층수 표시판 + 배경 + 엘리베이터" */}
+      {/* ✅ 층수 표시판 + 배경 + 엘리베이터 */}
       <div className="elevator-wrapper">
         <div className={`elevator ${isMoving ? "elevator-moving" : ""}`}>
-          {/* 층수 표시판 */}
           <div className="floor-indicator-box">
             <img
               src={floorBoardImg}
@@ -559,7 +512,6 @@ export default function TeamPlaceHome() {
             <span className="floor-indicator-number">{currentFloor}</span>
           </div>
 
-          {/* 배경 */}
           <div className="floor-scene">
             <img
               src={backgroundImg}
@@ -568,7 +520,6 @@ export default function TeamPlaceHome() {
             />
           </div>
 
-          {/* 엘리베이터 내부 */}
           <div
             className="elevator-inside"
             style={{ backgroundImage: `url(${elevatorInsideImg})` }}
@@ -616,8 +567,7 @@ export default function TeamPlaceHome() {
             taskRows.map((r) => {
               const diff = r.dueDate ? calcDday(new Date(r.dueDate)) : null;
               const metaText = diff == null ? "-" : formatDdayLabel(diff);
-
-              const isOverdue = diff != null && diff < 0; // ✅ D+1부터 빨강
+              const isOverdue = diff != null && diff < 0;
 
               const busy = !!savingMap[r.rowKey];
 
@@ -666,7 +616,7 @@ export default function TeamPlaceHome() {
         </div>
       </div>
 
-      {/* ✅ 방 관리(OWNER) / 방 나가기(MEMBER) */}
+      {/* ✅ 방 관리 / 방 나가기 */}
       {myRole &&
         (isOwner ? (
           <button

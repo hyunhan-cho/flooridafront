@@ -16,6 +16,7 @@ import TeamPlaceHome from "./pages/TeamPlaceHome.jsx";
 import RoomManagement from "./pages/RoomManagement.jsx";
 import MemberRemoval from "./pages/MemberRemoval.jsx";
 import RoomRemoval from "./pages/RoomRemoval.jsx";
+import SpecificTeamPlans from "./pages/SpecificTeamPlans.jsx";
 export default function App() {
   return (
     <Routes>
@@ -35,6 +36,10 @@ export default function App() {
       <Route path="/memberremoval/:teamId" element={<MemberRemoval />} />
       <Route path="/roomremoval/:teamId" element={<RoomRemoval />} />
       <Route path="/teamcalendar/:teamId" element={<TeamCalendar />} />
+      <Route
+        path="/specificteamplans/:teamId"
+        element={<SpecificTeamPlans />}
+      />
     </Routes>
   );
 }
