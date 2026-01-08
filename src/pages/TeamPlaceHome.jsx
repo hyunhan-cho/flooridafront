@@ -47,12 +47,16 @@ export default function TeamPlaceHome() {
   const { teamId: teamIdParam } = useParams();
   const teamId = Number(teamIdParam);
 
+  const TEAM_LEVEL_CACHE_KEY = `teamLevel:${teamId}`;
+
   const [isOpen, setIsOpen] = useState(true);
   const [isMoving, setIsMoving] = useState(false);
 
-  // ✅ 화면에 표시되는 층수 = 서버 teamLevel (SSOT)
+  // ✅ 애니메이션 기준 currentFloor는 1 유지 OK
   const [currentFloor, setCurrentFloor] = useState(1);
-  const [teamLevel, setTeamLevel] = useState(1);
+
+  // ✅ 초기 로딩 동안 '1' 깜빡임 제거: null이면 숫자 숨김
+  const [teamLevel, setTeamLevel] = useState(null);
 
   const [characterImageUrl, setCharacterImageUrl] = useState(null);
 
@@ -114,7 +118,15 @@ export default function TeamPlaceHome() {
     if (lastAppliedLevelRef.current === raw) return;
     lastAppliedLevelRef.current = raw;
 
+    // ✅ 표시값 세팅
     setTeamLevel(raw);
+
+    // ✅ 캐시 저장(다음 진입 때 1 깜빡임 방지)
+    try {
+      if (Number.isFinite(teamId)) {
+        localStorage.setItem(`teamLevel:${teamId}`, String(raw));
+      }
+    } catch (_) {}
 
     const now = currentFloorRef.current;
 
@@ -128,32 +140,64 @@ export default function TeamPlaceHome() {
     }
   };
 
-  // ✅ teamId 바뀌면 refs 초기화 + 일단 1층 표시
+  // ✅ teamId 바뀌면 refs 초기화 + 로딩 중 숫자 숨김(null)
   useEffect(() => {
     didInitFromServerRef.current = false;
     lastAppliedLevelRef.current = null;
-    setTeamLevel(1);
+
+    // ✅ 1로 리셋하지 말고 숨김 처리
+    setTeamLevel(null);
+
+    // 애니메이션 기준은 유지
     setCurrentFloor(1);
   }, [teamId]);
 
-  // ✅ teamId로 팀 정보 로드 (myRole)
+  // ✅ 캐시된 teamLevel이 있으면 서버 오기 전 먼저 보여주기
   useEffect(() => {
+    if (!Number.isFinite(teamId)) return;
+
+    try {
+      const cached = localStorage.getItem(TEAM_LEVEL_CACHE_KEY);
+      const n = Number(cached);
+      if (Number.isFinite(n) && n >= 1) {
+        setTeamLevel(n);
+      }
+    } catch (_) {}
+  }, [teamId, TEAM_LEVEL_CACHE_KEY]);
+
+  // ✅ teamId로 팀 정보 로드 (myRole, joinCode, level)
+  useEffect(() => {
+    let ignore = false;
+
     const loadTeam = async () => {
       const token = localStorage.getItem(AUTH_TOKEN_KEY);
       if (!token || !Number.isFinite(teamId)) return;
 
       try {
         const team = await getTeam(teamId);
+        if (ignore) return;
+
+        // ✅ role
         setMyRole(team?.myRole ?? null);
 
-        // ✅ /api/teams 응답: { teamId, joinCode }
+        // ✅ joinCode
         setJoinCode(team?.joinCode ?? "");
+
+        // ✅ team.level -> teamLevel
+        if (team?.level != null) {
+          applyTeamLevel(team.level, { animate: false });
+        }
       } catch (e) {
         if (e?.status === 401) return navigate("/login", { replace: true });
         navigate("/home", { replace: true });
       }
     };
+
     loadTeam();
+    return () => {
+      ignore = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teamId, navigate]);
 
   // ✅ 팀 할 일 목록 + teamLevel 로드 (새 스펙 대응: { teamLevel, floors })
@@ -187,8 +231,9 @@ export default function TeamPlaceHome() {
             : [];
 
         // ✅ 첫 진입/새로고침에서는 애니메이션 없이 층만 맞춤
-        if (nextTeamLevel != null)
+        if (nextTeamLevel != null) {
           applyTeamLevel(nextTeamLevel, { animate: false });
+        }
 
         if (!ignore) setTeamFloors(list);
       } catch (e) {
@@ -204,6 +249,7 @@ export default function TeamPlaceHome() {
     return () => {
       ignore = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teamId, navigate]);
 
   // ✅ 렌더용 rows: "floor + assignee" 조합으로 펼치기
@@ -295,11 +341,8 @@ export default function TeamPlaceHome() {
 
     try {
       let res;
-      if (nextChecked) {
-        res = await completeTeamFloor(teamFloorId);
-      } else {
-        res = await cancelTeamFloor(teamFloorId);
-      }
+      if (nextChecked) res = await completeTeamFloor(teamFloorId);
+      else res = await cancelTeamFloor(teamFloorId);
 
       // ✅ 완료/취소에서는 애니메이션 허용
       if (res?.teamLevel != null) {
@@ -391,69 +434,68 @@ export default function TeamPlaceHome() {
           padding: 6px 2px;
         }
 
-       .everyone-row {
-  display: grid;
-  grid-template-columns: 56px 1fr;
-  align-items: center;
-  gap: 12px;
-}
+        .everyone-row {
+          display: grid;
+          grid-template-columns: 56px 1fr;
+          align-items: center;
+          gap: 12px;
+        }
 
-/* 왼쪽: 캐릭터 + 이름(아래) */
-.member-col {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-}
+        /* 왼쪽: 캐릭터 + 이름(아래) */
+        .member-col {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: flex-start;
+        }
 
-.member-name {
-  margin-top: 6px;
-  font-size: 9px;
-  font-weight: 800;
-  color: #222;
-  line-height: 1;
-}
+        .member-name {
+          margin-top: 6px;
+          font-size: 9px;
+          font-weight: 800;
+          color: #222;
+          line-height: 1;
+        }
 
-/* 오른쪽: D-day(위) + 할일(아래) + 체크박스(오른쪽) */
-.task-box {
-  height: 70px;
-  border-radius: 14px;
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  padding: 10px 12px;
+        /* 오른쪽: D-day(위) + 할일(아래) + 체크박스(오른쪽) */
+        .task-box {
+          height: 70px;
+          border-radius: 14px;
+          background: #fff;
+          border: 1px solid rgba(0, 0, 0, 0.12);
+          padding: 10px 12px;
 
-  display: grid;
-  grid-template-columns: 1fr 34px;
-  align-items: center;
-  column-gap: 10px;
+          display: grid;
+          grid-template-columns: 1fr 34px;
+          align-items: center;
+          column-gap: 10px;
 
-  width: 100%;
-  box-sizing: border-box;
-}
+          width: 100%;
+          box-sizing: border-box;
+        }
 
-.task-left {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 4px;
-  min-width: 0; /* 긴 글자 줄바꿈/말줄임 안정 */
-}
+        .task-left {
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          gap: 4px;
+          min-width: 0;
+        }
 
-.task-meta {
-  font-size: 14px;
-  font-weight: 900;
-  color: rgba(0, 0, 0, 0.45);
-}
+        .task-meta {
+          font-size: 14px;
+          font-weight: 900;
+          color: rgba(0, 0, 0, 0.45);
+        }
 
-.task-title {
-  font-size: 16px;
-  font-weight: 900;
-  color: #111;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
+        .task-title {
+          font-size: 16px;
+          font-weight: 900;
+          color: #111;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
 
         /* ✅ D+1부터 빨간 처리 */
         .task-box--overdue{
@@ -463,9 +505,6 @@ export default function TeamPlaceHome() {
         .task-meta--overdue{
           color: rgba(220, 38, 38, 0.95);
         }
-
-        .task-meta { font-size: 14px; font-weight: 900; color: rgba(0, 0, 0, 0.45); }
-        .task-title { font-size: 16px; font-weight: 900; color: #111; }
 
         .checkbox-wrap {
           width: 34px;
@@ -580,8 +619,10 @@ export default function TeamPlaceHome() {
               alt="층수 표시판"
               className="floor-indicator-bg"
             />
-            {/* ✅ 보여주는 값 = 서버 teamLevel */}
-            <span className="floor-indicator-number">{teamLevel}</span>
+            {/* ✅ teamLevel이 null이면 숫자 숨김 */}
+            <span className="floor-indicator-number">
+              {teamLevel == null ? "" : teamLevel}
+            </span>
           </div>
 
           <div className="floor-scene">
