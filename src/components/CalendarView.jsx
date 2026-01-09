@@ -68,6 +68,9 @@ export default function CalendarView({
   onFloorDelete,
   onFloorUpdate,
   editIcon,
+  // ✅ 추가 (선택): 리스트에 보일 텍스트 커스터마이징
+  // (subtask, parentTask) => string
+  renderListText,
 }) {
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const today = new Date();
@@ -418,6 +421,12 @@ export default function CalendarView({
               );
               const isExpanded = editingTask?.id === parentTask?.id;
 
+              // ✅ 여기만 추가: 표시 텍스트 결정
+              const listText =
+                typeof renderListText === "function"
+                  ? renderListText(subtask, parentTask || null)
+                  : subtask.text;
+
               return (
                 <div key={subtask.id}>
                   <div
@@ -454,8 +463,9 @@ export default function CalendarView({
                         overflow: "hidden",
                       }}
                     >
-                      {subtask.text}
+                      {listText}
                     </span>
+
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
