@@ -60,12 +60,9 @@ export default function TeamFloorEditPanel({
   task, // { id(teamFloorId), title, dueDate, assigneeUserIds?, assignees? }
   onClose,
   onSaved,
+  onDeleted, // ✅ (옵션) 삭제 후 부모에서 리스트 갱신하려고 쓰는 콜백
 }) {
-  // ✅ 애니메이션 속도 여기서 조절 (느리게: 500~650 추천)
   const ANIM_MS = 900;
-
-  // ✅ "열 때" 시작 딜레이 (원하는 만큼)
-  // 0이면 바로 시작, 80~140 정도면 느린 차라락 느낌
   const OPEN_DELAY_MS = 130;
 
   const [mounted, setMounted] = useState(false);
@@ -77,21 +74,16 @@ export default function TeamFloorEditPanel({
 
     if (open && task) {
       setMounted(true);
-
-      // ✅ 열 때도 딜레이 후 visible ON
-      // (requestAnimationFrame만 쓰면 첫 프레임이 안 잡혀서 빨라 보일 때가 있음)
       t1 = setTimeout(() => {
         t2 = requestAnimationFrame(() => setVisible(true));
       }, OPEN_DELAY_MS);
 
       return () => {
         clearTimeout(t1);
-        // requestAnimationFrame은 id를 cancelAnimationFrame으로 끊어야 함
         if (t2) cancelAnimationFrame(t2);
       };
     }
 
-    // 닫힘: visible 먼저 끄고, ANIM_MS 후에 unmount
     setVisible(false);
     const t = setTimeout(() => setMounted(false), ANIM_MS);
     return () => clearTimeout(t);
@@ -109,6 +101,7 @@ export default function TeamFloorEditPanel({
   const [selectedUserIds, setSelectedUserIds] = useState([]);
 
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false); // ✅ 추가
 
   useEffect(() => {
     if (!task) return;
@@ -125,7 +118,6 @@ export default function TeamFloorEditPanel({
     setIsEditingDueDate(false);
   }, [task]);
 
-  // ====== 안전한 버전 (teamId prop 없으면 멤버 로드 안함) ======
   const teamId = task?.teamId;
 
   useEffect(() => {
@@ -159,7 +151,8 @@ export default function TeamFloorEditPanel({
     title.trim().length > 0 &&
     !!dueDate &&
     selectedUserIds.length === 1 &&
-    !saving;
+    !saving &&
+    !deleting; // ✅ 삭제 중이면 저장도 막기
 
   const toggleUser = (userId) => {
     setSelectedUserIds((prev) => {
@@ -207,7 +200,25 @@ export default function TeamFloorEditPanel({
     }
   };
 
-  // ✅ open이 false여도 닫힘 애니메이션 동안은 mounted 유지
+  // ✅ 삭제 API 연결
+  const handleDelete = async () => {
+    if (!task?.id) return;
+
+    const ok = window.confirm("이 세부 계획을 삭제할까요?");
+    if (!ok) return;
+
+    try {
+      setDeleting(true);
+      await requestJson("DELETE", `/api/teams/floors/${task.id}`);
+      onDeleted?.(task); // 부모가 리스트에서 제거하도록
+      onClose?.();
+    } catch (e) {
+      alert(e?.message ?? "삭제에 실패했어요.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (!mounted || !task) return null;
 
   return (
@@ -224,8 +235,6 @@ export default function TeamFloorEditPanel({
         padding: "16px",
         paddingTop: "40px",
         boxSizing: "border-box",
-
-        // ✅ 애니메이션에 필요한 스타일만 추가
         transform: visible ? "translateY(0)" : "translateY(-14px)",
         opacity: visible ? 1 : 0,
         transitionProperty: "transform, opacity",
@@ -256,14 +265,11 @@ export default function TeamFloorEditPanel({
         .stp-helper{font-size:12px;font-weight:800;color:#64748b;padding:6px 2px 0;font-family:var(--font-sans);}
         .stp-error{font-size:12px;font-weight:900;color:rgba(220,38,38,.92);padding:6px 2px 0;font-family:var(--font-sans);}
 
-        .panelTop{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;}
-        .panelTitle{font-size:14px;font-weight:900;color:#111827;font-family:var(--font-pixel-kr);margin:0;}
-        .closeBtn{border:none;background:rgba(0,0,0,.08);border-radius:10px;padding:8px 10px;cursor:pointer;font-weight:900;}
         .ctaRow{display:flex;gap:12px;margin-top:14px;}
         .btnGhost,.btnPrimary{height:52px;border-radius:14px;font-weight:900;font-size:16px;border:0;cursor:pointer;flex:1;font-family:var(--font-pixel-kr);}
         .btnGhost{background:rgba(0,0,0,.10);color:#111;}
         .btnPrimary{background:rgba(47,111,109,.90);color:#fff;}
-        .btnPrimary:disabled{opacity:.45;cursor:not-allowed;}
+        .btnPrimary:disabled,.btnGhost:disabled{opacity:.45;cursor:not-allowed;}
       `}</style>
 
       {/* 세부 계획 */}
@@ -373,7 +379,17 @@ export default function TeamFloorEditPanel({
         )}
       </div>
 
+      {/* ✅ 버튼 2개: 삭제 | 수정 완료 */}
       <div className="ctaRow">
+        <button
+          className="btnGhost"
+          type="button"
+          onClick={handleDelete}
+          disabled={saving || deleting}
+        >
+          {deleting ? "삭제 중..." : "삭제"}
+        </button>
+
         <button
           className="btnPrimary"
           type="button"

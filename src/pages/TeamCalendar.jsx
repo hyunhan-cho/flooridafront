@@ -174,6 +174,21 @@ export default function TeamCalendar() {
             setEditorOpen(false);
             setEditingTask(null);
           }}
+          onDeleted={async (deletedTask) => {
+            // ✅ 1) 화면에서 바로 빠지게: 선택 상태 정리
+            setSelectedTask((prev) =>
+              prev?.id === deletedTask?.id ? null : prev
+            );
+            setEditingTask((prev) =>
+              prev?.id === deletedTask?.id ? null : prev
+            );
+
+            // ✅ 2) 서버 SSOT로 다시 로드해서 캘린더/주황표시까지 싹 반영
+            await loadTasks();
+
+            // ✅ 3) 패널 닫기
+            setEditorOpen(false);
+          }}
         />
 
         {isOwner && (
