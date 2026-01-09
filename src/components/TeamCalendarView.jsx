@@ -85,11 +85,13 @@ export default function TeamCalendarView({
   return (
     <div
       style={{
+        position: "relative",
+        zIndex: 2,
         background: "#e5e7eb",
         borderRadius: "18px",
         width: "100%",
         maxWidth: "var(--panel-width)",
-        margin: "0 16px",
+        margin: "0 12px",
         padding: "16px",
         display: "flex",
         flexDirection: "column",

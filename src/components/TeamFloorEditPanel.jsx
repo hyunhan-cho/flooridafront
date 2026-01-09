@@ -213,9 +213,11 @@ export default function TeamFloorEditPanel({
   return (
     <div
       style={{
+        position: "relative",
+        zIndex: 1,
         width: "100%",
         maxWidth: "var(--panel-width)",
-        margin: "14px 16px 22px",
+        margin: "-14px 16px 22px",
         background: "#ffffff",
         borderRadius: "0 0 18px 18px  ",
         boxShadow: "0 12px 26px rgba(0,0,0,0.18)",
