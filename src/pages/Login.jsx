@@ -23,10 +23,14 @@ export default function Login() {
     try {
       setLoading(true);
 
-      // 1) 로그인
-      await login({ email, password });
+      // 1) 로그인 (services/auth.js에서 token 저장 + data return)
+      const loginRes = await login({ email, password });
 
-      // 2) 프로필 조회해서 온보딩 완료 여부 확인
+      const dailyRewardGiven = Boolean(loginRes?.dailyRewardGiven);
+      const firstLoginBonusGiven = Boolean(loginRes?.firstLoginBonusGiven);
+
+      // 2) 프로필 조회로 온보딩 완료 여부 판단
+      let needsOnboarding = false;
       try {
         const profile = await getMyProfile();
         console.log("로그인 후 프로필 조회 결과:", profile);
@@ -34,20 +38,26 @@ export default function Login() {
         const hasOnboarding =
           profile && profile.planningTendency && profile.dailyStudyHours;
 
-        if (hasOnboarding) {
-          // [기존 유저] 이미 성향 정보 있음 -> 홈으로 (달성률 팝업)
-          navigate("/home", { state: { isFirstLogin: false } });
-        } else {
-          // [신규 유저] 정보가 비어있음 -> 성향 조사로
-          navigate("/tendency");
-        }
+        needsOnboarding = !hasOnboarding;
       } catch (err) {
-        console.error("프로필 조회 실패 (신규 유저 가능성):", err);
-
-        // [핵심 수정] 프로필을 가져오지 못했다면(404 등),
-        // 아직 프로필이 없는 '완전 신규 유저'로 간주하고 성향 조사로 보냅니다.
-        navigate("/tendency");
+        console.error("프로필 조회 실패(신규/미생성 가능):", err);
+        needsOnboarding = true;
       }
+
+      // ✅✅✅ 핵심: 로그인 직후엔 Home으로 보내서
+      // 50 → 10 → 뱃지(있으면) 순서 팝업 처리
+      // 온보딩 필요하면 Home에서 팝업 끝난 뒤 /tendency로 이동
+      const state = {
+        dailyRewardGiven,
+        firstLoginBonusGiven,
+        isFirstLogin: firstLoginBonusGiven, // 기존 호환
+        needsOnboarding,
+      };
+
+      // 새로고침/리렌더로 location.state 유실될 수 있어 sessionStorage에도 저장
+      sessionStorage.setItem("home_entry_flags", JSON.stringify(state));
+
+      navigate("/home", { state });
     } catch (e) {
       setError(e?.message || "로그인에 실패했습니다.");
     } finally {
@@ -97,13 +107,7 @@ export default function Login() {
           />
 
           {error && (
-            <div
-              style={{
-                color: "#ef4444",
-                fontSize: 12,
-                marginTop: 8,
-              }}
-            >
+            <div style={{ color: "#ef4444", fontSize: 12, marginTop: 8 }}>
               {error}
             </div>
           )}

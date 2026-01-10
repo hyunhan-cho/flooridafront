@@ -10,187 +10,284 @@
   overflow: hidden;
 }
 
-/* 상단 헤더 */
+/* ✅ 상단 헤더 (청록 바) */
 .cust-header-row {
+  height: 60px;
+  background: #0b7f82;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 15px 20px;
+  justify-content: center;
   flex-shrink: 0;
+  position: relative;
+  overflow: visible; /* ✅ 코인뱃지 겹치기 허용 */
+  padding: 0 16px;
 }
 
+/* ✅ 페인트 아이콘 */
+.cust-paint-icon {
+  position: absolute;
+  left: 10px;
+  width: 46px;
+  height: 46px;
+  object-fit: contain;
+}
+
+/* ✅ 타이틀 */
 .cust-page-title {
+  position: absolute; /* ✅ 이거 추가해야 left가 먹음 */
+  left: 50px;
+  top: 45%;
+  transform: translateY(-50%);
   margin: 0;
-  font-size: 20px;
-  font-weight: bold;
+  font-size: 22px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: 1px;
 }
 
+/* ✅ 코인 뱃지 (헤더에 있지만, 미리보기 위로 내려오게) */
 .cust-coin-badge {
+  position: absolute;
+  left: 14px;
+  top: 74px;
+  bottom: auto; /* ✅ 헤더 밖으로 내려서 미리보기 안에 있는 것처럼 */
   display: flex;
   align-items: center;
+  gap: 6px;
   background: #fff;
-  border: 2px solid #000;
-  border-radius: 20px;
-  padding: 5px 12px;
-  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+  padding: 8px 14px;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.25);
+  z-index: 10;
+  border-radius: 8px;
 }
 
 .cust-coin-badge img {
   width: 20px;
   height: 20px;
-  margin-right: 6px;
 }
 
 .cust-coin-badge span {
-  font-weight: bold;
+  font-weight: 800;
   font-size: 16px;
+  color: #111;
 }
 
-/* ✅ 미리보기 영역 (배경 박스) */
+/* ✅ 미리보기 영역 */
 .cust-preview-area {
   flex-shrink: 0;
-  margin: 10px 20px;
-  height: 180px; /* 배경 높이는 유지 */
-  background-color: #e6f4f1; /* 연한 민트색 */
-  border: 2px solid #000;
-  border-radius: 12px;
+  margin: 0;
+  height: clamp(240px, 38vh, 340px); /* ✅ 작은 화면에서도 아이템 영역 남도록 */
+  background-color: #d9d9d9;
   display: flex;
   justify-content: center;
   align-items: center;
   position: relative;
+  padding-top: 28px; /* 코인뱃지 겹침 여백 */
 }
 
-/* ✅ 캐릭터 스테이지 (캐릭터 크기 조절 핵심) */
+/* ✅ "이대로 저장" 버튼 */
+.cust-save-btn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  padding: 12px 16px;
+  background: #2aa6a0;
+  border: none;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  color: #fff;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.25);
+  z-index: 10;
+}
+
+.cust-save-btn:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
+}
+
+/* ✅ 캐릭터 스테이지: 좌표계(114x126)는 유지하고 화면에서만 확대 */
 .cust-character-stage {
-  /* 기존 140px -> 110px로 축소하여 여백 확보 */
-  width: 110px;
-  height: 110px;
+  width: 114px;
+  height: 126px;
   position: relative;
   display: flex;
   justify-content: center;
   align-items: center;
+
+  transform: scale(1.2);
+  transform-origin: center;
 }
 
-/* 겹쳐지는 이미지들 (얼굴, 아이템) */
+/* 겹쳐지는 이미지들 */
 .cust-layer-img {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  object-fit: contain; /* 비율 유지하며 박스 안에 쏙 들어감 */
+  object-fit: contain;
   pointer-events: none;
 }
 
-/* 탭 메뉴 */
+/* ✅ 탭 메뉴: 언더라인 스타일 */
 .cust-tab-menu {
   flex-shrink: 0;
   display: flex;
-  padding: 0 20px;
-  gap: 10px;
-  margin-bottom: 10px;
+  justify-content: space-around;
+  background: #ffffff;
+  margin: 0;
+  border-radius: 18px 18px 0 0;
+  padding: 12px 8px 0 8px;
 }
 
 .cust-tab-btn {
-  flex: 1;
-  padding: 10px 0;
-  background: #f0f0f0;
-  border: 2px solid #000;
-  border-radius: 8px;
+  background: transparent;
+  border: none;
   font-family: inherit;
-  font-size: 16px;
-  font-weight: bold;
+  font-size: 14px;
+  font-weight: 800;
+  color: #a9a9a9;
+  padding: 10px 12px 12px 12px;
   cursor: pointer;
-  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.2);
-  transition: all 0.1s;
+  border-bottom: 3px solid transparent;
 }
 
 .cust-tab-btn.active {
-  background: #ffd700;
-  transform: translate(1px, 1px);
-  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.2);
+  color: #111;
+  border-bottom: 3px solid #0b7f82;
 }
 
-/* 아이템 그리드 */
+/* ✅ 아이템 그리드: “안 보임” 방지 핵심 = flex:1 + min-height:0 */
 .cust-item-grid {
   flex: 1;
+  min-height: 0; /* ✅ 이거 없으면 overflow 안 먹고 리스트가 사라져 보일 수 있음 */
+  background: #ffffff;
+  margin: 0;
+  border-radius: 0 0 18px 18px;
+  padding: 14px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  grid-auto-rows: min-content;
-  gap: 15px;
-  padding: 10px 20px;
-  overflow-y: auto;
+  gap: 12px;
 }
 
+/* 카드 */
 .cust-item-card {
-  background: #fff;
-  border: 2px solid #ddd;
-  border-radius: 10px;
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  cursor: pointer;
-  transition: all 0.2s;
+  background: #f2f2f2;
+  border-radius: 18px;
+  height: 120px;
   position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: 0;
 }
 
-.cust-item-card:hover {
-  border-color: #ffd700;
-  transform: translateY(-2px);
+.cust-item-card.selected {
+  outline: 4px solid #0b7f82;
 }
 
+/* 이미지 */
 .cust-img-wrapper {
-  width: 100%;
-  aspect-ratio: 1;
+  width: 74px;
+  height: 74px;
   display: flex;
   justify-content: center;
   align-items: center;
-  margin-bottom: 8px;
-  overflow: hidden;
 }
 
 .cust-img-wrapper img {
-  max-width: 80%;
-  max-height: 80%;
+  max-width: 74px;
+  max-height: 74px;
   object-fit: contain;
 }
 
+/* ✅ 피그마 Frame 507 스타일 */
+/* ✅ Frame 507 (가격/보유 태그) - 피그마 동일 */
+/* 공통: Frame 507 박스 자체 */
 .cust-price-tag {
+  box-sizing: border-box;
+  position: absolute;
+
+  height: 21px; /* 피그마: 21 */
+  background: #ffffff;
+  border: 1px solid #e7e7e7; /* 피그마 */
+  border-radius: 5px; /* 피그마 */
+  box-shadow: none; /* 피그마(그림자 없음) */
+
+  font-family: "DungGeunMo", sans-serif;
+  font-style: normal;
+  font-weight: 400;
+  font-size: 12px; /* 피그마 */
+  line-height: 22px; /* 피그마 */
+  color: #000000;
+
+  padding: 0; /* ✅ 피그마는 내부 absolute라 padding 없음 */
+}
+
+/* 가격 상태(coin + 숫자): 피그마 예시(500) 기준 */
+.cust-price-tag.is-price {
+  width: 56px; /* 피그마: 48 */
+  top: 5px; /* 피그마: top 5 (500 케이스) */
+  right: 5px; /* 피그마 left 67 -> 카드120 기준 right 5 */
+  left: auto;
+}
+
+/* 보유 상태: 피그마 예시(보유) 기준 */
+
+/* 뱃지 미보유 숨김 */
+.cust-price-tag.is-hidden {
+  display: none;
+}
+
+/* coin 1: 피그마 absolute */
+.cust-price-tag .price-coin {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  left: 5px; /* 피그마 */
+  top: 5px; /* 피그마 */
+}
+
+/* 숫자: 피그마 absolute
+   (피그마 코드에서 500 텍스트 top이 frame보다 1px 위로 잡히는 경우가 많아서 -1px 보정) */
+.cust-price-tag .price-num {
+  position: absolute;
+  left: 17px; /* 5(코인 left) + 12(코인 width) + 3(gap) = 20 */
+  top: -1px; /* ✅ 피그마의 텍스트 기준선 느낌 맞추기 */
+  font-weight: 400;
+}
+
+/* 보유 태그: 피그마(39x21, top8/right8) 유지 */
+.cust-price-tag.is-owned {
+  width: 39px;
+  height: 21px;
+  top: 8px;
+  right: 8px;
+  left: auto;
+
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  font-size: 14px;
-  font-weight: bold;
-  color: #333;
-  width: 100%;
 }
 
-.cust-price-tag img {
-  width: 14px;
-  height: 14px;
+/* 보유 텍스트: 줄바꿈/쪼개짐 방지 */
+.cust-price-tag.is-owned .owned-label {
+  position: static; /* ✅ absolute 해제 */
+  transform: none; /* ✅ translate 해제 */
+  white-space: nowrap; /* ✅ 줄바꿈 금지 */
+  word-break: keep-all; /* ✅ 한글 글자 분리 줄바꿈 방지 */
+  line-height: 22px; /* 피그마 텍스트 라인하이트 */
 }
 
-.status-badge {
-  font-size: 10px;
-  margin-left: 4px;
-  padding: 2px 4px;
-  border-radius: 4px;
-  font-weight: bold;
-}
-.status-badge.owned {
-  color: green;
-  border: 1px solid green;
-  background-color: #e8f5e9;
-}
-.status-badge.equip {
-  color: red;
-  border: 1px solid red;
-  background-color: #ffebee;
-}
-
-/* 팝업 (Modal) */
+/* -------------------- Modal (기존 그대로) -------------------- */
 .cust-modal-overlay {
   position: fixed;
   top: 0;
