@@ -177,17 +177,29 @@ export default function TeamCalendarView({
           {cells.map((d, i) => {
             const isTodayCell = isToday(d);
 
+            const ymd = d ? formatDate(d) : null;
+
+            // ✅ 마감일 있는 날짜면 오렌지 배경
+            const hasDueTask = !!ymd && dueDateSet.has(ymd);
+
+            // ✅ 마감일 있는 날짜에만 선택 테두리 표시
             const isSelectedDate =
+              hasDueTask &&
               selectedDate &&
               d &&
               selectedDate.getFullYear() === d.getFullYear() &&
               selectedDate.getMonth() === d.getMonth() &&
               selectedDate.getDate() === d.getDate();
 
-            const ymd = d ? formatDate(d) : null;
-
-            // ✅ 마감일 있는 날짜면 무조건 주황
-            const hasDueTask = !!ymd && dueDateSet.has(ymd);
+            // ✅ 보더 정책
+            // - 선택: 진한 오렌지
+            // - 오늘: 검정
+            // - 그 외: 없음
+            const borderFinal = isSelectedDate
+              ? "2px solid #F97316"
+              : isTodayCell
+              ? "2px solid #111827"
+              : "none";
 
             return (
               <div
@@ -201,18 +213,10 @@ export default function TeamCalendarView({
                   fontSize: "14px",
                   fontWeight: 900,
                   color: d ? "#111827" : "transparent",
-                  background: hasDueTask
-                    ? "#FDBA74"
-                    : isTodayCell
-                    ? "#d1d5db"
-                    : "transparent",
+                  background: hasDueTask ? "#FDBA74" : "transparent",
                   borderRadius: "50%",
                   cursor: d ? "pointer" : "default",
-                  border: isSelectedDate
-                    ? hasDueTask
-                      ? "2px solid #F97316"
-                      : "2px solid #111827"
-                    : "none",
+                  border: borderFinal,
                   boxSizing: "border-box",
                 }}
               >
@@ -236,18 +240,7 @@ export default function TeamCalendarView({
           >
             로딩 중...
           </div>
-        ) : tasksForDay.length === 0 ? (
-          <div
-            style={{
-              textAlign: "center",
-              padding: "20px",
-              color: "#6b7280",
-              fontFamily: "var(--font-pixel-kr)",
-            }}
-          >
-            등록된 계획이 없습니다.
-          </div>
-        ) : (
+        ) : tasksForDay.length === 0 ? null : (
           tasksForDay.map((task) => {
             const isSelected = selectedTask?.id === task.id;
 
