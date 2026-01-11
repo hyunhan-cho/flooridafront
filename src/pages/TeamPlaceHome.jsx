@@ -8,7 +8,6 @@ import Navbar from "../components/Navbar.jsx";
 import CoinPopup from "../components/CoinPopup.jsx";
 
 import {
-  getMyCharacter,
   getTeam,
   leaveTeam,
   getTeamFloors,
@@ -51,7 +50,7 @@ function parseYmdToLocalDate(ymd) {
   return new Date(y, m - 1, d); // 로컬 00:00 기준
 }
 
-/** ✅ 팀 캐릭터용 requestJson (JoinedTeamPlace랑 동일한 패턴) */
+/** ✅ 팀 캐릭터용 requestJson */
 async function requestJson(method, path) {
   const token = localStorage.getItem(AUTH_TOKEN_KEY);
   if (!token) {
@@ -93,7 +92,6 @@ async function requestJson(method, path) {
 
 /** ✅ 캐릭터 썸네일(모두의 할 일 좌측) */
 function CharacterThumb({ user }) {
-  // equippedItems 비어있으면(백에서 기본 FACE를 안 준 케이스) → placeholder
   const items = Array.isArray(user?.equippedItems) ? user.equippedItems : [];
   if (!user || items.length === 0) {
     return <div className="member-avatarPlaceholder" aria-hidden="true" />;
@@ -161,6 +159,86 @@ function CharacterThumb({ user }) {
     </div>
   );
 }
+function ElevatorCharacterThumb({ user, size = 120 }) {
+  const items = Array.isArray(user?.equippedItems) ? user.equippedItems : [];
+  if (!user || items.length === 0) return null;
+
+  const order = {
+    BACKGROUND: 0,
+    BODY: 1,
+    CLOTH: 2,
+    HAIR: 3,
+    FACE: 4,
+    ACCESSORY: 5,
+    HAT: 6,
+  };
+
+  const sorted = [...items].sort((a, b) => {
+    const ao = order[a?.itemType] ?? 50;
+    const bo = order[b?.itemType] ?? 50;
+    return ao - bo;
+  });
+
+  const LOGICAL = 100;
+  const VIEW = size; // ✅ 120px
+  const scale = VIEW / LOGICAL;
+
+  return (
+    <div
+      style={{
+        width: VIEW,
+        height: VIEW,
+        display: "grid",
+        placeItems: "center",
+      }}
+    >
+      <div
+        style={{
+          position: "relative",
+          width: VIEW,
+          height: VIEW,
+          overflow: "visible",
+        }}
+      >
+        <div
+          style={{
+            width: `${LOGICAL}px`,
+            height: `${LOGICAL}px`,
+            transform: `scale(${scale})`,
+            transformOrigin: "top left",
+            position: "relative",
+          }}
+        >
+          {sorted.map((it, idx) => {
+            const w = Number(it?.width) || LOGICAL;
+            const h = Number(it?.height) || LOGICAL;
+            const ox = Number(it?.offsetX) || 0;
+            const oy = Number(it?.offsetY) || 0;
+
+            return (
+              <img
+                key={`${user.userId}-${it.itemId}-${idx}`}
+                src={it.imageUrl}
+                alt=""
+                style={{
+                  position: "absolute",
+                  left: `${ox}px`,
+                  top: `${oy}px`,
+                  width: `${w}px`,
+                  height: `${h}px`,
+                  imageRendering: "pixelated",
+                  pointerEvents: "none",
+                  userSelect: "none",
+                  zIndex: idx + 1,
+                }}
+              />
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function TeamPlaceHome() {
   const navigate = useNavigate();
@@ -178,7 +256,6 @@ export default function TeamPlaceHome() {
   // ✅ 초기 로딩 동안 '1' 깜빡임 제거: null이면 숫자 숨김
   const [teamLevel, setTeamLevel] = useState(null);
 
-  const [characterImageUrl, setCharacterImageUrl] = useState(null);
   const [teamLoading, setTeamLoading] = useState(true);
 
   // ✅ 오늘의 진행도(=팀 할일 진행도로 쓰기)
@@ -209,8 +286,9 @@ export default function TeamPlaceHome() {
   const [leaving, setLeaving] = useState(false);
   const [leaveOpen, setLeaveOpen] = useState(false);
 
-  // ✅ 팀 멤버 캐릭터 맵: userId -> user(character payload)
+  // ✅ 팀 멤버 캐릭터: (1) map (2) array
   const [charByUserId, setCharByUserId] = useState({});
+  const [teamChars, setTeamChars] = useState([]); // ✅ 엘리베이터에 전원 렌더용
 
   // ✅ 코인 팝업
   const [coinPopupOpen, setCoinPopupOpen] = useState(false);
@@ -238,20 +316,15 @@ export default function TeamPlaceHome() {
   }, [currentFloor]);
 
   // ✅ 서버 teamLevel 적용
-  // - 첫 진입/새로고침: 애니메이션 없이 currentFloor만 세팅
-  // - 완료/취소 액션으로 변할 때: 애니메이션 허용
   const applyTeamLevel = (nextLevel, { animate = true } = {}) => {
     const raw = Number(nextLevel);
     if (!Number.isFinite(raw) || raw < 1) return;
 
-    // 같은 레벨이면 아무것도 안 함 (새로고침 액션 방지)
     if (lastAppliedLevelRef.current === raw) return;
     lastAppliedLevelRef.current = raw;
 
-    // ✅ 표시값 세팅
     setTeamLevel(raw);
 
-    // ✅ 캐시 저장(다음 진입 때 1 깜빡임 방지)
     try {
       if (Number.isFinite(teamId)) {
         localStorage.setItem(`teamLevel:${teamId}`, String(raw));
@@ -264,7 +337,6 @@ export default function TeamPlaceHome() {
     if (first) didInitFromServerRef.current = true;
 
     if (raw !== now) {
-      // 첫 로딩은 무조건 애니메이션 X
       if (first || !animate) setCurrentFloor(raw);
       else goToFloor(raw);
     }
@@ -275,14 +347,11 @@ export default function TeamPlaceHome() {
     didInitFromServerRef.current = false;
     lastAppliedLevelRef.current = null;
 
-    // ✅ 1로 리셋하지 말고 숨김 처리
     setTeamLevel(null);
-
-    // 애니메이션 기준은 유지
     setCurrentFloor(1);
 
-    // 캐릭터 맵도 초기화
     setCharByUserId({});
+    setTeamChars([]);
   }, [teamId]);
 
   // ✅ 캐시된 teamLevel이 있으면 서버 오기 전 먼저 보여주기
@@ -312,16 +381,10 @@ export default function TeamPlaceHome() {
         const team = await getTeam(teamId);
         if (ignore) return;
 
-        // ✅ role
         setMyRole(team?.myRole ?? null);
-
-        // ✅ joinCode
         setJoinCode(team?.joinCode ?? "");
-
-        // ✅ 팀 마감일(endDate)
         setTeamEndDate(team?.endDate ?? null);
 
-        // ✅ team.level -> teamLevel
         if (team?.level != null) {
           applyTeamLevel(team.level, { animate: false });
         }
@@ -354,7 +417,6 @@ export default function TeamPlaceHome() {
 
         const data = await getTeamFloors(teamId);
 
-        // ✅ 새 스펙 파싱
         const nextTeamLevel =
           data && typeof data === "object" && !Array.isArray(data)
             ? data.teamLevel
@@ -370,7 +432,6 @@ export default function TeamPlaceHome() {
             ? data
             : [];
 
-        // ✅ 첫 진입/새로고침에서는 애니메이션 없이 층만 맞춤
         if (nextTeamLevel != null) {
           applyTeamLevel(nextTeamLevel, { animate: false });
         }
@@ -392,7 +453,7 @@ export default function TeamPlaceHome() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teamId, navigate]);
 
-  // ✅ 팀 멤버 캐릭터 로드 (teamId 당 1번)
+  // ✅ 팀 멤버 캐릭터 로드 (teamId 당 1번)  ← 여기서 엘리베이터용 array도 세팅
   useEffect(() => {
     let ignore = false;
 
@@ -407,15 +468,20 @@ export default function TeamPlaceHome() {
         if (ignore) return;
 
         const arr = Array.isArray(chars) ? chars : [];
+
         const map = {};
         arr.forEach((u) => {
           if (u?.userId != null) map[u.userId] = u;
         });
+
         setCharByUserId(map);
+        setTeamChars(arr); // ✅ 엘리베이터에 "전원" 렌더용
       } catch (e) {
         if (e?.status === 401) return navigate("/login", { replace: true });
-        // 캐릭터는 “없어도 화면은 돌아가야” 해서 조용히 비움
-        if (!ignore) setCharByUserId({});
+        if (!ignore) {
+          setCharByUserId({});
+          setTeamChars([]);
+        }
       }
     };
 
@@ -433,7 +499,6 @@ export default function TeamPlaceHome() {
     for (const f of list) {
       const assignees = Array.isArray(f?.assignees) ? f.assignees : [];
 
-      // 담당자 없는 할 일도 표시
       if (assignees.length === 0) {
         rows.push({
           rowKey: `${f.teamFloorId}-none`,
@@ -455,14 +520,14 @@ export default function TeamPlaceHome() {
           username: a.username ?? `user-${a.userId}`,
           title: f.title ?? "(제목 없음)",
           dueDate: f.dueDate ?? null,
-          completed: !!f.completed, // ✅ 팀 완료라 동일 task는 동일 상태
+          completed: !!f.completed,
         });
       }
     }
     return rows;
   }, [teamFloors]);
 
-  // ✅ 팀 진행도 = floors 단위 (분모: floor 수, 분자: completed true 수)
+  // ✅ 팀 진행도 = floors 단위
   const teamProgress = useMemo(() => {
     const list = Array.isArray(teamFloors) ? teamFloors : [];
     const total = list.length;
@@ -483,20 +548,6 @@ export default function TeamPlaceHome() {
     });
     setCheckedMap(next);
   }, [taskRows]);
-
-  // ✅ 캐릭터 로드 (내 캐릭터: 엘리베이터)
-  useEffect(() => {
-    const loadCharacter = async () => {
-      const token = localStorage.getItem(AUTH_TOKEN_KEY);
-      if (!token) return;
-
-      try {
-        const data = await getMyCharacter();
-        if (data?.imageUrl) setCharacterImageUrl(data.imageUrl);
-      } catch (e) {}
-    };
-    loadCharacter();
-  }, []);
 
   // ✅ dueDate가 있으면 "오늘 23:59:59" 기준으로 기한 체크 (fallback)
   const isLateByClient = (dueDate) => {
@@ -532,7 +583,6 @@ export default function TeamPlaceHome() {
     const prevChecked = !!checkedMap[rowKey];
     const nextChecked = !prevChecked;
 
-    // UI 낙관적 업데이트
     setCheckedMap((prev) => ({ ...prev, [rowKey]: nextChecked }));
     setSavingMap((prev) => ({ ...prev, [rowKey]: true }));
     setFloorsError("");
@@ -542,11 +592,10 @@ export default function TeamPlaceHome() {
       if (nextChecked) res = await completeTeamFloor(teamFloorId);
       else res = await cancelTeamFloor(teamFloorId);
 
-      // ✅ 코인 지급 조건(완료만)
       if (nextChecked) {
         const awarded = Number(res?.coinsAwarded) || 0;
 
-        const isAssigned = row?.userId != null; // 미지정이면 지급 X
+        const isAssigned = row?.userId != null;
         const lateFromServer =
           typeof res?.late === "boolean"
             ? res.late
@@ -554,32 +603,27 @@ export default function TeamPlaceHome() {
 
         const notAlreadyCompleted = res?.alreadyCompleted === false;
 
-        // ✅ 담당자 있음 + 기한 내 + 실제 지급 + 중복완료 아님
         if (
           isAssigned &&
           !lateFromServer &&
           awarded > 0 &&
           notAlreadyCompleted
         ) {
-          setCoinPopupAmount(awarded); // 보통 10
+          setCoinPopupAmount(awarded);
           setCoinPopupOpen(true);
         }
       }
-      // ✅ 취소 시 코인 차감은 백에서 처리 (팝업은 안 띄움)
 
-      // ✅ 완료/취소에서는 애니메이션 허용
       if (res?.teamLevel != null) {
         applyTeamLevel(res.teamLevel, { animate: true });
       }
 
-      // ✅ teamFloors completed 동기화(팀 단위)
       setTeamFloors((prev) =>
         prev.map((f) =>
           f.teamFloorId === teamFloorId ? { ...f, completed: nextChecked } : f
         )
       );
     } catch (e) {
-      // 실패 롤백
       setCheckedMap((prev) => ({ ...prev, [rowKey]: prevChecked }));
 
       if (e?.status === 401) return navigate("/login", { replace: true });
@@ -664,7 +708,6 @@ export default function TeamPlaceHome() {
           gap: 12px;
         }
 
-        /* 왼쪽: 캐릭터 + 이름(아래) */
         .member-col {
           display: flex;
           flex-direction: column;
@@ -672,14 +715,12 @@ export default function TeamPlaceHome() {
           justify-content: flex-start;
         }
 
-        /* ✅ 캐릭터 자리 */
         .member-avatar{
           width: 56px;
           height: 56px;
           display: grid;
           place-items: center;
         }
-        /* ✅ 아이템이 살짝 밖으로 나가도 안 잘리게 */
         .member-avatarViewport{
           position: relative;
           width: 56px;
@@ -689,7 +730,6 @@ export default function TeamPlaceHome() {
         .member-avatarStage{
           position: relative;
         }
-        /* ✅ equippedItems 비었을 때 placeholder */
         .member-avatarPlaceholder{
           width: 44px;
           height: 44px;
@@ -709,7 +749,6 @@ export default function TeamPlaceHome() {
           white-space: nowrap;
         }
 
-        /* 오른쪽: D-day(위) + 할일(아래) + 체크박스(오른쪽) */
         .task-box {
           height: 70px;
           border-radius: 14px;
@@ -749,7 +788,6 @@ export default function TeamPlaceHome() {
           text-overflow: ellipsis;
         }
 
-        /* ✅ D+1부터 빨간 처리 */
         .task-box--overdue{
           background: rgba(255, 70, 70, 0.18);
           border-color: rgba(255, 70, 70, 0.65);
@@ -805,7 +843,6 @@ export default function TeamPlaceHome() {
         .room-code-label { opacity: 0.9; }
         .room-code-value { letter-spacing: 0.5px; }
 
-        /* ✅ 방 나가기 모달 */
         .leave-modal-overlay{
           position: fixed;
           inset: 0;
@@ -855,7 +892,6 @@ export default function TeamPlaceHome() {
         .leave-btn-confirm{ background: var(--brand-teal); color: #fff; }
         .leave-btn:disabled{ opacity: .6; cursor: not-allowed; }
 
-        /* ✅ 프로젝트 마감 D-day 카드 */
         .dday-card {
           width: min(420px, 92vw);
           margin: 12px auto 10px;
@@ -883,9 +919,26 @@ export default function TeamPlaceHome() {
           letter-spacing: -1px;
         }
 
-        /* ✅ D+면 좀 위험색(원하면 빼도 됨) */
         .dday-value--over {
           color: rgba(220, 38, 38, 0.95);
+        }
+
+        /* ✅ 엘리베이터 내부: 팀원 캐릭터 전원 배치 (레이아웃 영향 X: 내부 오버레이만) */
+        .elevator-teamChars{
+          position: absolute;
+          inset: 0;
+          display: flex;
+          flex-wrap: wrap;
+          align-content: flex-end;
+          justify-content: center;
+          gap: 6px;
+          padding: 10px 10px 14px;
+          box-sizing: border-box;
+          pointer-events: none; /* 클릭 방해 X */
+        }
+        .elevator-teamCharItem{
+          transform: none; /* 내부 공간에 맞게 축소 (레이아웃 변화 X) */
+          transform-origin: center bottom;
         }
       `}</style>
 
@@ -904,7 +957,6 @@ export default function TeamPlaceHome() {
               alt="층수 표시판"
               className="floor-indicator-bg"
             />
-            {/* ✅ teamLevel이 null이면 숫자 숨김 */}
             <span className="floor-indicator-number">
               {teamLevel == null ? "" : teamLevel}
             </span>
@@ -922,13 +974,14 @@ export default function TeamPlaceHome() {
             className="elevator-inside"
             style={{ backgroundImage: `url(${elevatorInsideImg})` }}
           >
-            {characterImageUrl && (
-              <img
-                src={characterImageUrl}
-                alt="캐릭터"
-                className="elevator-character"
-              />
-            )}
+            {/* ✅ 여기: 기존 characterImageUrl img 삭제하고 팀원 캐릭터 전원 렌더 */}
+            <div className="elevator-teamChars" aria-hidden="true">
+              {(teamChars || []).map((u) => (
+                <div className="elevator-teamCharItem" key={u?.userId}>
+                  <ElevatorCharacterThumb user={u} size={120} />
+                </div>
+              ))}
+            </div>
           </div>
 
           <ElevatorDoor isOpen={isOpen} />
@@ -945,7 +998,7 @@ export default function TeamPlaceHome() {
         <button className="teamplace-btn">팀 게시판</button>
       </div>
 
-      {/* ✅ 프로젝트 마감 D-day (team.endDate 기준) - 로딩 중에도 카드 노출 */}
+      {/* ✅ 프로젝트 마감 D-day */}
       {(() => {
         const end = parseYmdToLocalDate(teamEndDate);
         const diff = end ? calcDday(end) : null;
@@ -996,13 +1049,11 @@ export default function TeamPlaceHome() {
 
               return (
                 <div className="everyone-row" key={r.rowKey}>
-                  {/* ✅ 왼쪽: 캐릭터 + 이름(아래) */}
                   <div className="member-col">
                     <CharacterThumb user={userChar} />
                     <div className="member-name">{r.username}</div>
                   </div>
 
-                  {/* 오른쪽: 테스크 박스 */}
                   <div
                     className={`task-box ${
                       isOverdue ? "task-box--overdue" : ""
