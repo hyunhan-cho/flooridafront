@@ -78,6 +78,12 @@ export function getSchedules({ year, month }) {
   );
 }
 
+// 개인 플랜 미달성 일정 조회
+// GET /api/me/personal-place/missed
+export async function getMissedPersonalPlace() {
+  return await http.get("/api/me/personal-place/missed");
+}
+
 // 특정 날짜의 Floor 상태 조회
 // GET /api/floors/status/date/{date}
 export async function getFloorsStatusByDate(date) {
@@ -90,18 +96,70 @@ export async function deleteSchedule(id) {
   return await http.del(`/api/schedules/${id}`);
 }
 
-// Floor 완료 상태 업데이트 API (백엔드 엔드포인트 미구현으로 일단 더미 처리)
-// 현재 백엔드 스펙에는 PATCH /api/floors/{id} 가 없어 404가 발생하므로
-// 일단 프론트엔드에서만 상태를 유지하고, 서버 호출은 하지 않습니다.
+// Floor 삭제 API
+// DELETE /api/floors/{id}
+export async function deleteFloor(id) {
+  return await http.del(`/api/floors/${id}`);
+}
+
+// 오늘 할 일 불러오기
+// GET /api/floors/today
+export async function getTodayFloors() {
+  return await http.get("/api/floors/today");
+}
+
+// Floor 완료 처리 API
+// POST /api/floors/{floorId}/complete
+// 10코인 지급, 층수(personalLevel) 1 증가
+export async function completeFloor(floorId) {
+  // 빈 body 또는 필요한 데이터를 포함하여 요청
+  return await http.post(`/api/floors/${floorId}/complete`, {});
+}
+
+// Floor 완료 취소 API
+// POST /api/floors/{floorId}/uncomplete
+// 10코인 차감, 층수(personalLevel) -1 (최소 1층 유지)
+export async function uncompleteFloor(floorId) {
+  return await http.post(`/api/floors/${floorId}/uncomplete`, {});
+}
+
+// 사용자 프로필 조회 API
+// GET /api/me/profile
+// personalLevel 필드 포함
+export async function getMyProfile() {
+  return await http.get("/api/me/profile");
+}
+
+// Floor 완료 상태 업데이트 API (하위 호환성을 위해 유지)
+// 이제는 completeFloor를 사용하지만, 기존 코드와의 호환성을 위해 유지
 export async function updateFloorCompletion(
   floorId,
   completed,
   scheduleId = null
 ) {
-  console.warn(
-    "updateFloorCompletion: 백엔드에 완료 상태를 저장하는 엔드포인트가 없어,",
-    "프론트엔드에서만 상태를 변경합니다.",
-    { floorId, completed, scheduleId }
-  );
-  return;
+  if (completed) {
+    // 완료 처리
+    return await completeFloor(floorId);
+  } else {
+    // 미완료 처리 (필요한 경우 별도 API 구현)
+    console.warn("미완료 처리 API는 아직 구현되지 않았습니다.");
+    return;
+  }
+}
+
+// Schedule 부분 수정 API
+// PATCH /api/schedules/{id}
+export async function updateSchedule(id, data) {
+  return await http.patch(`/api/schedules/${id}`, data);
+}
+
+// Floor 수정 API
+// PATCH /api/floors/{id}
+export async function updateFloor(id, data) {
+  return await http.patch(`/api/floors/${id}`, data);
+}
+
+// 테스트용: 층수 추가
+export async function addTestFloors(floors = 100) {
+  return http.post(`/api/me/test/add-floors?floors=${floors}`, {});
 }
