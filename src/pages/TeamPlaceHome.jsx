@@ -5,6 +5,7 @@ import ElevatorDoor from "../components/ElevatorDoor.jsx";
 import QuestList from "../components/QuestList.jsx";
 import BackButton from "../components/BackButton.jsx";
 import Navbar from "../components/Navbar.jsx";
+import CoinPopup from "../components/CoinPopup.jsx";
 
 import {
   getMyCharacter,
@@ -210,6 +211,10 @@ export default function TeamPlaceHome() {
 
   // ✅ 팀 멤버 캐릭터 맵: userId -> user(character payload)
   const [charByUserId, setCharByUserId] = useState({});
+
+  // ✅ 코인 팝업
+  const [coinPopupOpen, setCoinPopupOpen] = useState(false);
+  const [coinPopupAmount, setCoinPopupAmount] = useState(10);
 
   // ✅ 홈.jsx랑 같은 이동 함수(엘리베이터 애니메이션)
   const goToFloor = (targetFloor) => {
@@ -493,6 +498,31 @@ export default function TeamPlaceHome() {
     loadCharacter();
   }, []);
 
+  // ✅ dueDate가 있으면 "오늘 23:59:59" 기준으로 기한 체크 (fallback)
+  const isLateByClient = (dueDate) => {
+    if (!dueDate) return false;
+    const now = new Date();
+
+    let d = null;
+    if (typeof dueDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dueDate)) {
+      d = parseYmdToLocalDate(dueDate);
+    } else {
+      d = new Date(dueDate);
+    }
+    if (!(d instanceof Date) || isNaN(d.getTime())) return false;
+
+    const endOfDay = new Date(
+      d.getFullYear(),
+      d.getMonth(),
+      d.getDate(),
+      23,
+      59,
+      59,
+      999
+    );
+    return now > endOfDay;
+  };
+
   // ✅ 체크 토글 + 서버 반영(complete/cancel)
   const onToggleTask = async (row) => {
     const { rowKey, teamFloorId } = row;
@@ -511,6 +541,31 @@ export default function TeamPlaceHome() {
       let res;
       if (nextChecked) res = await completeTeamFloor(teamFloorId);
       else res = await cancelTeamFloor(teamFloorId);
+
+      // ✅ 코인 지급 조건(완료만)
+      if (nextChecked) {
+        const awarded = Number(res?.coinsAwarded) || 0;
+
+        const isAssigned = row?.userId != null; // 미지정이면 지급 X
+        const lateFromServer =
+          typeof res?.late === "boolean"
+            ? res.late
+            : isLateByClient(row?.dueDate);
+
+        const notAlreadyCompleted = res?.alreadyCompleted === false;
+
+        // ✅ 담당자 있음 + 기한 내 + 실제 지급 + 중복완료 아님
+        if (
+          isAssigned &&
+          !lateFromServer &&
+          awarded > 0 &&
+          notAlreadyCompleted
+        ) {
+          setCoinPopupAmount(awarded); // 보통 10
+          setCoinPopupOpen(true);
+        }
+      }
+      // ✅ 취소 시 코인 차감은 백에서 처리 (팝업은 안 띄움)
 
       // ✅ 완료/취소에서는 애니메이션 허용
       if (res?.teamLevel != null) {
@@ -799,39 +854,39 @@ export default function TeamPlaceHome() {
         .leave-btn-cancel{ background: #e9e9e9; color: #111; }
         .leave-btn-confirm{ background: var(--brand-teal); color: #fff; }
         .leave-btn:disabled{ opacity: .6; cursor: not-allowed; }
+
         /* ✅ 프로젝트 마감 D-day 카드 */
-.dday-card {
-  width: min(420px, 92vw);
-  margin: 12px auto 10px;
-  background: #f4f4f4;
-  border-radius: 14px;
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
-  padding: 14px 16px;
+        .dday-card {
+          width: min(420px, 92vw);
+          margin: 12px auto 10px;
+          background: #f4f4f4;
+          border-radius: 14px;
+          box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+          padding: 14px 16px;
 
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
 
-.dday-title {
-  font-size: 20px;
-  font-weight: 900;
-  color: #111;
-  letter-spacing: -0.3px;
-}
+        .dday-title {
+          font-size: 20px;
+          font-weight: 900;
+          color: #111;
+          letter-spacing: -0.3px;
+        }
 
-.dday-value {
-  font-size: 34px;
-  font-weight: 1000;
-  color: #111;
-  letter-spacing: -1px;
-}
+        .dday-value {
+          font-size: 34px;
+          font-weight: 1000;
+          color: #111;
+          letter-spacing: -1px;
+        }
 
-/* ✅ D+면 좀 위험색(원하면 빼도 됨) */
-.dday-value--over {
-  color: rgba(220, 38, 38, 0.95);
-}
-
+        /* ✅ D+면 좀 위험색(원하면 빼도 됨) */
+        .dday-value--over {
+          color: rgba(220, 38, 38, 0.95);
+        }
       `}</style>
 
       <BackButton />
@@ -889,6 +944,7 @@ export default function TeamPlaceHome() {
         </button>
         <button className="teamplace-btn">팀 게시판</button>
       </div>
+
       {/* ✅ 프로젝트 마감 D-day (team.endDate 기준) - 로딩 중에도 카드 노출 */}
       {(() => {
         const end = parseYmdToLocalDate(teamEndDate);
@@ -1044,6 +1100,14 @@ export default function TeamPlaceHome() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ✅ 코인 팝업 */}
+      {coinPopupOpen && (
+        <CoinPopup
+          coinAmount={coinPopupAmount}
+          onClose={() => setCoinPopupOpen(false)}
+        />
       )}
     </div>
   );
