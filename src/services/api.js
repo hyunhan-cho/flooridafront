@@ -197,3 +197,22 @@ export async function updateFloor(id, data) {
 export async function createFloor(data) {
   return await http.post(`/api/floors`, data);
 }
+
+// Schedule 부분 수정 API
+// PATCH /api/schedules/{id}
+export async function updateSchedule(id, data) {
+  return await http.patch(`/api/schedules/${id}`, data);
+}
+
+// Floor 수정 API
+// PATCH /api/floors/{id}
+export async function updateFloor(id, data) {
+  return await http.patch(`/api/floors/${id}`, data);
+}
+
+// Floor 추가 API
+// POST /api/floors
+// Body: { scheduleId, title, scheduledDate }
+export async function createFloor(data) {
+  return await http.post(`/api/floors`, data);
+}
