@@ -228,7 +228,10 @@ export default function 공유용캘린더() {
   // AI 플랜 폼 화면
   if (showAiPlanForm) {
     return (
-      <div className="app home-view">
+      <div
+        className="app home-view"
+        style={{ background: "#DFDFDF", minHeight: "100vh" }}
+      >
         <PersonalHeader />
         <main
           className="page-content"
@@ -238,6 +241,7 @@ export default function 공유용캘린더() {
             justifyContent: "center",
             marginTop: "15px",
             marginBottom: "15px",
+            background: "#DFDFDF",
           }}
         >
           {aiPlanStep === "form" && (

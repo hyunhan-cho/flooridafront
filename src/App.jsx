@@ -11,6 +11,11 @@ import Mypage from "./pages/Mypage.jsx";
 import MyCalendar from "./pages/MyCalendar.jsx";
 import JoinedTeamPlace from "./pages/JoinedTeamPlace.jsx";
 import Customize from "./pages/Customize.jsx";
+import ProfileManage from "./pages/ProfileManage.jsx";
+import TendencyEdit from "./pages/TendencyEdit.jsx";
+import Withdraw from "./pages/Withdraw.jsx";
+import BadgeList from "./pages/BadgeList.jsx";
+
 import TeamCalendar from "./pages/TeamCalendar.jsx";
 import TeamPlaceHome from "./pages/TeamPlaceHome.jsx";
 import RoomManagement from "./pages/RoomManagement.jsx";
@@ -26,6 +31,10 @@ export default function App() {
       <Route path="/home" element={<Home />} />
       <Route path="/tendency" element={<TendencyInfo />} />
       <Route path="/mypage" element={<Mypage />} />
+      <Route path="/profile-manage" element={<ProfileManage />} />
+      <Route path="/tendency-edit" element={<TendencyEdit />} />
+      <Route path="/withdraw" element={<Withdraw />} />
+      <Route path="/badges" element={<BadgeList />} />
       <Route path="/mycalendar" element={<MyCalendar />} />
       <Route path="/joinedteamplace" element={<JoinedTeamPlace />} />
       <Route path="/customize" element={<Customize />} />

@@ -67,12 +67,15 @@ export default function CalendarView({
   onTaskUpdate,
   onFloorDelete,
   onFloorUpdate,
+  onScheduleDelete,
+  onFloorAdd,
+  onScheduleUpdate,
+  onScheduleRefresh,
   editIcon,
-  // ✅ 추가 (선택): 리스트에 보일 텍스트 커스터마이징
-  // (subtask, parentTask) => string
-  renderListText,
 }) {
   const [currentDate, setCurrentDate] = useState(() => new Date());
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [scheduleToDelete, setScheduleToDelete] = useState(null);
   const today = new Date();
 
   const cells = buildMonthMatrix(currentDate);
@@ -341,64 +344,7 @@ export default function CalendarView({
               );
             }
 
-            // 각 task에서 해당 날짜에 해당하는 특정 subtask만 표시 (하루에 하나씩)
-            const dailySubtasks = [];
-            filteredTasks.forEach((task) => {
-              if (
-                task.subtasks &&
-                task.subtasks.length > 0 &&
-                task.startDate &&
-                task.endDate
-              ) {
-                // 선택된 날짜가 startDate로부터 몇 번째 날인지 계산
-                const targetDate = selectedDate || today;
-                const targetDateStr = formatDate(targetDate);
-                const startDate = new Date(task.startDate);
-                const target = new Date(targetDateStr);
-
-                startDate.setHours(0, 0, 0, 0);
-                target.setHours(0, 0, 0, 0);
-
-                // 날짜 차이 계산 (0-based 인덱스)
-                const daysDiff = Math.floor(
-                  (target - startDate) / (1000 * 60 * 60 * 24)
-                );
-
-                // 해당 날짜에 맞는 subtask 선택
-                if (daysDiff >= 0 && daysDiff < task.subtasks.length) {
-                  const targetSubtask = task.subtasks[daysDiff];
-                  dailySubtasks.push({
-                    ...targetSubtask,
-                    taskId: task.id,
-                    taskTitle: task.title,
-                    taskColor: task.color,
-                    scheduleId: task.id,
-                  });
-                } else if (daysDiff >= 0 && task.subtasks.length > 0) {
-                  // 날짜가 범위를 벗어났지만 subtasks가 있으면 마지막 subtask 표시
-                  const lastSubtask = task.subtasks[task.subtasks.length - 1];
-                  dailySubtasks.push({
-                    ...lastSubtask,
-                    taskId: task.id,
-                    taskTitle: task.title,
-                    taskColor: task.color,
-                    scheduleId: task.id,
-                  });
-                }
-              } else if (task.subtasks && task.subtasks.length > 0) {
-                // startDate/endDate 정보가 없으면 첫 번째 subtask 표시
-                const firstSubtask = task.subtasks[0];
-                dailySubtasks.push({
-                  ...firstSubtask,
-                  taskId: task.id,
-                  taskTitle: task.title,
-                  taskColor: task.color,
-                  scheduleId: task.id,
-                });
-              }
-            });
-
-            if (dailySubtasks.length === 0) {
+            if (filteredTasks.length === 0) {
               return (
                 <div
                   style={{
@@ -413,31 +359,50 @@ export default function CalendarView({
               );
             }
 
-            return dailySubtasks.map((subtask) => {
-              const isSelected =
-                selectedTask && selectedTask.id === subtask.taskId;
-              const parentTask = filteredTasks.find(
-                (t) => t.id === subtask.taskId
-              );
-              const isExpanded = editingTask?.id === parentTask?.id;
+            return filteredTasks.map((task) => {
+              const isSelected = selectedTask && selectedTask.id === task.id;
+              const isExpanded = editingTask?.id === task.id;
 
-              // ✅ 여기만 추가: 표시 텍스트 결정
-              const listText =
-                typeof renderListText === "function"
-                  ? renderListText(subtask, parentTask || null)
-                  : subtask.text;
+              // 선택된 날짜가 startDate로부터 몇 번째 날인지 계산
+              const targetDate = selectedDate || today;
+              const targetDateStr = formatDate(targetDate);
+              let todaySubtask = null;
+
+              if (task.startDate && task.subtasks && task.subtasks.length > 0) {
+                const startDate = new Date(task.startDate);
+                const target = new Date(targetDateStr);
+
+                startDate.setHours(0, 0, 0, 0);
+                target.setHours(0, 0, 0, 0);
+
+                // 날짜 차이 계산 (0-based 인덱스)
+                const daysDiff = Math.floor(
+                  (target - startDate) / (1000 * 60 * 60 * 24)
+                );
+
+                // 해당 날짜에 맞는 subtask 선택
+                if (daysDiff >= 0 && daysDiff < task.subtasks.length) {
+                  todaySubtask = task.subtasks[daysDiff];
+                } else if (daysDiff >= 0 && task.subtasks.length > 0) {
+                  // 날짜가 범위를 벗어났지만 subtasks가 있으면 마지막 subtask 표시
+                  todaySubtask = task.subtasks[task.subtasks.length - 1];
+                } else if (task.subtasks.length > 0) {
+                  // startDate/endDate 정보가 없으면 첫 번째 subtask 표시
+                  todaySubtask = task.subtasks[0];
+                }
+              }
 
               return (
-                <div key={subtask.id}>
+                <div key={task.id}>
                   <div
                     onClick={() => {
-                      if (parentTask) {
-                        onTaskSelect?.(isSelected ? null : parentTask);
-                      }
+                      onTaskSelect?.(isSelected ? null : task);
+                      // 계획 클릭 시 바로 토글 열기/닫기
+                      onEditingTaskChange?.(isExpanded ? null : task);
                     }}
                     style={{
                       background: isSelected
-                        ? parentTask?.color || "#FDBA74"
+                        ? task.color || "#FDBA74"
                         : "#f3f4f6",
                       borderRadius: "8px",
                       padding: "10px 12px",
@@ -451,75 +416,62 @@ export default function CalendarView({
                       flexWrap: "nowrap",
                     }}
                   >
-                    <span
+                    <div
                       style={{
-                        fontSize: "clamp(10px, 2.5vw, 14px)",
-                        fontWeight: 600,
-                        color: "#111827",
-                        fontFamily: "var(--font-sans)",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "4px",
                         flex: "1",
                         minWidth: 0,
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
                       }}
                     >
-                      {listText}
-                    </span>
-
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (parentTask) {
-                          onTaskSelect?.(parentTask);
-                          onEditingTaskChange?.(isExpanded ? null : parentTask);
-                        }
-                      }}
-                      style={{
-                        background: "#e5e7eb",
-                        border: "none",
-                        borderRadius: "8px",
-                        color: "#111827",
-                        fontSize: "12px",
-                        fontWeight: 600,
-                        cursor: "pointer",
-                        fontFamily: "var(--font-sans)",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "4px",
-                        padding: "6px 12px",
-                        flexShrink: 0,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      <img
-                        src={editIcon}
-                        alt="수정"
-                        style={{
-                          width: "14px",
-                          height: "14px",
-                          flexShrink: 0,
-                        }}
-                      />
-                      <span>수정하기</span>
                       <span
                         style={{
-                          fontSize: "12px",
-                          color: "#6b7280",
-                          transform: isExpanded
-                            ? "rotate(180deg)"
-                            : "rotate(0deg)",
-                          transition: "transform 0.2s ease",
-                          marginLeft: "4px",
-                          flexShrink: 0,
+                          fontSize: "clamp(12px, 2.5vw, 16px)",
+                          fontWeight: 700,
+                          color: "#111827",
+                          fontFamily: "var(--font-sans)",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
                         }}
                       >
-                        ▼
+                        {task.title}
                       </span>
-                    </button>
+                      {todaySubtask && (
+                        <span
+                          style={{
+                            fontSize: "clamp(10px, 2.5vw, 12px)",
+                            fontWeight: 500,
+                            color: "#6b7280",
+                            fontFamily: "var(--font-sans)",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
+                          {todaySubtask.text}
+                        </span>
+                      )}
+                    </div>
+                    <span
+                      style={{
+                        fontSize: "12px",
+                        color: "#6b7280",
+                        transform: isExpanded
+                          ? "rotate(180deg)"
+                          : "rotate(0deg)",
+                        transition: "transform 0.2s ease",
+                        marginLeft: "4px",
+                        flexShrink: 0,
+                      }}
+                    >
+                      ▼
+                    </span>
                   </div>
 
                   {/* 토글된 세부 계획 목록 */}
-                  {isExpanded && parentTask && parentTask.subtasks && (
+                  {isExpanded && task && task.subtasks && (
                     <div
                       style={{
                         background: "#ffffff",
@@ -530,33 +482,11 @@ export default function CalendarView({
                         border: "1px solid #e5e7eb",
                       }}
                     >
-                      {/* 메인 타이틀 표시 */}
-                      <div
-                        style={{
-                          padding: "12px",
-                          marginBottom: "12px",
-                          background: "#f9fafb",
-                          borderRadius: "8px",
-                          border: `2px solid ${parentTask.color || "#FDBA74"}`,
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontSize: "16px",
-                            fontWeight: 700,
-                            color: "#111827",
-                            fontFamily: "var(--font-sans)",
-                          }}
-                        >
-                          {parentTask.title}
-                        </span>
-                      </div>
-
-                      {parentTask.subtasks.map((detailSubtask, index) => {
+                      {task.subtasks.map((detailSubtask, index) => {
                         // startDate부터 시작해서 각 subtask의 날짜 계산
                         let taskDate = null;
-                        if (parentTask.startDate) {
-                          taskDate = new Date(parentTask.startDate);
+                        if (task.startDate) {
+                          taskDate = new Date(task.startDate);
                           taskDate.setDate(taskDate.getDate() + index);
                         }
 
@@ -713,6 +643,7 @@ export default function CalendarView({
                                       });
                                       onEditingFloorChange?.(null);
                                       onEditingFloorTextChange?.("");
+                                      // 토글은 열어둠
                                     } catch (error) {
                                       console.error("계획 수정 실패:", error);
                                       alert("계획 수정에 실패했습니다.");
@@ -761,17 +692,218 @@ export default function CalendarView({
                       <div
                         style={{
                           display: "flex",
-                          justifyContent: "flex-end",
+                          justifyContent: "space-between",
+                          gap: "8px",
                           marginTop: "12px",
                         }}
                       >
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
+                            setScheduleToDelete(task);
+                            setShowDeleteModal(true);
+                          }}
+                          style={{
+                            flex: 1,
+                            background: "#ef4444",
+                            color: "#fff",
+                            border: "none",
+                            borderRadius: "12px",
+                            padding: "14px",
+                            fontSize: "14px",
+                            fontWeight: 800,
+                            cursor: "pointer",
+                            fontFamily: "var(--font-pixel-kr)",
+                          }}
+                        >
+                          계획 삭제
+                        </button>
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            try {
+                              // 시작일이 없는 경우 에러
+                              if (!task.startDate) {
+                                throw new Error(
+                                  "시작일이 설정되지 않은 일정입니다."
+                                );
+                              }
+
+                              // 시작일 기준으로 새 계획의 날짜 계산
+                              // 시작일 + (현재 계획 개수)일
+                              const startDate = new Date(task.startDate);
+                              startDate.setHours(0, 0, 0, 0);
+
+                              // 현재 계획 개수 (기존 subtasks 개수)
+                              const currentPlanCount = task.subtasks
+                                ? task.subtasks.length
+                                : 0;
+
+                              // 새 계획의 날짜 = 시작일 + (현재 계획 개수)일
+                              const newPlanDate = new Date(startDate);
+                              newPlanDate.setDate(
+                                startDate.getDate() + currentPlanCount
+                              );
+
+                              const scheduledDateStr = formatDate(newPlanDate);
+
+                              // 새 마감일 = 시작일 + (계획 개수 + 1 - 1)일 = 시작일 + (계획 개수)일
+                              // 즉, 새 계획을 추가한 후의 계획 개수를 기준으로 마감일 계산
+                              const newEndDate = new Date(startDate);
+                              newEndDate.setDate(
+                                startDate.getDate() + currentPlanCount
+                              ); // 새 계획 포함한 총 개수
+                              const newEndDateStr = formatDate(newEndDate);
+
+                              console.log(
+                                "[계획 추가] 시작일:",
+                                task.startDate,
+                                "현재 계획 개수:",
+                                currentPlanCount,
+                                "새 계획 날짜:",
+                                scheduledDateStr,
+                                "새 마감일:",
+                                newEndDateStr
+                              );
+
+                              // 마감일 업데이트 (계획 개수만큼 일수 추가)
+                              try {
+                                const updateResponse = await onScheduleUpdate?.(
+                                  task.id,
+                                  {
+                                    endDate: newEndDateStr,
+                                  }
+                                );
+
+                                // 서버에 반영되기까지 약간의 지연 후 floor 추가
+                                await new Promise((resolve) =>
+                                  setTimeout(resolve, 200)
+                                );
+
+                                const updatedEndDate =
+                                  updateResponse?.endDate || newEndDateStr;
+                                console.log(
+                                  "[마감일 업데이트 성공] 새 마감일:",
+                                  updatedEndDate,
+                                  "계획 날짜:",
+                                  scheduledDateStr
+                                );
+                              } catch (scheduleError) {
+                                console.error(
+                                  "마감일 업데이트 실패:",
+                                  scheduleError
+                                );
+                                // 마감일 업데이트 실패 시 에러를 throw하여 상위에서 처리
+                                throw new Error(
+                                  "마감일 업데이트에 실패했습니다. 다시 시도해주세요."
+                                );
+                              }
+
+                              const newFloor = await onFloorAdd?.(task.id, {
+                                title: "새 계획",
+                                scheduledDate: scheduledDateStr,
+                              });
+
+                              // 새로 추가된 floor를 편집 모드로 설정
+                              if (newFloor && newFloor.floorId) {
+                                onEditingFloorChange?.(newFloor.floorId);
+                                onEditingFloorTextChange?.("새 계획");
+                              }
+                            } catch (error) {
+                              console.error("계획 추가 실패:", error);
+                              const errorMessage =
+                                error.data?.message || error.message || "";
+                              if (
+                                errorMessage.includes("schedule date range") ||
+                                errorMessage.includes("date range")
+                              ) {
+                                alert(
+                                  "계획 추가에 실패했습니다. 선택한 날짜가 일정 기간 내에 있어야 합니다. 먼저 일정 기간을 연장해주세요."
+                                );
+                              } else {
+                                alert(
+                                  "계획 추가에 실패했습니다. 다시 시도해주세요."
+                                );
+                              }
+                            }
+                          }}
+                          style={{
+                            flex: 1,
+                            background: "#10b981",
+                            color: "#fff",
+                            border: "none",
+                            borderRadius: "12px",
+                            padding: "14px",
+                            fontSize: "14px",
+                            fontWeight: 800,
+                            cursor: "pointer",
+                            fontFamily: "var(--font-pixel-kr)",
+                          }}
+                        >
+                          계획 추가
+                        </button>
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation();
+
+                            // 수정된 floor들을 저장 (이미 서버에 저장된 floor는 제외)
+                            // "계획 추가" 버튼으로 추가된 floor는 이미 서버에 저장되어 있음
+                            const floorsToUpdate = task.subtasks.filter(
+                              (s) =>
+                                s.isNew &&
+                                s.id &&
+                                s.id.toString().startsWith("temp-")
+                            );
+
+                            // 임시 ID를 가진 floor만 저장 (localStorage에만 있는 경우)
+                            for (const floor of floorsToUpdate) {
+                              try {
+                                await onFloorUpdate?.(floor.id, {
+                                  title: floor.text,
+                                });
+                              } catch (error) {
+                                console.error("새 floor 저장 실패:", error);
+                              }
+                            }
+
+                            // 마감일 연장 - 모든 subtasks 중 가장 마지막 날짜 찾기
+                            let latestDate = null;
+                            for (const floor of task.subtasks) {
+                              if (floor.scheduledDate) {
+                                const floorDate = new Date(floor.scheduledDate);
+                                if (!latestDate || floorDate > latestDate) {
+                                  latestDate = floorDate;
+                                }
+                              }
+                            }
+
+                            // 기존 마감일과 비교하여 더 늦은 날짜 사용
+                            let currentEndDate = task.endDate
+                              ? new Date(task.endDate)
+                              : null;
+                            if (latestDate) {
+                              if (
+                                !currentEndDate ||
+                                latestDate > currentEndDate
+                              ) {
+                                // 마감일을 가장 마지막 floor의 날짜로 업데이트
+                                const newEndDate = new Date(latestDate);
+                                try {
+                                  await onScheduleUpdate?.(task.id, {
+                                    endDate: newEndDate
+                                      .toISOString()
+                                      .slice(0, 10),
+                                  });
+                                } catch (error) {
+                                  console.error("마감일 업데이트 실패:", error);
+                                }
+                              }
+                            }
+
                             onEditingTaskChange?.(null);
                           }}
                           style={{
-                            width: "33.33%",
+                            flex: 1,
                             background: "var(--brand-teal)",
                             color: "#fff",
                             border: "none",
@@ -794,6 +926,128 @@ export default function CalendarView({
           })()
         )}
       </div>
+
+      {/* 계획 삭제 확인 모달 */}
+      {showDeleteModal && scheduleToDelete && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+          onClick={() => {
+            setShowDeleteModal(false);
+            setScheduleToDelete(null);
+          }}
+        >
+          <div
+            style={{
+              background: "#f3f4f6",
+              borderRadius: "18px",
+              padding: "24px",
+              maxWidth: "400px",
+              width: "90%",
+              boxShadow: "0 20px 40px rgba(0,0,0,0.3)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3
+              style={{
+                margin: "0 0 16px 0",
+                fontSize: "18px",
+                fontWeight: 800,
+                color: "#111827",
+                fontFamily: "var(--font-pixel-kr)",
+                textAlign: "center",
+              }}
+            >
+              계획 삭제
+            </h3>
+            <p
+              style={{
+                margin: "0 0 24px 0",
+                fontSize: "14px",
+                color: "#374151",
+                fontFamily: "var(--font-sans)",
+                textAlign: "center",
+                lineHeight: "1.5",
+              }}
+            >
+              이 계획을 삭제하고 싶으신가요?
+              <br />
+              삭제된 계획은 복구할 수 없습니다.
+            </p>
+            <div
+              style={{
+                display: "flex",
+                gap: "12px",
+                justifyContent: "center",
+              }}
+            >
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setScheduleToDelete(null);
+                }}
+                style={{
+                  flex: 1,
+                  background: "#e5e7eb",
+                  color: "#111827",
+                  border: "none",
+                  borderRadius: "12px",
+                  padding: "14px",
+                  fontSize: "14px",
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  fontFamily: "var(--font-pixel-kr)",
+                }}
+              >
+                취소
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    await onScheduleDelete?.(scheduleToDelete.id);
+                    // 선택된 작업이 삭제된 작업이면 선택 해제하여 캘린더 색깔 원 제거
+                    if (
+                      selectedTask &&
+                      selectedTask.id === scheduleToDelete.id.toString()
+                    ) {
+                      onTaskSelect?.(null);
+                    }
+                    setShowDeleteModal(false);
+                    setScheduleToDelete(null);
+                  } catch (error) {
+                    console.error("계획 삭제 실패:", error);
+                    alert("계획 삭제에 실패했습니다.");
+                  }
+                }}
+                style={{
+                  flex: 1,
+                  background: "#ef4444",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: "12px",
+                  padding: "14px",
+                  fontSize: "14px",
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  fontFamily: "var(--font-pixel-kr)",
+                }}
+              >
+                삭제하기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

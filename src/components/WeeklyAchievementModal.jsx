@@ -84,10 +84,32 @@ export default function WeeklyAchievementModal({ onClose }) {
 
   // 날짜별 상태 및 색상 결정
   const getDateStatus = (date, dateObj) => {
+    const todayDate = new Date();
+    todayDate.setHours(0, 0, 0, 0);
+    const compareDate = new Date(dateObj);
+    compareDate.setHours(0, 0, 0, 0);
+    
+    // 미래 날짜는 색상 없이 표시
+    if (compareDate > todayDate) {
+      return { status: "normal", color: null };
+    }
+    
     const completionRate = getCompletionRate(dateObj);
     
+    // 오늘 날짜는 달성했을 때만 색상 표시
     if (date === today) {
-      return { status: "current", color: completionRate !== null ? getColorByCompletionRate(completionRate) : null };
+      const isTodayDate = compareDate.getTime() === todayDate.getTime();
+      if (isTodayDate) {
+        // 오늘 날짜이고 completionRate가 있고 0보다 크면 색상 표시
+        if (completionRate !== null && completionRate > 0) {
+          return {
+            status: "current",
+            color: getColorByCompletionRate(completionRate),
+          };
+        }
+        // 오늘 날짜이지만 달성하지 않았으면 색상 없이 표시
+        return { status: "current", color: null };
+      }
     }
     
     if (completionRate === null) {
@@ -126,11 +148,26 @@ export default function WeeklyAchievementModal({ onClose }) {
             {weekDates.map((date, idx) => {
               const dateObj = weekDateObjects[idx];
               const { status, color } = getDateStatus(date, dateObj);
+              const todayDate = new Date();
+              todayDate.setHours(0, 0, 0, 0);
+              const compareDate = new Date(dateObj);
+              compareDate.setHours(0, 0, 0, 0);
+              const isToday = compareDate.getTime() === todayDate.getTime();
+              
+              // 오늘 날짜이지만 색상이 없으면 border만 표시
+              const style = {};
+              if (isToday && !color) {
+                style.border = "3px solid #111827";
+                style.boxSizing = "border-box";
+              } else if (color) {
+                style.backgroundColor = color;
+              }
+              
               return (
                 <div
                   key={idx}
                   className={`weekly-date weekly-date--${status}`}
-                  style={color ? { backgroundColor: color } : {}}
+                  style={style}
                 >
                   {date}
                 </div>
