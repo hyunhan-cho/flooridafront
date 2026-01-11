@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { getCalendarStats } from "../services/api.js";
 import { AUTH_TOKEN_KEY } from "../config.js";
 
@@ -42,7 +42,10 @@ function getColorByCompletionRate(rate) {
 }
 
 export default function WeeklyAchievementModal({ onClose }) {
-  const { weekDates, weekDateObjects, monday } = getCurrentWeekDates();
+  const { weekDates, weekDateObjects, monday } = useMemo(
+    () => getCurrentWeekDates(),
+    []
+  );
   const today = new Date().getDate();
   const [calendarData, setCalendarData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -183,4 +186,3 @@ export default function WeeklyAchievementModal({ onClose }) {
     </div>
   );
 }
-

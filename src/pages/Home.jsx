@@ -18,7 +18,6 @@ import {
   getMissedPersonalPlace,
   completeFloor,
   uncompleteFloor,
-  addTestFloors,
 } from "../services/api.js";
 import { AUTH_TOKEN_KEY } from "../config.js";
 
@@ -34,6 +33,7 @@ function formatDate(date) {
 }
 
 const elevatorInsideImg = "/images/frame.png";
+const WEEKLY_MODAL_SHOWN_KEY = "weeklyAchievementModalShown";
 
 export default function Home() {
   const navigate = useNavigate();
@@ -83,8 +83,19 @@ export default function Home() {
     }, 3500);
   };
 
-  // 새로고침 시 모달 표시
+  // 첫 로그인 1회만 주간 달성률 모달 표시
   useEffect(() => {
+    const token = localStorage.getItem(AUTH_TOKEN_KEY);
+    if (!token) {
+      return;
+    }
+
+    const hasShown = localStorage.getItem(WEEKLY_MODAL_SHOWN_KEY);
+    if (hasShown) {
+      return;
+    }
+
+    localStorage.setItem(WEEKLY_MODAL_SHOWN_KEY, "true");
     setShowWeeklyModal(true);
   }, []);
 
@@ -1200,79 +1211,6 @@ export default function Home() {
         done={todayProgress.done}
         total={todayProgress.total}
       />
-
-      {/* 테스트용 층수 추가 버튼 */}
-      <div
-        style={{
-          display: "flex",
-          gap: "10px",
-          justifyContent: "center",
-          marginTop: "10px",
-          marginBottom: "10px",
-          width: "100%",
-          maxWidth: "var(--panel-width)",
-          padding: "0 16px",
-        }}
-      >
-        <button
-          onClick={async () => {
-            try {
-              await addTestFloors(50);
-              // 층수 갱신
-              const profile = await getMyProfile();
-              if (profile?.personalLevel) {
-                setPersonalLevel(profile.personalLevel);
-              }
-              alert("50층이 추가되었습니다.");
-            } catch (error) {
-              alert("50층 추가에 실패했습니다.");
-            }
-          }}
-          style={{
-            padding: "10px 20px",
-            borderRadius: "12px",
-            backgroundColor: "#0A7C88",
-            color: "#fff",
-            border: "none",
-            fontSize: "14px",
-            fontWeight: 600,
-            cursor: "pointer",
-            fontFamily: "var(--font-pixel-kr)",
-            flex: 1,
-          }}
-        >
-          50층 추가
-        </button>
-        <button
-          onClick={async () => {
-            try {
-              await addTestFloors(100);
-              // 층수 갱신
-              const profile = await getMyProfile();
-              if (profile?.personalLevel) {
-                setPersonalLevel(profile.personalLevel);
-              }
-              alert("100층이 추가되었습니다.");
-            } catch (error) {
-              alert("100층 추가에 실패했습니다.");
-            }
-          }}
-          style={{
-            padding: "10px 20px",
-            borderRadius: "12px",
-            backgroundColor: "#0A7C88",
-            color: "#fff",
-            border: "none",
-            fontSize: "14px",
-            fontWeight: 600,
-            cursor: "pointer",
-            fontFamily: "var(--font-pixel-kr)",
-            flex: 1,
-          }}
-        >
-          100층 추가
-        </button>
-      </div>
 
       <TaskListSection
         loading={loading}

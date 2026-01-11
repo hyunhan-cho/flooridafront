@@ -1,5 +1,5 @@
 // pages/Mypage.jsx
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar.jsx";
 import PersonalHeader from "../components/PersonalHeader.jsx";
@@ -55,7 +55,10 @@ function getColorByCompletionRate(rate) {
 export default function Mypage() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
-  const { weekDates, weekDateObjects, monday } = getCurrentWeekDates();
+  const { weekDates, weekDateObjects, monday } = useMemo(
+    () => getCurrentWeekDates(),
+    []
+  );
   const today = new Date().getDate();
   const [calendarData, setCalendarData] = useState(null);
   const [loading, setLoading] = useState(true);
