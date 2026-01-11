@@ -30,6 +30,9 @@ export default function TeamCalendar() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // ✅ 팀 마감일(endDate)
+  const [teamEndDate, setTeamEndDate] = useState(""); // "YYYY-MM-DD" or ""
+
   // ✅ 수정하기 버튼 = 토글 (열려있고 같은 task면 닫기 / 아니면 열기)
   const ANIM_MS = 320;
 
@@ -63,7 +66,7 @@ export default function TeamCalendar() {
     setEditorOpen(true);
   };
 
-  // owner 로드
+  // owner 로드 (+ 팀 endDate 같이 로드)
   useEffect(() => {
     const loadRole = async () => {
       const token = localStorage.getItem(AUTH_TOKEN_KEY);
@@ -72,9 +75,11 @@ export default function TeamCalendar() {
       try {
         const team = await getTeam(teamId);
         setMyRole(team?.myRole ?? null);
+        setTeamEndDate(team?.endDate ?? ""); // ✅ 추가
       } catch (e) {
         if (e?.status === 401) return navigate("/login", { replace: true });
         setMyRole(null);
+        setTeamEndDate(""); // ✅ 추가
       }
     };
     loadRole();
@@ -165,6 +170,7 @@ export default function TeamCalendar() {
         <TeamFloorEditPanel
           open={editorOpen}
           task={editingTask}
+          teamEndDate={teamEndDate} // ✅ 추가: 팀 마감일 넘는 날짜 선택 방지
           onClose={() => {
             setEditorOpen(false);
             setEditingTask(null);

@@ -55,10 +55,16 @@ async function requestJson(method, path, body) {
   return data;
 }
 
+function todayYmd() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 // ✅ 캐릭터 썸네일 (TeamPlace에서 쓰던 방식 그대로)
-// - FACE 없으면 fallback FACE 깔아줌
 function CharacterThumb({ user }) {
-  // ✅ fallback 끔: equippedItems 없으면 그냥 빈 배열
   const items = Array.isArray(user?.equippedItems) ? user.equippedItems : [];
 
   const order = {
@@ -129,13 +135,25 @@ export default function TeamFloorEditPanel({
   task, // { id(teamFloorId), title, dueDate, assigneeUserIds?, assignees? }
   onClose,
   onSaved,
-  onDeleted, // ✅ (옵션) 삭제 후 부모에서 리스트 갱신하려고 쓰는 콜백
+  onDeleted,
+  teamEndDate, // ✅ TeamCalendar에서 내려준 "YYYY-MM-DD" (없을 수도)
 }) {
   const ANIM_MS = 900;
   const OPEN_DELAY_MS = 130;
 
   const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(false);
+
+  // ✅ min = 오늘 (오늘 이전 선택 금지)
+  const minDate = useMemo(() => todayYmd(), []);
+
+  // ✅ max = 팀 endDate (팀 endDate 초과 선택 금지)
+  // 단, endDate가 오늘보다 과거면 min > max라서 input이 꼬이니까 max를 제거(undefined)
+  const maxDate = useMemo(() => {
+    if (!teamEndDate) return undefined;
+    if (teamEndDate < minDate) return undefined;
+    return teamEndDate;
+  }, [teamEndDate, minDate]);
 
   useEffect(() => {
     let t1;
@@ -170,25 +188,48 @@ export default function TeamFloorEditPanel({
   const [selectedUserIds, setSelectedUserIds] = useState([]);
 
   // ✅ teamId 캐릭터 맵
-  const [teamCharByUserId, setTeamCharByUserId] = useState({}); // userId -> {userId, username, equippedItems}
+  const [teamCharByUserId, setTeamCharByUserId] = useState({});
 
   const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false); // ✅ 추가
+  const [deleting, setDeleting] = useState(false);
 
+  // ✅ task 로드 시 초기 세팅
   useEffect(() => {
     if (!task) return;
+
     setTitle(task.title ?? "");
     setDueDate(task.dueDate ?? "");
+
     const initIds =
       Array.isArray(task.assigneeUserIds) && task.assigneeUserIds.length > 0
         ? [task.assigneeUserIds[0]]
         : Array.isArray(task.assignees) && task.assignees.length > 0
         ? [task.assignees[0].userId]
         : [];
+
     setSelectedUserIds(initIds);
     setIsEditingTitle(false);
     setIsEditingDueDate(false);
   }, [task]);
+
+  // ✅ dueDate가 min/max 범위 밖이면 자동으로 잘라주기
+  // - 오늘 이전이면 오늘로 올림
+  // - 팀 endDate 초과면 endDate로 내림
+  useEffect(() => {
+    if (!dueDate) return;
+
+    // 오늘 이전 금지
+    if (dueDate < minDate) {
+      setDueDate(minDate);
+      return;
+    }
+
+    // endDate 초과 금지 (maxDate가 있을 때만)
+    if (maxDate && dueDate > maxDate) {
+      setDueDate(maxDate);
+      return;
+    }
+  }, [dueDate, minDate, maxDate]);
 
   const teamId = task?.teamId;
 
@@ -256,7 +297,7 @@ export default function TeamFloorEditPanel({
     !!dueDate &&
     selectedUserIds.length === 1 &&
     !saving &&
-    !deleting; // ✅ 삭제 중이면 저장도 막기
+    !deleting;
 
   const toggleUser = (userId) => {
     setSelectedUserIds((prev) => {
@@ -272,6 +313,10 @@ export default function TeamFloorEditPanel({
 
   const handleSave = async () => {
     if (!task?.id) return;
+
+    // ✅ 최종 방어 (min/max)
+    if (dueDate < minDate) return;
+    if (maxDate && dueDate > maxDate) return;
 
     try {
       setSaving(true);
@@ -361,7 +406,6 @@ export default function TeamFloorEditPanel({
         .stp-inlineItem.selected{background:rgba(47,111,109,.12);border-color:rgba(47,111,109,.85);}
         .stp-inlineLeft{display:flex;align-items:center;gap:10px;min-width:0;}
 
-        /* ✅ 아바타 영역: 회색 동그라미 제거하고 캐릭터만 */
         .stp-inlineAvatar{
           width:34px;height:34px;border-radius:999px;
           background:transparent;
@@ -373,7 +417,7 @@ export default function TeamFloorEditPanel({
         .stp-charViewport{
           position:relative;
           width:34px;height:34px;
-          overflow: visible; /* ✅ 아이템 잘림 방지 */
+          overflow: visible;
           background:transparent;border:none;
         }
         .stp-charStage{position:relative;}
@@ -431,6 +475,8 @@ export default function TeamFloorEditPanel({
               className="stp-dateInput"
               type="date"
               value={dueDate}
+              min={minDate} // ✅ 오늘 이전 선택 금지
+              max={maxDate} // ✅ endDate 초과 선택 금지 (없으면 undefined)
               onChange={(e) => setDueDate(e.target.value)}
               onBlur={() => setIsEditingDueDate(false)}
             />
@@ -465,7 +511,7 @@ export default function TeamFloorEditPanel({
           <div className="stp-inlineList">
             {members.map((m) => {
               const selected = selectedUserIds.includes(m.userId);
-              const charUser = teamCharByUserId?.[m.userId]; // ✅ userId로 매칭
+              const charUser = teamCharByUserId?.[m.userId];
 
               return (
                 <div
@@ -486,7 +532,6 @@ export default function TeamFloorEditPanel({
                       {charUser ? (
                         <CharacterThumb user={charUser} />
                       ) : (
-                        // ✅ 캐릭터 못받은 경우(임시)
                         <div style={{ width: 34, height: 34 }} />
                       )}
                     </div>
@@ -506,7 +551,7 @@ export default function TeamFloorEditPanel({
         )}
       </div>
 
-      {/* ✅ 버튼 2개: 삭제 | 수정 완료 */}
+      {/* 버튼 */}
       <div className="ctaRow">
         <button
           className="btnGhost"
