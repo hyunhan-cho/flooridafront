@@ -4,7 +4,116 @@ import { useNavigate, useParams } from "react-router-dom";
 import TeamHeader from "../components/TeamHeader.jsx";
 import Navbar from "../components/Navbar.jsx";
 import { getTeam, getTeamMembers, removeTeamMember } from "../services/api.js";
-import { AUTH_TOKEN_KEY } from "../config.js";
+import { API_BASE_URL, AUTH_TOKEN_KEY } from "../config.js";
+
+async function requestJson(method, path, body) {
+  const token = localStorage.getItem(AUTH_TOKEN_KEY);
+  if (!token) {
+    const err = new Error("로그인이 필요합니다.");
+    err.status = 401;
+    throw err;
+  }
+
+  const url = path.startsWith("http")
+    ? path
+    : `${API_BASE_URL.replace(/\/$/, "")}${path}`;
+
+  const res = await fetch(url, {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  const text = await res.text();
+  let data = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = text;
+  }
+
+  if (!res.ok) {
+    const err = new Error(
+      (data && (data.message || data.error)) || `HTTP ${res.status}`
+    );
+    err.status = res.status;
+    err.data = data;
+    throw err;
+  }
+  return data;
+}
+
+// ✅ 캐릭터 썸네일 (fallback 없음: equippedItems []면 아무것도 안 그림)
+function CharacterThumb({ user }) {
+  const items = Array.isArray(user?.equippedItems) ? user.equippedItems : [];
+
+  const order = {
+    BACKGROUND: 0,
+    BODY: 1,
+    CLOTH: 2,
+    HAIR: 3,
+    FACE: 4,
+    ACCESSORY: 5,
+    HAT: 6,
+  };
+
+  const sorted = [...items].sort((a, b) => {
+    const ao = order[a?.itemType] ?? 50;
+    const bo = order[b?.itemType] ?? 50;
+    return ao - bo;
+  });
+
+  const LOGICAL = 100;
+  const VIEW = 34; // ✅ mr 리스트 왼쪽 아바타 크기랑 맞춤
+  const scale = VIEW / LOGICAL;
+
+  return (
+    <div className="mr-char">
+      <div className="mr-charViewport" aria-hidden="true">
+        <div
+          className="mr-charStage"
+          style={{
+            width: `${LOGICAL}px`,
+            height: `${LOGICAL}px`,
+            transform: `scale(${scale})`,
+            transformOrigin: "top left",
+            position: "relative",
+          }}
+        >
+          {sorted.map((it, idx) => {
+            const w = Number(it?.width) || LOGICAL;
+            const h = Number(it?.height) || LOGICAL;
+            const ox = Number(it?.offsetX) || 0;
+            const oy = Number(it?.offsetY) || 0;
+
+            return (
+              <img
+                key={`${user.userId}-${it.itemId}-${idx}`}
+                src={it.imageUrl}
+                alt=""
+                style={{
+                  position: "absolute",
+                  left: `${ox}px`,
+                  top: `${oy}px`,
+                  width: `${w}px`,
+                  height: `${h}px`,
+                  imageRendering: "pixelated",
+                  pointerEvents: "none",
+                  userSelect: "none",
+                  zIndex: idx + 1,
+                }}
+              />
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function MemberRemoval() {
   const navigate = useNavigate();
@@ -16,6 +125,9 @@ export default function MemberRemoval() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [removing, setRemoving] = useState(false);
+
+  // ✅ teamId 캐릭터 맵: userId -> characterPayload
+  const [charByUserId, setCharByUserId] = useState({});
 
   // =========================
   // 1) OWNER 가드
@@ -91,6 +203,40 @@ export default function MemberRemoval() {
   }, [teamId]);
 
   // =========================
+  // ✅ 2-1) 팀 캐릭터 로드 (/api/items/{teamId}/characters)
+  // =========================
+  useEffect(() => {
+    let ignore = false;
+
+    const fetchCharacters = async () => {
+      if (!Number.isFinite(teamId)) return;
+
+      try {
+        const chars = await requestJson(
+          "GET",
+          `/api/items/${teamId}/characters`
+        );
+        const arr = Array.isArray(chars) ? chars : [];
+
+        const map = {};
+        arr.forEach((u) => {
+          if (u?.userId != null) map[u.userId] = u;
+        });
+
+        if (!ignore) setCharByUserId(map);
+      } catch (e) {
+        if (!ignore) setCharByUserId({});
+        // 캐릭터 못 불러와도 멤버관리 기능은 살아야 하니까 에러 띄우진 않음
+      }
+    };
+
+    fetchCharacters();
+    return () => {
+      ignore = true;
+    };
+  }, [teamId]);
+
+  // =========================
   // 3) 선택 로직
   // =========================
   const toggle = (userId) => {
@@ -129,6 +275,35 @@ export default function MemberRemoval() {
         .member-removal .mr-item.disabled{ opacity:.45; cursor:not-allowed; }
         .member-removal .mr-item.selected{ background:rgba(47,111,109,.12); border-color:rgba(47,111,109,.85); }
         .member-removal .mr-name{ font-size:16px; font-weight:900; }
+
+        /* ✅ 이름 왼쪽: 캐릭터 + 이름 줄 정렬 */
+        .member-removal .mr-left{
+          display:flex;
+          align-items:center;
+          gap:10px;
+          min-width:0;
+        }
+
+        /* ✅ 캐릭터 영역 (fallback 없음, 회색박스 없음) */
+        .member-removal .mr-char{
+          width:34px;
+          height:34px;
+          flex: 0 0 auto;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          background: transparent;
+          border: none;
+        }
+        .member-removal .mr-charViewport{
+          width:34px;
+          height:34px;
+          overflow: hidden; /* ✅ 아이템 잘림 방지? -> 여기선 34칸 안에만 보이게 */
+          background: transparent;
+          border: none;
+        }
+        .member-removal .mr-charStage{ position: relative; }
+
         .member-removal .mr-check{
           width:22px; height:22px; border-radius:999px; border:2px solid rgba(0,0,0,.18);
           display:flex; align-items:center; justify-content:center; font-weight:900;
@@ -140,17 +315,11 @@ export default function MemberRemoval() {
         }
         .member-removal .mr-cta:disabled{ opacity:.5; cursor:not-allowed; }
         .member-removal .mr-error{ margin-top:8px; font-size:12px; color:rgba(220,38,38,.9); font-weight:900; }
-        .member-removal .mr-card,
 
         .member-removal .mr-card { color: #111; }
-.member-removal .mr-card * { color: inherit; }
-
-.member-removal .mr-card-title { color: #2f6f6d; } /* 제목만 다시 컬러 */
-.member-removal .mr-error { color: rgba(220,38,38,.9); } /* 에러는 빨강 유지 */
-
-
-}
-
+        .member-removal .mr-card * { color: inherit; }
+        .member-removal .mr-card-title { color: #2f6f6d; }
+        .member-removal .mr-error { color: rgba(220,38,38,.9); }
       `}</style>
 
       <main className="page-content">
@@ -177,6 +346,12 @@ export default function MemberRemoval() {
                   const selected = selectedSet.has(m.userId);
                   const disabled = isDisabled(m);
 
+                  // ✅ 캐릭터 payload 매칭 (없으면 빈 렌더)
+                  const charUser = charByUserId?.[m.userId] ?? {
+                    userId: m.userId,
+                    equippedItems: [],
+                  };
+
                   return (
                     <div
                       key={m.userId}
@@ -185,9 +360,13 @@ export default function MemberRemoval() {
                       }`}
                       onClick={() => !disabled && toggle(m.userId)}
                     >
-                      <div className="mr-name">
-                        {m.username} {m.role === "owner" ? "(방장)" : ""}
+                      <div className="mr-left">
+                        <CharacterThumb user={charUser} />
+                        <div className="mr-name">
+                          {m.username} {m.role === "owner" ? "(방장)" : ""}
+                        </div>
                       </div>
+
                       <div className="mr-check">{selected ? "✓" : ""}</div>
                     </div>
                   );
@@ -203,7 +382,6 @@ export default function MemberRemoval() {
               onClick={async () => {
                 if (!Number.isFinite(teamId)) return;
 
-                // 혹시라도 owner가 선택된 경우 방어(원래 disabled라 안 되겠지만 안전빵)
                 const targets = selectedIds.filter((uid) => {
                   const m = members.find((x) => x.userId === uid);
                   return m && m.role !== "owner";
@@ -224,13 +402,18 @@ export default function MemberRemoval() {
                     targets.map((uid) => removeTeamMember(teamId, uid))
                   );
 
-                  // ✅ UI 반영: 목록에서 삭제된 사람 제거
                   setMembers((prev) =>
                     prev.filter((m) => !targets.includes(m.userId))
                   );
                   setSelectedIds([]);
+
+                  // ✅ 캐릭터 맵도 같이 정리(선택사항이지만 깔끔)
+                  setCharByUserId((prev) => {
+                    const next = { ...(prev || {}) };
+                    targets.forEach((uid) => delete next[uid]);
+                    return next;
+                  });
                 } catch (e) {
-                  // 백에서 403/401/404 등 줄 수 있으니 메시지 정리
                   if (e.status === 401) {
                     navigate("/login", { replace: true });
                     return;

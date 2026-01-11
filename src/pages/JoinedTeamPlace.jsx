@@ -4,12 +4,120 @@ import { useNavigate, useLocation } from "react-router-dom";
 import Navbar from "../components/Navbar.jsx";
 import TeamHeader from "../components/TeamHeader.jsx";
 import { getTeams } from "../services/api.js";
+import { API_BASE_URL, AUTH_TOKEN_KEY } from "../config.js";
+
+async function requestJson(method, path) {
+  const token = localStorage.getItem(AUTH_TOKEN_KEY);
+  if (!token) {
+    const err = new Error("로그인이 필요합니다.");
+    err.status = 401;
+    throw err;
+  }
+
+  const url = path.startsWith("http")
+    ? path
+    : `${API_BASE_URL.replace(/\/$/, "")}${path}`;
+
+  const res = await fetch(url, {
+    method,
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const text = await res.text();
+  let data = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = text;
+  }
+
+  if (!res.ok) {
+    const err = new Error(
+      (data && (data.message || data.error)) || `HTTP ${res.status}`
+    );
+    err.status = res.status;
+    err.data = data;
+    throw err;
+  }
+  return data;
+}
+
+// ✅ 캐릭터 썸네일: "큰 캔버스(96)" 기준으로 그리고 44로 축소
+function CharacterThumb({ user }) {
+  const items = Array.isArray(user?.equippedItems) ? user.equippedItems : [];
+
+  const order = {
+    BACKGROUND: 0,
+    BODY: 1,
+    CLOTH: 2,
+    HAIR: 3,
+    FACE: 4,
+    ACCESSORY: 5,
+    HAT: 6,
+  };
+
+  const sorted = [...items].sort((a, b) => {
+    const ao = order[a?.itemType] ?? 50;
+    const bo = order[b?.itemType] ?? 50;
+    return ao - bo;
+  });
+
+  const LOGICAL = 100;
+  const VIEW = 44;
+  const scale = VIEW / LOGICAL;
+
+  return (
+    <div className="tp-char">
+      <div className="tp-charViewport" aria-hidden="true">
+        <div
+          className="tp-charStage"
+          style={{
+            width: `${LOGICAL}px`,
+            height: `${LOGICAL}px`,
+            transform: `scale(${scale})`,
+            transformOrigin: "top left",
+          }}
+        >
+          {sorted.map((it, idx) => {
+            const w = Number(it?.width) || LOGICAL;
+            const h = Number(it?.height) || LOGICAL;
+            const ox = Number(it?.offsetX) || 0;
+            const oy = Number(it?.offsetY) || 0;
+
+            return (
+              <img
+                key={`${user.userId}-${it.itemId}-${idx}`}
+                src={it.imageUrl}
+                alt=""
+                style={{
+                  position: "absolute",
+                  left: `${ox}px`,
+                  top: `${oy}px`,
+                  width: `${w}px`,
+                  height: `${h}px`,
+                  imageRendering: "pixelated",
+                  pointerEvents: "none",
+                  userSelect: "none",
+                  zIndex: idx + 1,
+                }}
+              />
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function JoinedTeamPlace() {
   const navigate = useNavigate();
   const location = useLocation();
 
   const [teams, setTeams] = useState([]);
+  const [teamCharsMap, setTeamCharsMap] = useState({}); // ✅ teamId -> characters[]
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -21,6 +129,40 @@ export default function JoinedTeamPlace() {
       const data = await getTeams();
       const list = Array.isArray(data) ? data : [];
       setTeams(list);
+
+      // ✅ 팀별 캐릭터를 "Map"으로 저장 (덮어쓰기 방지)
+      const results = await Promise.all(
+        list.map(async (t) => {
+          try {
+            const chars = await requestJson(
+              "GET",
+              `/api/items/${t.teamId}/characters`
+            );
+            // ✅ 여기 로그
+            console.log(
+              "[team characters]",
+              "teamId:",
+              t.teamId,
+              "teamName:",
+              t.name,
+              "charsLen:",
+              Array.isArray(chars) ? chars.length : "not-array",
+              "chars:",
+              chars
+            );
+
+            return [t.teamId, Array.isArray(chars) ? chars : []];
+          } catch (e) {
+            return [t.teamId, []];
+          }
+        })
+      );
+
+      const nextMap = {};
+      results.forEach(([teamId, chars]) => {
+        nextMap[teamId] = chars;
+      });
+      setTeamCharsMap(nextMap);
     } catch (err) {
       if (err?.status === 401) {
         navigate("/login", { replace: true });
@@ -28,6 +170,7 @@ export default function JoinedTeamPlace() {
       }
       if (err?.status === 403) {
         setTeams([]);
+        setTeamCharsMap({});
         return;
       }
       setError(err?.message ?? "팀 조회 중 오류가 발생했어요.");
@@ -36,7 +179,6 @@ export default function JoinedTeamPlace() {
     }
   }, [navigate]);
 
-  // ✅ 이게 리패치 포인트: JoinedTeamPlace로 “들어올 때마다” 다시 불러오기
   useEffect(() => {
     let ignore = false;
 
@@ -73,9 +215,7 @@ export default function JoinedTeamPlace() {
           font-weight:700;
           cursor:pointer;
         }
-        .joined-teamplace .teamplace-section{
-          margin-top: 6px;
-        }
+        .joined-teamplace .teamplace-section{ margin-top: 6px; }
         .joined-teamplace .teamplace-section-title{
           margin: 0 0 10px;
           font-size: 18px;
@@ -104,7 +244,7 @@ export default function JoinedTeamPlace() {
           height: 160px;
           background: rgba(142, 142, 142, 0.08);
           border-radius: 14px;
-          overflow: hidden;
+       
           margin-bottom: 14px;
           display: flex;
           flex-direction: column;
@@ -112,9 +252,6 @@ export default function JoinedTeamPlace() {
           border: 0;
           width: 100%;
           text-align: left;
-        }
-        .joined-teamplace .teamplace-teamcard:active{
-          transform: translateY(1px);
         }
         .joined-teamplace .teamplace-teamcard-top{
           padding: 10px 14px;
@@ -130,14 +267,51 @@ export default function JoinedTeamPlace() {
           color: rgba(0,0,0,0.55);
         }
         .joined-teamplace .teamplace-teamcard-bottom{
-          flex: 0 0 40px;
+          flex: 1;
+          display:flex;
+          flex-direction: column;
+          justify-content: flex-start;
+          padding: 8px 14px 14px;
+          gap: 10px;
+        }
+
+        /* ✅ 캐릭터 슬라이드 줄 */
+        .joined-teamplace .teamplace-charRow{
+          display:flex;
+          gap: 10px;
+          overflow-x: auto;
+          overflow-y: hidden;
+          -webkit-overflow-scrolling: touch;
+          padding-bottom: 6px;
+        }
+        .joined-teamplace .teamplace-charRow::-webkit-scrollbar{ height: 6px; }
+        .joined-teamplace .teamplace-charRow::-webkit-scrollbar-thumb{
+          background: rgba(0,0,0,0.15);
+          border-radius: 999px;
+        }
+
+        /* ✅ "회색 네모칸" 없이 캐릭터만 */
+        .joined-teamplace .tp-char{
+          flex: 0 0 auto;
+          width: 44px;
+          height: 44px;
+          background: transparent;
+          border: none;
           display:flex;
           align-items:center;
-          justify-content:flex-start;
-          padding: 8px 14px 14px;
+          justify-content:center;
         }
-        .joined-teamplace .teamplace-btn:active{
-          transform: translateY(1px);
+        /* ✅ 옆 칸 침범 막기 위해 clip */
+        .joined-teamplace .tp-charViewport{
+          position: relative;
+          width: 44px;
+          height: 44px;
+          overflow: hidden;
+          background: transparent;
+          border: none;
+        }
+        .joined-teamplace .tp-charStage{
+          position: relative;
         }
       `}</style>
 
@@ -162,30 +336,47 @@ export default function JoinedTeamPlace() {
             ) : teams.length === 0 ? (
               <p className="teamplace-empty">아직 입장한 팀이 없어요.</p>
             ) : (
-              teams.map((team) => (
-                <article
-                  className="teamplace-teamcard"
-                  key={team.teamId}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => navigate(`/teamplacehome/${team.teamId}`)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      navigate(`/teamplacehome/${team.teamId}`);
-                    }
-                  }}
-                >
-                  <div className="teamplace-teamcard-top">
-                    <div className="teamplace-teamname">{team.name}</div>
-                  </div>
+              teams.map((team) => {
+                const chars = teamCharsMap?.[team.teamId] ?? [];
 
-                  <div className="teamplace-teamcard-bottom">
-                    <div className="teamplace-period">
-                      {team.startDate} ~ {team.endDate}
+                return (
+                  <article
+                    className="teamplace-teamcard"
+                    key={team.teamId}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => navigate(`/teamplacehome/${team.teamId}`)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        navigate(`/teamplacehome/${team.teamId}`);
+                      }
+                    }}
+                  >
+                    <div className="teamplace-teamcard-top">
+                      <div className="teamplace-teamname">{team.name}</div>
                     </div>
-                  </div>
-                </article>
-              ))
+
+                    <div className="teamplace-teamcard-bottom">
+                      <div className="teamplace-period">
+                        {team.startDate} ~ {team.endDate}
+                      </div>
+
+                      {/* ✅ 팀 멤버 전부 캐릭터 */}
+                      <div
+                        className="teamplace-charRow"
+                        onClick={(e) => e.stopPropagation()} // ✅ 카드 클릭 방지 (스크롤/터치 보호)
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onTouchStart={(e) => e.stopPropagation()} // ✅ 추가
+                        onTouchMove={(e) => e.stopPropagation()}
+                      >
+                        {chars.map((u) => (
+                          <CharacterThumb key={u.userId} user={u} />
+                        ))}
+                      </div>
+                    </div>
+                  </article>
+                );
+              })
             )}
           </div>
         </section>

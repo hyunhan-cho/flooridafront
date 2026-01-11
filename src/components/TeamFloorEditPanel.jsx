@@ -55,6 +55,75 @@ async function requestJson(method, path, body) {
   return data;
 }
 
+// ✅ 캐릭터 썸네일 (TeamPlace에서 쓰던 방식 그대로)
+// - FACE 없으면 fallback FACE 깔아줌
+function CharacterThumb({ user }) {
+  // ✅ fallback 끔: equippedItems 없으면 그냥 빈 배열
+  const items = Array.isArray(user?.equippedItems) ? user.equippedItems : [];
+
+  const order = {
+    BACKGROUND: 0,
+    BODY: 1,
+    CLOTH: 2,
+    HAIR: 3,
+    FACE: 4,
+    ACCESSORY: 5,
+    HAT: 6,
+  };
+
+  const sorted = [...items].sort((a, b) => {
+    const ao = order[a?.itemType] ?? 50;
+    const bo = order[b?.itemType] ?? 50;
+    return ao - bo;
+  });
+
+  const LOGICAL = 100;
+  const VIEW = 44;
+  const scale = VIEW / LOGICAL;
+
+  return (
+    <div className="tp-char">
+      <div className="tp-charViewport" aria-hidden="true">
+        <div
+          className="tp-charStage"
+          style={{
+            width: `${LOGICAL}px`,
+            height: `${LOGICAL}px`,
+            transform: `scale(${scale})`,
+            transformOrigin: "top left",
+          }}
+        >
+          {sorted.map((it, idx) => {
+            const w = Number(it?.width) || LOGICAL;
+            const h = Number(it?.height) || LOGICAL;
+            const ox = Number(it?.offsetX) || 0;
+            const oy = Number(it?.offsetY) || 0;
+
+            return (
+              <img
+                key={`${user.userId}-${it.itemId}-${idx}`}
+                src={it.imageUrl}
+                alt=""
+                style={{
+                  position: "absolute",
+                  left: `${ox}px`,
+                  top: `${oy}px`,
+                  width: `${w}px`,
+                  height: `${h}px`,
+                  imageRendering: "pixelated",
+                  pointerEvents: "none",
+                  userSelect: "none",
+                  zIndex: idx + 1,
+                }}
+              />
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function TeamFloorEditPanel({
   open,
   task, // { id(teamFloorId), title, dueDate, assigneeUserIds?, assignees? }
@@ -100,6 +169,9 @@ export default function TeamFloorEditPanel({
   const [members, setMembers] = useState([]);
   const [selectedUserIds, setSelectedUserIds] = useState([]);
 
+  // ✅ teamId 캐릭터 맵
+  const [teamCharByUserId, setTeamCharByUserId] = useState({}); // userId -> {userId, username, equippedItems}
+
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false); // ✅ 추가
 
@@ -142,6 +214,38 @@ export default function TeamFloorEditPanel({
     };
 
     loadMembers();
+    return () => {
+      ignore = true;
+    };
+  }, [open, teamId]);
+
+  // ✅ 팀 캐릭터 로드 (/api/items/{teamId}/characters)
+  useEffect(() => {
+    let ignore = false;
+
+    const loadTeamCharacters = async () => {
+      if (!open) return;
+      if (!Number.isFinite(Number(teamId))) return;
+
+      try {
+        const chars = await requestJson(
+          "GET",
+          `/api/items/${Number(teamId)}/characters`
+        );
+
+        const list = Array.isArray(chars) ? chars : [];
+        const map = {};
+        list.forEach((u) => {
+          if (u?.userId != null) map[u.userId] = u;
+        });
+
+        if (!ignore) setTeamCharByUserId(map);
+      } catch (e) {
+        if (!ignore) setTeamCharByUserId({});
+      }
+    };
+
+    loadTeamCharacters();
     return () => {
       ignore = true;
     };
@@ -200,7 +304,6 @@ export default function TeamFloorEditPanel({
     }
   };
 
-  // ✅ 삭제 API 연결
   const handleDelete = async () => {
     if (!task?.id) return;
 
@@ -210,7 +313,7 @@ export default function TeamFloorEditPanel({
     try {
       setDeleting(true);
       await requestJson("DELETE", `/api/teams/floors/${task.id}`);
-      onDeleted?.(task); // 부모가 리스트에서 제거하도록
+      onDeleted?.(task);
       onClose?.();
     } catch (e) {
       alert(e?.message ?? "삭제에 실패했어요.");
@@ -257,7 +360,24 @@ export default function TeamFloorEditPanel({
         .stp-inlineItem{border:2px solid rgba(0,0,0,.12);border-radius:14px;padding:12px 12px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;background:#fff;}
         .stp-inlineItem.selected{background:rgba(47,111,109,.12);border-color:rgba(47,111,109,.85);}
         .stp-inlineLeft{display:flex;align-items:center;gap:10px;min-width:0;}
-        .stp-inlineAvatar{width:34px;height:34px;border-radius:999px;background:rgba(0,0,0,.06);display:grid;place-items:center;font-size:12px;flex-shrink:0;}
+
+        /* ✅ 아바타 영역: 회색 동그라미 제거하고 캐릭터만 */
+        .stp-inlineAvatar{
+          width:34px;height:34px;border-radius:999px;
+          background:transparent;
+          display:grid;place-items:center;
+          flex-shrink:0;
+          overflow: visible;
+        }
+        .stp-char{width:34px;height:34px;background:transparent;border:none;display:flex;align-items:center;justify-content:center;}
+        .stp-charViewport{
+          position:relative;
+          width:34px;height:34px;
+          overflow: visible; /* ✅ 아이템 잘림 방지 */
+          background:transparent;border:none;
+        }
+        .stp-charStage{position:relative;}
+
         .stp-inlineName{font-size:15px;font-weight:900;color:#111;font-family:var(--font-sans);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
         .stp-inlineCheck{width:26px;height:26px;border-radius:999px;border:2px solid rgba(0,0,0,.18);display:flex;align-items:center;justify-content:center;font-weight:900;color:transparent;}
         .stp-inlineCheck.on{background:rgba(47,111,109,.90);border-color:rgba(47,111,109,.90);color:#fff;}
@@ -345,6 +465,7 @@ export default function TeamFloorEditPanel({
           <div className="stp-inlineList">
             {members.map((m) => {
               const selected = selectedUserIds.includes(m.userId);
+              const charUser = teamCharByUserId?.[m.userId]; // ✅ userId로 매칭
 
               return (
                 <div
@@ -362,8 +483,14 @@ export default function TeamFloorEditPanel({
                 >
                   <div className="stp-inlineLeft">
                     <div className="stp-inlineAvatar" aria-hidden="true">
-                      ⬜
+                      {charUser ? (
+                        <CharacterThumb user={charUser} />
+                      ) : (
+                        // ✅ 캐릭터 못받은 경우(임시)
+                        <div style={{ width: 34, height: 34 }} />
+                      )}
                     </div>
+
                     <div className="stp-inlineName">
                       {m.username ?? `user-${m.userId}`}
                     </div>
