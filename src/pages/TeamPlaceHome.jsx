@@ -178,6 +178,7 @@ export default function TeamPlaceHome() {
   const [teamLevel, setTeamLevel] = useState(null);
 
   const [characterImageUrl, setCharacterImageUrl] = useState(null);
+  const [teamLoading, setTeamLoading] = useState(true);
 
   // ✅ 오늘의 진행도(=팀 할일 진행도로 쓰기)
   const [todayProgress, setTodayProgress] = useState({
@@ -292,7 +293,7 @@ export default function TeamPlaceHome() {
     } catch (_) {}
   }, [teamId, TEAM_LEVEL_CACHE_KEY]);
 
-  // ✅ teamId로 팀 정보 로드 (myRole, joinCode, level)
+  // ✅ teamId로 팀 정보 로드 (myRole, joinCode, level, endDate)
   useEffect(() => {
     let ignore = false;
 
@@ -301,6 +302,8 @@ export default function TeamPlaceHome() {
       if (!token || !Number.isFinite(teamId)) return;
 
       try {
+        setTeamLoading(true);
+
         const team = await getTeam(teamId);
         if (ignore) return;
 
@@ -309,6 +312,7 @@ export default function TeamPlaceHome() {
 
         // ✅ joinCode
         setJoinCode(team?.joinCode ?? "");
+
         // ✅ 팀 마감일(endDate)
         setTeamEndDate(team?.endDate ?? null);
 
@@ -319,6 +323,8 @@ export default function TeamPlaceHome() {
       } catch (e) {
         if (e?.status === 401) return navigate("/login", { replace: true });
         navigate("/home", { replace: true });
+      } finally {
+        if (!ignore) setTeamLoading(false);
       }
     };
 
@@ -883,23 +889,28 @@ export default function TeamPlaceHome() {
         </button>
         <button className="teamplace-btn">팀 게시판</button>
       </div>
-      {/* ✅ 프로젝트 마감 D-day (team.endDate 기준) */}
-      {teamEndDate &&
-        (() => {
-          const end = parseYmdToLocalDate(teamEndDate);
-          const diff = end ? calcDday(end) : null;
-          const label = diff == null ? "-" : formatDdayLabel(diff);
-          const isOver = diff != null && diff < 0;
+      {/* ✅ 프로젝트 마감 D-day (team.endDate 기준) - 로딩 중에도 카드 노출 */}
+      {(() => {
+        const end = parseYmdToLocalDate(teamEndDate);
+        const diff = end ? calcDday(end) : null;
 
-          return (
-            <div className="dday-card" aria-label="프로젝트 마감 D-day">
-              <div className="dday-title">프로젝트 마감까지</div>
-              <div className={`dday-value ${isOver ? "dday-value--over" : ""}`}>
-                {label}
-              </div>
+        const label = teamLoading
+          ? "D-?"
+          : diff == null
+          ? "-"
+          : formatDdayLabel(diff);
+
+        const isOver = !teamLoading && diff != null && diff < 0;
+
+        return (
+          <div className="dday-card" aria-label="프로젝트 마감 D-day">
+            <div className="dday-title">프로젝트 마감까지</div>
+            <div className={`dday-value ${isOver ? "dday-value--over" : ""}`}>
+              {label}
             </div>
-          );
-        })()}
+          </div>
+        );
+      })()}
 
       <QuestList
         progress={todayProgress.percent}

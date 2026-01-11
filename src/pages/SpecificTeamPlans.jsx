@@ -59,6 +59,118 @@ async function postJson(path, body) {
   return data;
 }
 
+/* ================================
+   Team characters (TeamPlaceHome 방식 그대로)
+================================ */
+async function requestJson(method, path) {
+  const token = localStorage.getItem(AUTH_TOKEN_KEY);
+  if (!token) {
+    const err = new Error("로그인이 필요합니다.");
+    err.status = 401;
+    throw err;
+  }
+
+  const url = path.startsWith("http")
+    ? path
+    : `${API_BASE_URL.replace(/\/$/, "")}${path}`;
+
+  const res = await fetch(url, {
+    method,
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const text = await res.text();
+  let data = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = text;
+  }
+
+  if (!res.ok) {
+    const err = new Error(
+      (data && (data.message || data.error)) || `HTTP ${res.status}`
+    );
+    err.status = res.status;
+    err.data = data;
+    throw err;
+  }
+  return data;
+}
+
+function CharacterThumb({ user }) {
+  const items = Array.isArray(user?.equippedItems) ? user.equippedItems : [];
+  if (!user || items.length === 0) {
+    return <div className="stp-avatarPlaceholder" aria-hidden="true" />;
+  }
+
+  const order = {
+    BACKGROUND: 0,
+    BODY: 1,
+    CLOTH: 2,
+    HAIR: 3,
+    FACE: 4,
+    ACCESSORY: 5,
+    HAT: 6,
+  };
+
+  const sorted = [...items].sort((a, b) => {
+    const ao = order[a?.itemType] ?? 50;
+    const bo = order[b?.itemType] ?? 50;
+    return ao - bo;
+  });
+
+  const LOGICAL = 100;
+  const VIEW = 34;
+  const scale = VIEW / LOGICAL;
+
+  return (
+    <div className="stp-avatar">
+      <div className="stp-avatarViewport" aria-hidden="true">
+        <div
+          className="stp-avatarStage"
+          style={{
+            width: `${LOGICAL}px`,
+            height: `${LOGICAL}px`,
+            transform: `scale(${scale})`,
+            transformOrigin: "top left",
+          }}
+        >
+          {sorted.map((it, idx) => {
+            const w = Number(it?.width) || LOGICAL;
+            const h = Number(it?.height) || LOGICAL;
+            const ox = Number(it?.offsetX) || 0;
+            const oy = Number(it?.offsetY) || 0;
+
+            return (
+              <img
+                key={`${user.userId}-${it.itemId}-${idx}`}
+                src={it.imageUrl}
+                alt=""
+                style={{
+                  position: "absolute",
+                  left: `${ox}px`,
+                  top: `${oy}px`,
+                  width: `${w}px`,
+                  height: `${h}px`,
+                  imageRendering: "pixelated",
+                  pointerEvents: "none",
+                  userSelect: "none",
+                  zIndex: idx + 1,
+                }}
+              />
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+/* ================================ */
+
 export default function SpecificTeamPlans({ onBack, onSuccess }) {
   const navigate = useNavigate();
   const { teamId: teamIdParam } = useParams();
@@ -73,11 +185,13 @@ export default function SpecificTeamPlans({ onBack, onSuccess }) {
   const [isEditingDueDate, setIsEditingDueDate] = useState(false);
 
   // 담당팀원 선택
-  const [pickerOpen, setPickerOpen] = useState(false);
   const [membersLoading, setMembersLoading] = useState(false);
   const [membersError, setMembersError] = useState("");
   const [members, setMembers] = useState([]); // [{userId, username, ...}]
   const [selectedUserIds, setSelectedUserIds] = useState([]);
+
+  // ✅ 팀 멤버 캐릭터 맵: userId -> character payload
+  const [charByUserId, setCharByUserId] = useState({});
 
   // 생성 중
   const [saving, setSaving] = useState(false);
@@ -89,7 +203,7 @@ export default function SpecificTeamPlans({ onBack, onSuccess }) {
     }
   }, [teamId, navigate]);
 
-  // 멤버 로드 (토글 열릴 때 1회)
+  // 멤버 로드
   useEffect(() => {
     let ignore = false;
 
@@ -119,6 +233,38 @@ export default function SpecificTeamPlans({ onBack, onSuccess }) {
     };
   }, [teamId, navigate]);
 
+  // ✅ 팀 캐릭터 로드 (teamId당 1번)
+  useEffect(() => {
+    let ignore = false;
+
+    const loadTeamCharacters = async () => {
+      if (!Number.isFinite(teamId)) return;
+
+      try {
+        const chars = await requestJson(
+          "GET",
+          `/api/items/${teamId}/characters`
+        );
+        if (ignore) return;
+
+        const arr = Array.isArray(chars) ? chars : [];
+        const map = {};
+        arr.forEach((u) => {
+          if (u?.userId != null) map[u.userId] = u;
+        });
+        setCharByUserId(map);
+      } catch (e) {
+        if (e?.status === 401) return navigate("/login", { replace: true });
+        if (!ignore) setCharByUserId({});
+      }
+    };
+
+    loadTeamCharacters();
+    return () => {
+      ignore = true;
+    };
+  }, [teamId, navigate]);
+
   const selectedMembers = useMemo(() => {
     const map = new Map((members || []).map((m) => [m.userId, m]));
     return (selectedUserIds || []).map((id) => map.get(id)).filter(Boolean);
@@ -132,16 +278,11 @@ export default function SpecificTeamPlans({ onBack, onSuccess }) {
 
   const toggleUser = (userId) => {
     setSelectedUserIds((prev) => {
-      // 이미 선택된 사람 다시 누르면 선택 해제(0명 가능)
       if (prev.length === 1 && prev[0] === userId) return [];
-      // 그 외에는 무조건 이 사람만 선택
       return [userId];
     });
   };
 
-  const removeSelected = (userId) => {
-    setSelectedUserIds((prev) => prev.filter((id) => id !== userId));
-  };
   const handleBack = (e) => {
     if (onBack) {
       onBack(e);
@@ -150,6 +291,7 @@ export default function SpecificTeamPlans({ onBack, onSuccess }) {
     if (window.history.length > 1) navigate(-1);
     else navigate(`/teamcalendar/${teamId}`);
   };
+
   const handleCreate = async () => {
     if (!title.trim()) return alert("세부 계획을 입력해주세요.");
     if (!dueDate) return alert("마감일을 선택해주세요.");
@@ -158,11 +300,9 @@ export default function SpecificTeamPlans({ onBack, onSuccess }) {
     try {
       setSaving(true);
 
-      // ✅ 팀 세부계획 생성 (가장 자연스러운 엔드포인트 형태)
-      // 백이 다른 URL이면 여기만 바꿔 끼우면 됨.
       const data = await postJson(`/api/teams/${teamId}/floors`, {
         title: title.trim(),
-        dueDate, // "YYYY-MM-DD"
+        dueDate,
         assigneeUserIds: selectedUserIds,
       });
 
@@ -170,12 +310,10 @@ export default function SpecificTeamPlans({ onBack, onSuccess }) {
       else navigate(-1);
     } catch (e) {
       if (e?.status === 401) return navigate("/login", { replace: true });
-
-      // 엔드포인트가 아직 없을 수 있으니 메시지 친절하게
       if (e?.status === 404) {
         alert(
           "세부 계획 생성 API가 아직 없거나 URL이 달라요.\n" +
-            "백엔드 엔드포인트 확인되면 제가 여기 URL/바디 맞춰줄게."
+            "백엔드 엔드포인트 확인되면 여기 URL/바디 맞춰줄게."
         );
         return;
       }
@@ -188,8 +326,6 @@ export default function SpecificTeamPlans({ onBack, onSuccess }) {
   return (
     <div className="app home-view">
       <style>{`
-        /* ====== SpecificTeamPlans (single-file CSS) ====== */
-
         .stp-page {
           width: 100%;
           display: flex;
@@ -296,7 +432,6 @@ export default function SpecificTeamPlans({ onBack, onSuccess }) {
         }
         .directIconSvg { width: 18px; height: 18px; fill: currentColor; }
 
-        /* 담당 팀원 */
         .stp-assigneeBox {
           border: 1px dashed #cbd5e1;
           background: #fff;
@@ -306,123 +441,73 @@ export default function SpecificTeamPlans({ onBack, onSuccess }) {
           width: 100%;
         }
 
-        .stp-assigneeTop {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 10px;
-        }
-
-        .stp-addBtn {
-          width: 100%;
-          height: 46px;
-          border-radius: 12px;
-          border: 1px dashed #cbd5e1;
-          background: #f8fafc;
-          color: #334155;
-          font-weight: 900;
+        .stp-inlineTitle{
           font-size: 14px;
-          cursor: pointer;
-          font-family: var(--font-pixel-kr);
-        }
-        .stp-addBtn:active { transform: scale(0.99); }
-
-        .stp-chips {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 8px;
-          margin-top: 10px;
-        }
-        .stp-chip {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          padding: 8px 10px;
-          border-radius: 999px;
-          background: rgba(15, 118, 110, 0.10);
-          border: 1px solid rgba(15, 118, 110, 0.25);
-          color: #0f766e;
           font-weight: 900;
-          font-size: 12px;
-          font-family: var(--font-sans);
-        }
-        .stp-chipX {
-          border: none;
-          background: transparent;
-          cursor: pointer;
-          font-weight: 900;
-          color: #0f766e;
-          line-height: 1;
-          padding: 0 2px;
-        }
-
-        /* 멤버 선택 패널 */
-        .stp-picker {
-          margin-top: 10px;
-          border: 1px solid #e2e8f0;
-          border-radius: 14px;
-          overflow: hidden;
-          background: #ffffff;
-        }
-        .stp-pickerHeader {
-          padding: 10px 12px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          background: #f8fafc;
-          border-bottom: 1px solid #e2e8f0;
-        }
-        .stp-pickerTitle {
-          font-size: 12px;
-          font-weight: 900;
-          color: #0f172a;
-          font-family: var(--font-sans);
-        }
-        .stp-pickerClose {
-          border: none;
-          background: transparent;
-          cursor: pointer;
-          font-weight: 900;
-          color: #0f172a;
+          color: #111;
+          margin: 0 4px 10px;
           font-family: var(--font-sans);
         }
 
-        .stp-pickerBody {
-          max-height: 280px;
-          overflow: auto;
-          padding: 8px;
-        }
-
-        .stp-memberRow {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
+        .stp-inlineList{
+          display:flex;
+          flex-direction:column;
           gap: 10px;
-          padding: 10px 10px;
-          border-radius: 12px;
-          cursor: pointer;
+          max-height: 260px;
+          overflow: auto;
+          padding: 2px 2px 6px;
         }
-        .stp-memberRow:hover { background: rgba(0,0,0,0.04); }
 
-        .stp-memberName {
-          font-size: 13px;
+        .stp-inlineItem{
+          border: 2px solid rgba(0,0,0,.12);
+          border-radius: 14px;
+          padding: 12px 12px;
+          display:flex;
+          align-items:center;
+          justify-content:space-between;
+          cursor:pointer;
+          background:#fff;
+        }
+
+        .stp-inlineItem.selected{
+          background: rgba(47,111,109,.12);
+          border-color: rgba(47,111,109,.85);
+        }
+
+        .stp-inlineLeft{
+          display:flex;
+          align-items:center;
+          gap: 10px;
+          min-width: 0;
+        }
+
+        .stp-inlineName{
+          font-size: 15px;
           font-weight: 900;
-          color: #0f172a;
+          color: #111;
           font-family: var(--font-sans);
+          min-width:0;
+          overflow:hidden;
+          text-overflow:ellipsis;
+          white-space:nowrap;
         }
 
-        .stp-check {
-          width: 22px;
-          height: 22px;
-          border-radius: 6px;
-          border: 2px solid rgba(0,0,0,0.25);
-          display: grid;
-          place-items: center;
-          background: #fff;
-          flex-shrink: 0;
+        .stp-inlineCheck{
+          width: 26px;
+          height: 26px;
+          border-radius: 999px;
+          border: 2px solid rgba(0,0,0,.18);
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          font-weight: 900;
+          color: transparent;
         }
-        .stp-checkOn {
-          background: rgba(0,0,0,0.15);
+
+        .stp-inlineCheck.on{
+          background: rgba(47,111,109,.90);
+          border-color: rgba(47,111,109,.90);
+          color:#fff;
         }
 
         .stp-helper {
@@ -440,7 +525,6 @@ export default function SpecificTeamPlans({ onBack, onSuccess }) {
           font-family: var(--font-sans);
         }
 
-        /* 하단 버튼 */
         .stp-primaryBtn {
           width: 100%;
           border: none;
@@ -462,142 +546,41 @@ export default function SpecificTeamPlans({ onBack, onSuccess }) {
           cursor: not-allowed;
           transform: none;
         }
-         /* ====== inline picker (버튼 자리에서 펼쳐짐) ====== */
 
- 
+        .stp-backWrap { margin-bottom: 10px; }
+        .stp-backWrap *{
+          position: static !important;
+          top: auto !important;
+          left: auto !important;
+          right: auto !important;
+          bottom: auto !important;
+        }
+        .stp-backWrap .back-btn{
+          margin-left: -10px;
+          margin-top: -8px;
+        }
 
-
-
-.stp-inlineTitle{
-  font-size: 14px;
-  font-weight: 900;
-  color: #111;
-  margin: 0 4px 10px;
-  font-family: var(--font-sans);
-}
-
-.stp-inlineList{
-  display:flex;
-  flex-direction:column;
-  gap: 10px;
-  max-height: 260px; /* 리스트 자체 스크롤 */
-  overflow: auto;
-  padding: 2px 2px 6px;
-}
-
-.stp-inlineItem{
-  border: 2px solid rgba(0,0,0,.12);
-  border-radius: 14px;
-  padding: 12px 12px;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  cursor:pointer;
-  background:#fff;
-}
-
-.stp-inlineItem.selected{
-  background: rgba(47,111,109,.12);
-  border-color: rgba(47,111,109,.85);
-}
-
-.stp-inlineLeft{
-  display:flex;
-  align-items:center;
-  gap: 10px;
-  min-width: 0;
-}
-
-.stp-inlineAvatar{
-  width: 34px;
-  height: 34px;
-  border-radius: 999px;
-  background: rgba(0,0,0,.06);
-  display:grid;
-  place-items:center;
-  font-size: 12px;
-  flex-shrink:0;
-}
-
-.stp-inlineName{
-  font-size: 15px;
-  font-weight: 900;
-  color: #111;
-  font-family: var(--font-sans);
-  min-width:0;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  white-space:nowrap;
-}
-
-.stp-inlineCheck{
-  width: 26px;
-  height: 26px;
-  border-radius: 999px;
-  border: 2px solid rgba(0,0,0,.18);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-weight: 900;
-  color: transparent;
-}
-
-.stp-inlineCheck.on{
-  background: rgba(47,111,109,.90);
-  border-color: rgba(47,111,109,.90);
-  color:#fff;
-}
-
-.stp-inlineCtas{
-  display:flex;
-  gap: 12px;
-  margin-top: 12px;
-}
-
-.stp-inlineCancel,
-.stp-inlineAdd{
-  height: 52px;
-  border-radius: 14px;
-  font-weight: 900;
-  font-size: 16px;
-  border: 0;
-  cursor:pointer;
-  flex:1;
-  font-family: var(--font-pixel-kr);
-}
-
-.stp-inlineCancel{
-  background: rgba(0,0,0,.10);
-  color:#111;
-}
-
-.stp-inlineAdd{
-  background: rgba(47,111,109,.90);
-  color:#fff;
-}
-
-.stp-inlineAdd:disabled{
-  opacity: .45;
-  cursor: not-allowed;
-}
-  /* BackButton이 absolute/fixed로 박혀있을 때만 강제 정상화 */
-.stp-backWrap { margin-bottom: 10px;
- }
-
-/* BackButton 내부에 어떤 태그가 와도 position 강제로 풀어버림 */
-.stp-backWrap *{
-  position: static !important;
-  top: auto !important;
-  left: auto !important;
-  right: auto !important;
-  bottom: auto !important;
-}
-.stp-backWrap .back-btn{
-  margin-left: -10px;   /* 왼쪽으로 당김 (원하는 만큼 숫자 조절) */
-  margin-top: -8px;    /* 위로 올림 */
-}
-
-
+        /* ✅ 캐릭터 썸네일 */
+        .stp-avatar{
+          width: 34px;
+          height: 34px;
+          display: grid;
+          place-items: center;
+          flex-shrink: 0;
+        }
+        .stp-avatarViewport{
+          position: relative;
+          width: 34px;
+          height: 34px;
+          overflow: visible;
+        }
+        .stp-avatarStage{ position: relative; }
+        .stp-avatarPlaceholder{
+          width: 28px;
+          height: 28px;
+          border-radius: 999px;
+          background: rgba(0,0,0,.08);
+        }
       `}</style>
 
       <TeamHeader />
@@ -671,7 +654,7 @@ export default function SpecificTeamPlans({ onBack, onSuccess }) {
             </div>
           </div>
 
-          {/* 마감일 (단일 날짜) */}
+          {/* 마감일 */}
           <div className="stp-field">
             <div className="stp-label">마감일</div>
             <div className="stp-box">
@@ -705,70 +688,53 @@ export default function SpecificTeamPlans({ onBack, onSuccess }) {
             <div className="stp-label">담당 팀원</div>
 
             <div className="stp-assigneeBox">
-              {/* ✅ 역할 추가하기 버튼 삭제 */}
+              <div className="stp-inlineTitle">팀원 선택</div>
 
-              {/* ✅ 팀원 선택창 항상 보이게: pickerOpen true 고정 */}
-              <div className="stp-inlineWrap">
-                <div className={`stp-inlinePanel open`}>
-                  <div className="stp-inlineTitle">팀원 선택 </div>
+              {membersLoading ? (
+                <div className="stp-helper">불러오는 중...</div>
+              ) : membersError ? (
+                <div className="stp-error">{membersError}</div>
+              ) : members.length === 0 ? (
+                <div className="stp-helper">팀원이 없어요.</div>
+              ) : (
+                <div className="stp-inlineList">
+                  {members.map((m) => {
+                    const selected = selectedUserIds.includes(m.userId);
+                    const userChar = charByUserId?.[m.userId] ?? null;
 
-                  {membersLoading ? (
-                    <div className="stp-helper">불러오는 중...</div>
-                  ) : membersError ? (
-                    <div className="stp-error">{membersError}</div>
-                  ) : members.length === 0 ? (
-                    <div className="stp-helper">팀원이 없어요.</div>
-                  ) : (
-                    <div className="stp-inlineList">
-                      {members.map((m) => {
-                        // ✅ draftUserIds -> selectedUserIds로 바로 체크
-                        const selected = selectedUserIds.includes(m.userId);
-
-                        return (
-                          <div
-                            key={m.userId}
-                            className={`stp-inlineItem ${
-                              selected ? "selected" : ""
-                            }`}
-                            // ✅ 클릭하면 즉시 selectedUserIds 토글
-                            onClick={() => toggleUser(m.userId)}
-                            role="button"
-                            tabIndex={0}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" || e.key === " ") {
-                                e.preventDefault();
-                                toggleUser(m.userId);
-                              }
-                            }}
-                          >
-                            <div className="stp-inlineLeft">
-                              <div
-                                className="stp-inlineAvatar"
-                                aria-hidden="true"
-                              >
-                                ⬜
-                              </div>
-                              <div className="stp-inlineName">
-                                {m.username ?? `user-${m.userId}`}
-                              </div>
-                            </div>
-
-                            <div
-                              className={`stp-inlineCheck ${
-                                selected ? "on" : ""
-                              }`}
-                            >
-                              {selected ? "✓" : ""}
-                            </div>
+                    return (
+                      <div
+                        key={m.userId}
+                        className={`stp-inlineItem ${
+                          selected ? "selected" : ""
+                        }`}
+                        onClick={() => toggleUser(m.userId)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            toggleUser(m.userId);
+                          }
+                        }}
+                      >
+                        <div className="stp-inlineLeft">
+                          <CharacterThumb user={userChar} />
+                          <div className="stp-inlineName">
+                            {m.username ?? `user-${m.userId}`}
                           </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                        </div>
 
-                  {/* ✅ 취소/추가 버튼 삭제 */}
+                        <div
+                          className={`stp-inlineCheck ${selected ? "on" : ""}`}
+                        >
+                          {selected ? "✓" : ""}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              </div>
+              )}
             </div>
           </div>
 

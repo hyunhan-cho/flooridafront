@@ -284,25 +284,37 @@ export default function MemberRemoval() {
           min-width:0;
         }
 
-        /* ✅ 캐릭터 영역 (fallback 없음, 회색박스 없음) */
-        .member-removal .mr-char{
-          width:34px;
-          height:34px;
-          flex: 0 0 auto;
-          display:flex;
-          align-items:center;
-          justify-content:center;
-          background: transparent;
-          border: none;
-        }
-        .member-removal .mr-charViewport{
-          width:34px;
-          height:34px;
-          overflow: hidden; /* ✅ 아이템 잘림 방지? -> 여기선 34칸 안에만 보이게 */
-          background: transparent;
-          border: none;
-        }
-        .member-removal .mr-charStage{ position: relative; }
+        /* ✅ 캐릭터 영역 */
+  .member-removal .mr-char{
+    width:34px;
+    height:34px;
+    flex: 0 0 auto;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background: transparent;
+    border: none;
+
+    /* ✅ 위로 튀어나가는 아이템도 보이게 */
+    overflow: visible;
+  }
+
+  .member-removal .mr-charViewport{
+    width:34px;
+    height:34px;
+
+    /* 🔥 여기 핵심: hidden이면 무조건 잘림 */
+    overflow: visible;
+
+    background: transparent;
+    border: none;
+    position: relative;
+  }
+
+  .member-removal .mr-charStage{
+    position: relative;
+    overflow: visible;
+  }
 
         .member-removal .mr-check{
           width:22px; height:22px; border-radius:999px; border:2px solid rgba(0,0,0,.18);
