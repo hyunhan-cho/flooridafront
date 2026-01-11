@@ -8,7 +8,8 @@ import { logout } from "../services/auth.js";
 import { AUTH_USER_KEY, AUTH_TOKEN_KEY } from "../config.js";
 import {
   getCalendarStats,
-  getMyCharacter,
+  getMyEquippedItems,
+  getMyEquippedBadges,
   getMyBadges,
   getMyUsername,
 } from "../services/api.js";
@@ -52,6 +53,40 @@ function getColorByCompletionRate(rate) {
   return "transparent"; // 기본값
 }
 
+function pickImageUrl(item) {
+  return item?.imgUrl ?? item?.imageUrl ?? null;
+}
+
+function splitEquippedItems(items) {
+  const list = Array.isArray(items) ? items : [];
+  const faceItem = list.find((item) => item?.type === "FACE") ?? list[0];
+  const accessoryItems = list.filter((item) => item && item !== faceItem);
+  return { faceItem, accessoryItems };
+}
+
+function getBadgeStyle(badge) {
+  const width = Number(badge?.width);
+  const height = Number(badge?.height);
+  const offsetX = Number(badge?.offsetX);
+  const offsetY = Number(badge?.offsetY);
+  const style = {
+    position: "absolute",
+    left: "50%",
+    top: "50%",
+    transform: "translate(-50%, -50%)",
+    width: Number.isFinite(width) && width > 0 ? `${width}px` : "24px",
+    height: Number.isFinite(height) && height > 0 ? `${height}px` : "24px",
+    objectFit: "contain",
+    pointerEvents: "none",
+  };
+  if (Number.isFinite(offsetX) || Number.isFinite(offsetY)) {
+    const x = Number.isFinite(offsetX) ? `${offsetX}px` : "0px";
+    const y = Number.isFinite(offsetY) ? `${offsetY}px` : "0px";
+    style.transform = `translate(calc(-50% + ${x}), calc(-50% + ${y}))`;
+  }
+  return style;
+}
+
 export default function Mypage() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
@@ -62,7 +97,8 @@ export default function Mypage() {
   const today = new Date().getDate();
   const [calendarData, setCalendarData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [characterImageUrl, setCharacterImageUrl] = useState(null);
+  const [equippedItems, setEquippedItems] = useState([]);
+  const [equippedBadges, setEquippedBadges] = useState([]);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [badges, setBadges] = useState([]);
   const [username, setUsername] = useState("");
@@ -120,12 +156,23 @@ export default function Mypage() {
       }
 
       try {
-        const data = await getMyCharacter();
-        if (data && data.imageUrl) {
-          setCharacterImageUrl(data.imageUrl);
-        }
+        const items = await getMyEquippedItems();
+        const itemList = Array.isArray(items) ? items : [];
+        setEquippedItems(itemList.filter((item) => item?.equipped !== false));
       } catch (error) {
-        console.error("캐릭터 이미지 로드 실패:", error);
+        console.error("장착 아이템 로드 실패:", error);
+      }
+
+      try {
+        const badges = await getMyEquippedBadges();
+        const badgeList = Array.isArray(badges)
+          ? badges
+          : badges
+          ? [badges]
+          : [];
+        setEquippedBadges(badgeList.filter((badge) => badge?.equipped !== false));
+      } catch (error) {
+        console.error("장착 뱃지 로드 실패:", error);
       }
     };
 
@@ -327,24 +374,75 @@ export default function Mypage() {
                 style={{
                   width: "50px",
                   height: "50px",
-                  background: characterImageUrl ? "transparent" : "#e5e7eb",
+                  background:
+                    equippedItems.length > 0 || equippedBadges.length > 0
+                      ? "transparent"
+                      : "#e5e7eb",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   fontSize: "32px",
+                  position: "relative",
                 }}
               >
-                {characterImageUrl && (
-                  <img
-                    src={characterImageUrl}
-                    alt="캐릭터"
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "contain",
-                    }}
-                  />
-                )}
+                {(() => {
+                  const { faceItem, accessoryItems } =
+                    splitEquippedItems(equippedItems);
+                  const faceSrc = pickImageUrl(faceItem);
+                  return (
+                    <div
+                      style={{
+                        position: "absolute",
+                        inset: 0,
+                        pointerEvents: "none",
+                      }}
+                    >
+                      {faceSrc && (
+                        <img
+                          src={faceSrc}
+                          alt="캐릭터"
+                          style={{
+                            position: "absolute",
+                            inset: 0,
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "contain",
+                          }}
+                        />
+                      )}
+                      {accessoryItems.map((item, idx) => {
+                        const src = pickImageUrl(item);
+                        if (!src) return null;
+                        return (
+                          <img
+                            key={`equip-${item.itemId ?? item.id ?? idx}`}
+                            src={src}
+                            alt="캐릭터 아이템"
+                            style={{
+                              position: "absolute",
+                              inset: 0,
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "contain",
+                            }}
+                          />
+                        );
+                      })}
+                      {equippedBadges.map((badge, idx) => {
+                        const src = pickImageUrl(badge);
+                        if (!src) return null;
+                        return (
+                          <img
+                            key={`badge-${badge.badgeId ?? badge.id ?? idx}`}
+                            src={src}
+                            alt="장착 뱃지"
+                            style={getBadgeStyle(badge)}
+                          />
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
               <span
                 style={{
