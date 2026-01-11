@@ -1,4 +1,3 @@
-// src/pages/TeamPlaceHome.jsx
 import React, { useEffect, useState, useMemo, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import ElevatorDoor from "../components/ElevatorDoor.jsx";
@@ -20,7 +19,7 @@ import "../App.css";
 
 // ✅ 홈이 쓰는 이미지 그대로
 import floorBoardImg from "../assets/img/board 1.png";
-import backgroundImg from "../assets/img/image 20.png";
+import FloorBackground from "../components/FloorBackground.jsx";
 
 function calcDday(targetDate) {
   const today = new Date();
@@ -971,10 +970,8 @@ export default function TeamPlaceHome() {
           </div>
 
           <div className="floor-scene">
-            <img
-              src={backgroundImg}
-              alt="배경"
-              className="floor-background-img"
+            <FloorBackground
+              personalLevel={Math.max(1, Number(teamLevel) || 1)}
             />
           </div>
 
