@@ -7,10 +7,13 @@ import { getMyCharacter, getMyUsername, updateUsername } from "../services/api.j
 import { AUTH_USER_KEY, AUTH_TOKEN_KEY } from "../config.js";
 import settingIcon from "../assets/navvar/button_setting.png";
 
+const DEBUG_PROFILE_SAVE = true;
+
 export default function ProfileManage() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [nickname, setNickname] = useState("");
+  const [originalNickname, setOriginalNickname] = useState("");
   const [characterImageUrl, setCharacterImageUrl] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -26,6 +29,7 @@ export default function ProfileManage() {
         const usernameData = await getMyUsername();
         if (usernameData && usernameData.username) {
           setNickname(usernameData.username);
+          setOriginalNickname(usernameData.username);
         }
       } catch (error) {
         console.error("닉네임 로드 실패:", error);
@@ -34,7 +38,9 @@ export default function ProfileManage() {
         if (userData) {
           try {
             const parsedUser = JSON.parse(userData);
-            setNickname(parsedUser.username || parsedUser.name || "");
+            const fallbackName = parsedUser.username || parsedUser.name || "";
+            setNickname(fallbackName);
+            setOriginalNickname(fallbackName);
           } catch (e) {
             console.error("사용자 정보 파싱 실패:", e);
           }
@@ -56,22 +62,31 @@ export default function ProfileManage() {
   }, []);
 
   const handleSave = async () => {
-    if (!nickname.trim()) {
+    const normalized = nickname.trim();
+    if (!normalized) {
       alert("닉네임을 입력해주세요.");
+      return;
+    }
+    if (/\s/.test(normalized)) {
+      alert("닉네임에 공백은 사용할 수 없습니다.");
+      return;
+    }
+    if (normalized === originalNickname.trim()) {
+      alert("변경된 닉네임이 없습니다.");
       return;
     }
 
     setLoading(true);
     try {
       // 닉네임 업데이트 API 호출
-      await updateUsername(nickname.trim());
+      await updateUsername(normalized);
       
       // localStorage 업데이트
       const userData = localStorage.getItem(AUTH_USER_KEY);
       if (userData) {
         try {
           const parsedUser = JSON.parse(userData);
-          const updatedUser = { ...parsedUser, username: nickname.trim() };
+          const updatedUser = { ...parsedUser, username: normalized };
           localStorage.setItem(AUTH_USER_KEY, JSON.stringify(updatedUser));
         } catch (e) {
           console.error("사용자 정보 업데이트 실패:", e);
@@ -80,8 +95,23 @@ export default function ProfileManage() {
       
       navigate("/mypage");
     } catch (error) {
-      console.error("프로필 저장 실패:", error);
-      alert("프로필 저장에 실패했습니다.");
+      if (DEBUG_PROFILE_SAVE) {
+        console.error("프로필 저장 실패:", {
+          status: error?.status,
+          data: error?.data,
+          message: error?.message,
+          nickname: normalized,
+          hasToken: Boolean(localStorage.getItem(AUTH_TOKEN_KEY)),
+        });
+      } else {
+        console.error("프로필 저장 실패:", error);
+      }
+      if (error?.status === 400) {
+        const serverMessage = error?.data?.message;
+        alert(serverMessage || "닉네임이 중복이거나 규칙에 맞지 않습니다.");
+      } else {
+        alert("프로필 저장에 실패했습니다.");
+      }
     } finally {
       setLoading(false);
     }
@@ -241,4 +271,3 @@ export default function ProfileManage() {
     </div>
   );
 }
-

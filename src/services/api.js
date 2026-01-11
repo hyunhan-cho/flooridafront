@@ -60,6 +60,16 @@ export async function getMyCharacter() {
   return await http.get("/api/characters/me");
 }
 
+// 장착 아이템 조회 API
+export async function getMyEquippedItems() {
+  return await http.get("/api/items/my/equipped");
+}
+
+// 장착 뱃지 조회 API
+export async function getMyEquippedBadges() {
+  return await http.get("/api/me/badges/equipped");
+}
+
 // 뱃지 목록 조회 API
 export async function getMyBadges() {
   return await http.get("/api/me/badges");
@@ -72,12 +82,18 @@ export async function getMyUsername() {
 
 // 닉네임 업데이트 API
 export async function updateUsername(username) {
-  return await http.patch("/api/me/username", { username });
+  const payload = { username };
+  if (import.meta.env?.DEV) {
+    console.log("[profile] updateUsername payload", payload);
+  }
+  return await http.patch("/api/me/username", payload);
 }
 
 // 캘린더 완료 통계 API
 export async function getCalendarStats(start, end) {
-  return await http.get(`/api/floors/calendar?start=${start}&end=${end}`);
+  return await http.get(
+    `/api/floors/calendar/weekly-rates?start=${start}&end=${end}`
+  );
 }
 
 // 일정 단건 조회 API
@@ -177,9 +193,6 @@ export async function updateFloor(id, data) {
   return await http.patch(`/api/floors/${id}`, data);
 }
 // 테스트용: 층수 추가
-export async function addTestFloors(floors = 100) {
-  return http.post(`/api/me/test/add-floors?floors=${floors}`, {});
-}
 // 팀플레이스 팀 목록 조회
 export async function getTeams() {
   return await http.get("/api/teams");

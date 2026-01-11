@@ -281,6 +281,31 @@
   pointer-events: none;
 }
 
+.elevator-character-stack {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 50%;
+  height: 50%;
+  z-index: 15;
+  pointer-events: none;
+}
+
+.elevator-character-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.elevator-character-layer--accessory {
+  transform: translate(2%, -46%) scale(0.5);
+  transform-origin: center;
+}
+
 /* 엘리베이터 문 */
 .door {
   position: absolute;

@@ -106,7 +106,6 @@ export default function MyCalendar() {
 
     try {
       const data = await getSchedules({ year, month });
-      console.log("API 응답 데이터:", data);
 
       if (Array.isArray(data) && data.length > 0) {
         // 메인 계획(schedule) 순서 보존을 위해 scheduleId 기준으로 정렬
@@ -128,10 +127,6 @@ export default function MyCalendar() {
               try {
                 const detail = await getSchedule(schedule.scheduleId);
                 floors = detail.floors || [];
-                console.log(
-                  `Schedule ${schedule.scheduleId} 상세 정보:`,
-                  detail
-                );
               } catch (err) {
                 console.warn(
                   `Schedule ${schedule.scheduleId} 상세 정보 로드 실패:`,
@@ -246,7 +241,6 @@ export default function MyCalendar() {
           })
         );
 
-        console.log("변환된 tasks:", convertedTasks);
 
         // 기존 tasks의 순서와 scheduledDate를 보존하여 메인 계획 순서 유지 및 날짜 변경 방지
         setTasks((prevTasks) => {
@@ -749,9 +743,7 @@ export default function MyCalendar() {
                 scheduledDate: data.scheduledDate, // YYYY-MM-DD 형식
               };
 
-              console.log("[계획 추가 API 요청] 데이터:", requestData);
               const response = await createFloor(requestData);
-              console.log("[계획 추가 API 응답] 응답:", response);
 
               // 응답에서 floorId 가져오기
               const newFloorId = response.floorId || response.id || null;
