@@ -2,8 +2,8 @@
 import React from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 
-import teamIcon from "../assets/navvar/button_team.png";
-import calendarIcon from "../assets/navvar/button_calender.png";
+import teamIcon from "../assets/teamcalendar.png";
+import calendarIcon from "../assets/mycalendar.png";
 import homeIcon from "../assets/navvar/button_home.png";
 import paintIcon from "../assets/navvar/button_paint.png";
 import settingIcon from "../assets/navvar/button_setting.png";

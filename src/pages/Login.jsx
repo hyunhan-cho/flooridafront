@@ -1,4 +1,3 @@
-// src/pages/Login.jsx
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import BackButton from "../components/BackButton.jsx";
@@ -24,28 +23,41 @@ export default function Login() {
     try {
       setLoading(true);
 
-      // 1) 로그인 (여기서 토큰 localStorage에 저장된다고 가정)
-      await login({ email, password });
+      // 1) 로그인 (services/auth.js에서 token 저장 + data return)
+      const loginRes = await login({ email, password });
 
-      // 2) 프로필 조회해서 온보딩 완료 여부 확인
+      const dailyRewardGiven = Boolean(loginRes?.dailyRewardGiven);
+      const firstLoginBonusGiven = Boolean(loginRes?.firstLoginBonusGiven);
+
+      // 2) 프로필 조회로 온보딩 완료 여부 판단
+      let needsOnboarding = false;
       try {
         const profile = await getMyProfile();
+        console.log("로그인 후 프로필 조회 결과:", profile);
 
         const hasOnboarding =
           profile && profile.planningTendency && profile.dailyStudyHours;
 
-        if (hasOnboarding) {
-          // 이미 성향 정보 있는 유저 → 바로 홈
-          navigate("/home");
-        } else {
-          // 아직 성향 정보 없는 유저 → 최초 로그인 → TendencyInfo
-          navigate("/tendency");
-        }
+        needsOnboarding = !hasOnboarding;
       } catch (err) {
-        console.error("getMyProfile error:", err);
-        // 프로필 조회가 깨지면 최소한 앱은 쓸 수 있게 홈으로 보냄
-        navigate("/home");
+        console.error("프로필 조회 실패(신규/미생성 가능):", err);
+        needsOnboarding = true;
       }
+
+      // ✅✅✅ 핵심: 로그인 직후엔 Home으로 보내서
+      // 50 → 10 → 뱃지(있으면) 순서 팝업 처리
+      // 온보딩 필요하면 Home에서 팝업 끝난 뒤 /tendency로 이동
+      const state = {
+        dailyRewardGiven,
+        firstLoginBonusGiven,
+        isFirstLogin: firstLoginBonusGiven, // 기존 호환
+        needsOnboarding,
+      };
+
+      // 새로고침/리렌더로 location.state 유실될 수 있어 sessionStorage에도 저장
+      sessionStorage.setItem("home_entry_flags", JSON.stringify(state));
+
+      navigate("/home", { state });
     } catch (e) {
       setError(e?.message || "로그인에 실패했습니다.");
     } finally {
@@ -95,13 +107,7 @@ export default function Login() {
           />
 
           {error && (
-            <div
-              style={{
-                color: "#ef4444",
-                fontSize: 12,
-                marginTop: 8,
-              }}
-            >
+            <div style={{ color: "#ef4444", fontSize: 12, marginTop: 8 }}>
               {error}
             </div>
           )}

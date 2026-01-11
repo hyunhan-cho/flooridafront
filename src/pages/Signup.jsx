@@ -30,6 +30,7 @@ export default function Signup() {
       setLoading(true);
       await signup({ email, password, username });
       // ✅ 가입 성공 → 로그인 화면으로 이동
+      localStorage.setItem("signup_complete", "true");
       navigate("/login");
     } catch (e) {
       setError(e?.message || "가입에 실패했습니다.");
