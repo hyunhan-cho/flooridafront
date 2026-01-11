@@ -573,7 +573,6 @@ export default function TeamPlaceHome() {
     );
     return now > endOfDay;
   };
-
   // ✅ 체크 토글 + 서버 반영(complete/cancel)
   const onToggleTask = async (row) => {
     const { rowKey, teamFloorId } = row;
@@ -592,25 +591,34 @@ export default function TeamPlaceHome() {
       if (nextChecked) res = await completeTeamFloor(teamFloorId);
       else res = await cancelTeamFloor(teamFloorId);
 
+      // ✅ 코인/팝업 정책: "D-day 지난 일정"은 클라 기준으로 무조건 차단
       if (nextChecked) {
-        const awarded = Number(res?.coinsAwarded) || 0;
-
         const isAssigned = row?.userId != null;
-        const lateFromServer =
-          typeof res?.late === "boolean"
-            ? res.late
-            : isLateByClient(row?.dueDate);
 
-        const notAlreadyCompleted = res?.alreadyCompleted === false;
+        // 🔥 UI에서 쓰는 기준과 똑같이: diff<0 이면 overdue
+        const due = row?.dueDate;
+        let clientDiff = null;
+        if (typeof due === "string" && /^\d{4}-\d{2}-\d{2}$/.test(due)) {
+          const d = parseYmdToLocalDate(due);
+          clientDiff = d ? calcDday(d) : null;
+        } else if (due) {
+          const d = new Date(due);
+          clientDiff = isNaN(d.getTime()) ? null : calcDday(d);
+        }
+        const clientOverdue = clientDiff != null && clientDiff < 0;
 
-        if (
-          isAssigned &&
-          !lateFromServer &&
-          awarded > 0 &&
-          notAlreadyCompleted
-        ) {
-          setCoinPopupAmount(awarded);
-          setCoinPopupOpen(true);
+        // ✅ overdue면: 서버가 late:false 줘도 무시하고 팝업/코인 로직 자체를 안 탐
+        if (!clientOverdue) {
+          const awarded = Number(res?.coinsAwarded) || 0;
+          const notAlreadyCompleted = res?.alreadyCompleted === false;
+
+          if (isAssigned && awarded > 0 && notAlreadyCompleted) {
+            setCoinPopupAmount(awarded);
+            setCoinPopupOpen(true);
+          }
+        } else {
+          // 안전: 기존에 열려있던 팝업 있으면 닫기
+          setCoinPopupOpen(false);
         }
       }
 
