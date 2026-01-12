@@ -1287,21 +1287,33 @@ export default function TeamPlaceHome() {
                 const row = Math.floor(i / 2);
                 const col = i % 2; // 0:Left, 1:Right
 
-                // 뒤에서부터 앞으로 나오면서 커짐 & 내려옴 (뒤에 애들 보이게 높이 차이 확 줌)
-                // Row 0 (Back):   Scale 0.9, Bottom 130
-                // Row 1 (Mid):    Scale 1.1, Bottom 55
-                // Row 2 (Front):  Scale 1.3, Bottom -20
-                const scale = 0.9 + (row * 0.2);
-                const bottom = 130 - (row * 75);
-                const zIndex = 10 + row;
-
-                // 좌우 간격 (붙어있지 않게 더 벌림)
-                // Row 0: 60px, Row 1: 75px, Row 2: 90px
-                const spread = 60 + (row * 15);
-                const xOffset = col === 0 ? -spread : spread;
-
-                // 뒷줄일수록 거리감 명암
-                const brightness = row === 0 ? '0.9' : (row === 1 ? '0.97' : '1');
+                // ✅ 인원수에 따라 전혀 다른 정렬
+                let scale, bottom, zIndex, spread, xOffset, brightness;
+                if (teamChars.length === 1) {
+                  // 혼자: 가운데 앞, 크게
+                  scale = 1.4;
+                  bottom = -30;
+                  zIndex = 12;
+                  spread = 0;
+                  xOffset = 0;
+                  brightness = '1';
+                } else if (teamChars.length === 2) {
+                  // 두 명: 앞쪽에 나란히
+                  scale = 1.2;
+                  bottom = 0;
+                  zIndex = 11;
+                  spread = 55;
+                  xOffset = col === 0 ? -spread : spread;
+                  brightness = '1';
+                } else {
+                  // 세 명 이상: 기존 로직 (뒤/중간/앞 줄)
+                  scale = 0.9 + (row * 0.2);
+                  bottom = 130 - (row * 75);
+                  zIndex = 10 + row;
+                  spread = 60 + (row * 15);
+                  xOffset = col === 0 ? -spread : spread;
+                  brightness = row === 0 ? '0.9' : (row === 1 ? '0.97' : '1');
+                }
 
                 return (
                   <div
