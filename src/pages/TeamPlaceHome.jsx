@@ -85,7 +85,7 @@ function getBadgeOverlayStyle(
     // ✅ 가슴팍 강제 위치 (중앙 하단)
     // BASE_W(114)의 중앙 ≈ 57, 근데 badge width 절반 빼야 함
     bx = (BASE_W - baseW) / 2 + 5; // +5는 살짝 우측 보정 (캐릭터 몸통 기준)
-    by = 85;
+    by = 65;
   } else {
     bx = x != null ? x : BASE_W - baseW - 4;
     by = y != null ? y : BASE_H - baseH - 4;
@@ -328,7 +328,13 @@ function ElevatorCharacterThumb({ user, badge, size = 120 }) {
         <img
           src={badgeSrc}
           alt=""
-          style={getBadgeOverlayStyle(badge, { scale, dx, dy, fallbackPx: 22 })}
+          style={getBadgeOverlayStyle(badge, {
+            scale,
+            dx,
+            dy,
+            fallbackPx: 22,
+            forceChest: true,
+          })}
         />
       )}
     </div>
