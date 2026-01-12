@@ -13,6 +13,13 @@ const PencilIcon = () => (
   </svg>
 );
 
+// ✅ DB 좌표 기준 캔버스 (예: 114x126)
+const BASE_W = 114;
+const BASE_H = 126;
+
+// ✅ 정사각 썸네일(VIEW)에 맞추려면 둘 다 들어가게 min 사용
+const scaleToFit = (view) => Math.min(view / BASE_W, view / BASE_H);
+
 function fmtDot(dateStr) {
   if (!dateStr) return "";
   return dateStr.replace(/-/g, ".");
@@ -101,7 +108,44 @@ async function requestJson(method, path) {
   return data;
 }
 
-function CharacterThumb({ user }) {
+/* ====== Badge helpers (추가) ====== */
+function normalizeList(raw) {
+  if (Array.isArray(raw)) return raw;
+  if (Array.isArray(raw?.data)) return raw.data;
+  if (Array.isArray(raw?.result)) return raw.result;
+  if (Array.isArray(raw?.members)) return raw.members;
+  return [];
+}
+
+function pickImgUrl(obj) {
+  const v =
+    obj?.imageUrl ??
+    obj?.imgUrl ??
+    obj?.badgeImageUrl ??
+    obj?.iconUrl ??
+    obj?.url ??
+    null;
+
+  if (typeof v !== "string") return "";
+  const u = v.trim();
+  if (!u) return "";
+  if (u.startsWith("http") || u.startsWith("/")) return u;
+  return `/${u}`;
+}
+
+function pickEquippedBadge(member) {
+  const list =
+    (Array.isArray(member?.equippedBadges) && member.equippedBadges) ||
+    (Array.isArray(member?.equipped) && member.equipped) ||
+    (Array.isArray(member?.badges) && member.badges) ||
+    [];
+
+  // swagger 기준 equipped === true 우선
+  return list.find((b) => b?.equipped) ?? list[0] ?? null;
+}
+/* ================================ */
+
+function CharacterThumb({ user, badge }) {
   const items = Array.isArray(user?.equippedItems) ? user.equippedItems : [];
   if (!user || items.length === 0) {
     return <div className="stp-avatarPlaceholder" aria-hidden="true" />;
@@ -123,9 +167,28 @@ function CharacterThumb({ user }) {
     return ao - bo;
   });
 
-  const LOGICAL = 100;
   const VIEW = 34;
-  const scale = VIEW / LOGICAL;
+  const scale = scaleToFit(VIEW);
+
+  // ✅ 뱃지도 같은 좌표계(114x126) 안에서 렌더 → scale 같이 먹음
+  const badgeSrc = pickImgUrl(badge);
+  const bx = Number(badge?.offsetX);
+  const by = Number(badge?.offsetY);
+  const bw = Number(badge?.width);
+  const bh = Number(badge?.height);
+
+  const badgeStyle = {
+    position: "absolute",
+    left: `${Number.isFinite(bx) ? bx : 0}px`,
+    top: `${Number.isFinite(by) ? by : 0}px`,
+    imageRendering: "pixelated",
+    pointerEvents: "none",
+    userSelect: "none",
+    zIndex: 9999,
+  };
+  // width/height가 없으면 “억지로 BASE_W/H로 키우지 않음”(= 갑자기 커지는 문제 방지)
+  if (Number.isFinite(bw) && bw > 0) badgeStyle.width = `${bw}px`;
+  if (Number.isFinite(bh) && bh > 0) badgeStyle.height = `${bh}px`;
 
   return (
     <div className="stp-avatar">
@@ -133,15 +196,16 @@ function CharacterThumb({ user }) {
         <div
           className="stp-avatarStage"
           style={{
-            width: `${LOGICAL}px`,
-            height: `${LOGICAL}px`,
+            width: `${BASE_W}px`,
+            height: `${BASE_H}px`,
             transform: `scale(${scale})`,
             transformOrigin: "top left",
+            position: "relative",
           }}
         >
           {sorted.map((it, idx) => {
-            const w = Number(it?.width) || LOGICAL;
-            const h = Number(it?.height) || LOGICAL;
+            const w = Number(it?.width) || BASE_W;
+            const h = Number(it?.height) || BASE_H;
             const ox = Number(it?.offsetX) || 0;
             const oy = Number(it?.offsetY) || 0;
 
@@ -164,11 +228,24 @@ function CharacterThumb({ user }) {
               />
             );
           })}
+
+          {/* ✅ [ADD] badge layer (하드코딩 X, DB offset/size 그대로) */}
+          {badgeSrc ? (
+            <img
+              key={`bd-${user.userId}-${badge?.badgeId ?? badge?.id ?? "x"}`}
+              src={badgeSrc}
+              alt=""
+              style={badgeStyle}
+              onError={(e) => (e.currentTarget.style.display = "none")}
+              draggable={false}
+            />
+          ) : null}
         </div>
       </div>
     </div>
   );
 }
+
 /* ================================ */
 
 export default function SpecificTeamPlans({ onBack, onSuccess }) {
@@ -192,6 +269,9 @@ export default function SpecificTeamPlans({ onBack, onSuccess }) {
 
   // ✅ 팀 멤버 캐릭터 맵: userId -> character payload
   const [charByUserId, setCharByUserId] = useState({});
+
+  // ✅ [ADD] 팀 멤버 뱃지 맵: userId -> equipped badge
+  const [badgeByUserId, setBadgeByUserId] = useState({});
 
   // 생성 중
   const [saving, setSaving] = useState(false);
@@ -260,6 +340,44 @@ export default function SpecificTeamPlans({ onBack, onSuccess }) {
     };
 
     loadTeamCharacters();
+    return () => {
+      ignore = true;
+    };
+  }, [teamId, navigate]);
+
+  // ✅ [ADD] 팀 뱃지 로드 (Swagger: GET /api/badges/team/{teamId}/members)
+  useEffect(() => {
+    let ignore = false;
+
+    const loadTeamBadges = async () => {
+      if (!Number.isFinite(teamId)) return;
+
+      try {
+        const res = await requestJson(
+          "GET",
+          `/api/badges/team/${teamId}/members`
+        );
+        if (ignore) return;
+
+        const arr = normalizeList(res);
+        const map = {};
+
+        arr.forEach((m) => {
+          const uid = m?.userId ?? m?.userid ?? m?.memberId;
+          if (uid == null) return;
+
+          const badge = pickEquippedBadge(m);
+          if (badge) map[uid] = badge;
+        });
+
+        setBadgeByUserId(map);
+      } catch (e) {
+        if (e?.status === 401) return navigate("/login", { replace: true });
+        if (!ignore) setBadgeByUserId({});
+      }
+    };
+
+    loadTeamBadges();
     return () => {
       ignore = true;
     };
@@ -701,6 +819,7 @@ export default function SpecificTeamPlans({ onBack, onSuccess }) {
                   {members.map((m) => {
                     const selected = selectedUserIds.includes(m.userId);
                     const userChar = charByUserId?.[m.userId] ?? null;
+                    const userBadge = badgeByUserId?.[m.userId] ?? null; // ✅ [ADD]
 
                     return (
                       <div
@@ -719,7 +838,7 @@ export default function SpecificTeamPlans({ onBack, onSuccess }) {
                         }}
                       >
                         <div className="stp-inlineLeft">
-                          <CharacterThumb user={userChar} />
+                          <CharacterThumb user={userChar} badge={userBadge} />
                           <div className="stp-inlineName">
                             {m.username ?? `user-${m.userId}`}
                           </div>

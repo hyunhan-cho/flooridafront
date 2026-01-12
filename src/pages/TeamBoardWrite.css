@@ -1,0 +1,90 @@
+@import "./TeamBoardList.css";
+
+.tp-write-page {
+  min-height: 100vh;
+  background: #6f868a;
+  padding-bottom: 88px;
+}
+
+.tp-write-title-row {
+  display: grid;
+  grid-template-columns: 36px 1fr 36px;
+  align-items: center;
+  gap: 10px;
+}
+
+.tp-write-title {
+  color: #fff;
+  font-weight: 900;
+  font-size: 16px;
+}
+
+.tp-write-desc {
+  margin-top: 6px;
+  color: rgba(255, 255, 255, 0.78);
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.tp-write-content {
+  width: min(420px, 92vw);
+  margin: 14px auto 0;
+}
+
+.tp-write-card {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.tp-write-textarea {
+  width: 100%;
+  height: 120px;
+  border-radius: 12px;
+  border: 0;
+  padding: 12px;
+  resize: none;
+  outline: none;
+  font-weight: 800;
+  color: rgba(0, 0, 0, 0.7);
+  background: #ffffff;
+  box-sizing: border-box;
+}
+
+.tp-write-error {
+  margin-top: 10px;
+  font-weight: 900;
+  font-size: 13px;
+  color: rgba(255, 230, 230, 0.95);
+}
+
+.tp-upload-btn {
+  margin-top: 12px;
+  width: 100%;
+  height: 44px;
+  border-radius: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.75);
+  background: var(--brand-teal);
+  color: #fff;
+  font-weight: 900;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.tp-upload-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ✅ 추가: TeamHeader가 fixed/sticky로 떠있어도,
+   이 페이지(tp-write-page)에서는 “흐름대로” 들어가게 해서
+   아래 '글 작성하기' 헤더가 그만큼 자연스럽게 내려오게 함 */
+.tp-write-page .home-header.plan-header {
+  position: relative !important;
+  top: auto !important;
+  left: auto !important;
+  right: auto !important;
+  z-index: auto !important;
+  margin: 0 !important;
+}

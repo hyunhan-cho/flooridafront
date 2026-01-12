@@ -25,3 +25,9 @@ export async function equipBadge(badgeId) {
 export async function unequipBadge(badgeId) {
   return await http.post(`/api/me/badges/${badgeId}/unequip`, {});
 }
+
+// ✅ 팀원 뱃지 상태 조회: GET /api/badges/team/{teamId}/members
+export async function getTeamMembersBadges(teamId) {
+  if (teamId == null) throw new Error("teamId is required");
+  return await http.get(`/api/badges/team/${teamId}/members`);
+}

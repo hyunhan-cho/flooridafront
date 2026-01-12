@@ -4,120 +4,22 @@ import { useNavigate, useLocation } from "react-router-dom";
 import Navbar from "../components/Navbar.jsx";
 import TeamHeader from "../components/TeamHeader.jsx";
 import { getTeams } from "../services/api.js";
-import { API_BASE_URL, AUTH_TOKEN_KEY } from "../config.js";
+import { getTeamMembersBadges } from "../services/badge.js";
 
-async function requestJson(method, path) {
-  const token = localStorage.getItem(AUTH_TOKEN_KEY);
-  if (!token) {
-    const err = new Error("로그인이 필요합니다.");
-    err.status = 401;
-    throw err;
-  }
+// ✅ 팀원 캐릭터 프리뷰 컴포넌트
+import { TeamCharactersPreview } from "../components/CharacterPreview.jsx";
+// ✅ 팀원 캐릭터 조회 API (GET /api/items/{teamId}/characters)
+import { getTeamCharacters } from "../services/team.js";
 
-  const url = path.startsWith("http")
-    ? path
-    : `${API_BASE_URL.replace(/\/$/, "")}${path}`;
-
-  const res = await fetch(url, {
-    method,
-    headers: {
-      Accept: "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-  });
-
-  const text = await res.text();
-  let data = null;
-  try {
-    data = text ? JSON.parse(text) : null;
-  } catch {
-    data = text;
-  }
-
-  if (!res.ok) {
-    const err = new Error(
-      (data && (data.message || data.error)) || `HTTP ${res.status}`
-    );
-    err.status = res.status;
-    err.data = data;
-    throw err;
-  }
-  return data;
-}
-
-// ✅ 캐릭터 썸네일: "큰 캔버스(96)" 기준으로 그리고 44로 축소
-function CharacterThumb({ user }) {
-  const items = Array.isArray(user?.equippedItems) ? user.equippedItems : [];
-
-  const order = {
-    BACKGROUND: 0,
-    BODY: 1,
-    CLOTH: 2,
-    HAIR: 3,
-    FACE: 4,
-    ACCESSORY: 5,
-    HAT: 6,
-  };
-
-  const sorted = [...items].sort((a, b) => {
-    const ao = order[a?.itemType] ?? 50;
-    const bo = order[b?.itemType] ?? 50;
-    return ao - bo;
-  });
-
-  const LOGICAL = 100;
-  const VIEW = 44;
-  const scale = VIEW / LOGICAL;
-
-  return (
-    <div className="tp-char">
-      <div className="tp-charViewport" aria-hidden="true">
-        <div
-          className="tp-charStage"
-          style={{
-            width: `${LOGICAL}px`,
-            height: `${LOGICAL}px`,
-            transform: `scale(${scale})`,
-            transformOrigin: "top left",
-          }}
-        >
-          {sorted.map((it, idx) => {
-            const w = Number(it?.width) || LOGICAL;
-            const h = Number(it?.height) || LOGICAL;
-            const ox = Number(it?.offsetX) || 0;
-            const oy = Number(it?.offsetY) || 0;
-
-            return (
-              <img
-                key={`${user.userId}-${it.itemId}-${idx}`}
-                src={it.imageUrl}
-                alt=""
-                style={{
-                  position: "absolute",
-                  left: `${ox}px`,
-                  top: `${oy}px`,
-                  width: `${w}px`,
-                  height: `${h}px`,
-                  imageRendering: "pixelated",
-                  pointerEvents: "none",
-                  userSelect: "none",
-                  zIndex: idx + 1,
-                }}
-              />
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
+// ✅ 여기만 너네 라우트에 맞게 필요시 수정
+const JOIN_ROUTE = "/teamplace/join";
+const CREATE_ROUTE = "/teamplace/create";
 
 export default function JoinedTeamPlace() {
   const navigate = useNavigate();
   const location = useLocation();
 
   const [teams, setTeams] = useState([]);
-  const [teamCharsMap, setTeamCharsMap] = useState({}); // ✅ teamId -> characters[]
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -129,40 +31,6 @@ export default function JoinedTeamPlace() {
       const data = await getTeams();
       const list = Array.isArray(data) ? data : [];
       setTeams(list);
-
-      // ✅ 팀별 캐릭터를 "Map"으로 저장 (덮어쓰기 방지)
-      const results = await Promise.all(
-        list.map(async (t) => {
-          try {
-            const chars = await requestJson(
-              "GET",
-              `/api/items/${t.teamId}/characters`
-            );
-            // ✅ 여기 로그
-            console.log(
-              "[team characters]",
-              "teamId:",
-              t.teamId,
-              "teamName:",
-              t.name,
-              "charsLen:",
-              Array.isArray(chars) ? chars.length : "not-array",
-              "chars:",
-              chars
-            );
-
-            return [t.teamId, Array.isArray(chars) ? chars : []];
-          } catch (e) {
-            return [t.teamId, []];
-          }
-        })
-      );
-
-      const nextMap = {};
-      results.forEach(([teamId, chars]) => {
-        nextMap[teamId] = chars;
-      });
-      setTeamCharsMap(nextMap);
     } catch (err) {
       if (err?.status === 401) {
         navigate("/login", { replace: true });
@@ -170,7 +38,6 @@ export default function JoinedTeamPlace() {
       }
       if (err?.status === 403) {
         setTeams([]);
-        setTeamCharsMap({});
         return;
       }
       setError(err?.message ?? "팀 조회 중 오류가 발생했어요.");
@@ -179,6 +46,7 @@ export default function JoinedTeamPlace() {
     }
   }, [navigate]);
 
+  // ✅ JoinedTeamPlace로 “들어올 때마다” 다시 불러오기
   useEffect(() => {
     let ignore = false;
 
@@ -199,6 +67,14 @@ export default function JoinedTeamPlace() {
 
       <style>{`
         /* ===== JoinedTeamPlace only (scoped) ===== */
+
+        /* ✅✅✅ 버튼/하얀 컨테이너가 퍼지지 않게 page-content 폭 제한 + 가운데 정렬 */
+        .joined-teamplace .page-content{
+          width: min(420px, 92vw);
+          margin: 0 auto;
+          box-sizing: border-box;
+        }
+
         .joined-teamplace .teamplace-actions{
           display:flex;
           gap:20px;
@@ -215,7 +91,13 @@ export default function JoinedTeamPlace() {
           font-weight:700;
           cursor:pointer;
         }
-        .joined-teamplace .teamplace-section{ margin-top: 6px; }
+        .joined-teamplace .teamplace-btn:active{
+          transform: translateY(1px);
+        }
+
+        .joined-teamplace .teamplace-section{
+          margin-top: 6px;
+        }
         .joined-teamplace .teamplace-section-title{
           margin: 0 0 10px;
           font-size: 18px;
@@ -240,11 +122,12 @@ export default function JoinedTeamPlace() {
           color: rgba(220, 38, 38, 0.9);
           font-weight: 800;
         }
+
         .joined-teamplace .teamplace-teamcard{
           height: 160px;
           background: rgba(142, 142, 142, 0.08);
           border-radius: 14px;
-       
+          overflow: hidden;
           margin-bottom: 14px;
           display: flex;
           flex-direction: column;
@@ -253,74 +136,175 @@ export default function JoinedTeamPlace() {
           width: 100%;
           text-align: left;
         }
+        .joined-teamplace .teamplace-teamcard:active{
+          transform: translateY(1px);
+        }
         .joined-teamplace .teamplace-teamcard-top{
           padding: 10px 14px;
           background: rgba(0,0,0,0.07);
+          display:flex;
+          align-items: center;
+          gap: 10px;
         }
         .joined-teamplace .teamplace-teamname{
+          flex: 1;
+          min-width: 0;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
           font-size: 18px;
           font-weight: 900;
           color: #111;
         }
-        .joined-teamplace .teamplace-period{
-          font-size: 10px;
-          color: rgba(0,0,0,0.55);
-        }
-        .joined-teamplace .teamplace-teamcard-bottom{
+
+        /* ✅✅✅ 핵심: 연한(mid) 영역을 "날짜(상단) + 캐릭터(하단)" 구조로 */
+        .joined-teamplace .teamplace-teamcard-mid{
           flex: 1;
-          display:flex;
-          flex-direction: column;
+          display: flex;
+          flex-direction: column;   /* ✅ 날짜 위 / 캐릭터 아래 */
+          align-items: stretch;
           justify-content: flex-start;
-          padding: 8px 14px 14px;
-          gap: 10px;
+          gap: 2px;
+          padding: 10px 14px 14px;  /* ✅ 연한 영역 내부 여백 */
+          min-height: 0;
+          box-sizing: border-box;
         }
 
-        /* ✅ 캐릭터 슬라이드 줄 */
-        .joined-teamplace .teamplace-charRow{
-          display:flex;
-          gap: 10px;
-          overflow-x: auto;
-          overflow-y: hidden;
-          -webkit-overflow-scrolling: touch;
-          padding-bottom: 6px;
-        }
-        .joined-teamplace .teamplace-charRow::-webkit-scrollbar{ height: 6px; }
-        .joined-teamplace .teamplace-charRow::-webkit-scrollbar-thumb{
-          background: rgba(0,0,0,0.15);
-          border-radius: 999px;
-        }
-
-        /* ✅ "회색 네모칸" 없이 캐릭터만 */
-        .joined-teamplace .tp-char{
-          flex: 0 0 auto;
-          width: 44px;
-          height: 44px;
-          background: transparent;
-          border: none;
-          display:flex;
-          align-items:center;
-          justify-content:center;
-        }
-        /* ✅ 옆 칸 침범 막기 위해 clip */
-        .joined-teamplace .tp-charViewport{
-          position: relative;
-          width: 44px;
-          height: 44px;
+        /* ✅ 날짜는 연한 영역 상단 */
+        .joined-teamplace .teamplace-period{
+          font-size: 9px;
+          color: rgba(0,0,0,0.55);
+          line-height: 1;
+          white-space: nowrap;
           overflow: hidden;
-          background: transparent;
-          border: none;
+          text-overflow: ellipsis;
+          min-width: 0;
+          transform: none;          /* ✅ 기존 translateY 제거 */
         }
-        .joined-teamplace .tp-charStage{
-          position: relative;
+
+        /* ✅ 아래쪽: 캐릭터(왼쪽) + → 버튼(오른쪽) 한 줄 */
+        .joined-teamplace .teamplace-mid-row{
+          flex: 1;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          min-height: 0;
         }
+
+        .joined-teamplace .teamplace-mid-row{
+  transform: translateY(15px); /* 6~14px 사이로 조절 */
+}
+        /* ✅✅✅ 팀원 캐릭터 프리뷰: 가로 스크롤(스와이프) */
+        .joined-teamplace .teamplace-preview-wrap{
+          flex: 1;
+          min-width: 0;
+
+          display:flex;
+          align-items: center;
+          justify-content: flex-start;
+
+          overflow-x: auto;               /* ✅ 실제 스와이프/스크롤 */
+          overflow-y: visible;
+           
+          -webkit-overflow-scrolling: touch;
+          touch-action: pan-x;
+
+          padding: 2px 0;
+          box-sizing: border-box;
+
+          scrollbar-width: none; /* firefox */
+        }
+        .joined-teamplace .teamplace-preview-wrap::-webkit-scrollbar{
+          display:none; 
+        }
+
+        /* ✅ TeamCharactersPreview(컴포넌트 하나)가 내용만큼 넓어지게 */
+        .joined-teamplace .teamplace-preview-wrap > *{
+          flex: 0 0 auto;
+          width: max-content;
+        }
+
+        /* ✅ (기존) 미니 버튼 */
+        .joined-teamplace .teamplace-mini-btn{
+          height: 34px;
+          padding: 0 12px;
+          border-radius: 10px;
+          border: 0;
+          background: rgba(0,0,0,0.08);
+          color: #111;
+          font-size: 13px;
+          font-weight: 900;
+          cursor: pointer;
+          white-space: nowrap;
+        }
+        .joined-teamplace .teamplace-mini-btn:active{
+          transform: translateY(1px);
+        }
+
+        /* ✅ 초록색 입장 버튼(→) */
+        .joined-teamplace .teamplace-enter-btn{
+          width: 56px;
+          height: 34px;
+          padding: 0;
+          border-radius: 12px;
+          background: #1f9a95;
+          color: #fff;
+          font-size: 18px;
+          font-weight: 900;
+
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex: 0 0 auto;
+        }
+
+        /* (기존에 있던 bottom 영역은 이제 안 씀 — 남겨둬도 무방하지만, 실사용은 안 함)
+        .joined-teamplace .teamplace-teamcard-bottom{ ... }
+        */
+       /* 1) 날짜-캐릭터 사이 공백은 최소로 (너가 말한 "위 간격만 넓어짐" 방지) */
+.joined-teamplace .teamplace-teamcard-mid{
+  gap: 4px;              /* 기존 8px면 줄여 */
+  padding-top: 8px;      /* 너무 크면 6~8 */
+}
+
+/* 2) 캐릭터+버튼 줄은 아래로 붙이기 */
+.joined-teamplace .teamplace-mid-row{
+  margin-top: 2px;
+  align-items: flex-end;
+}
+
+/* 3) ✅ 똥 잘림의 진짜 원인 제거: 프리뷰/내부 wrapper overflow 풀고 위 여유 확보 */
+.joined-teamplace .teamplace-preview-wrap{
+  overflow-x: auto;
+  overflow-y: visible;   /* 중요 */
+  padding-top: 10px;     /* 똥 머리 공간 */
+}
+
+.joined-teamplace .teamplace-preview-wrap .cp-wrap{
+  overflow: visible !important; /* 중요: 내부에서 잘리는 경우 */
+}
+
+.joined-teamplace .teamplace-enter-btn{
+  transform: translateY(-12px); /* -4 ~ -10px 사이로 조절 */
+}
+
       `}</style>
 
       <main className="page-content">
         <section className="teamplace-actions">
-          <button className="teamplace-btn primary" type="button">
+          <button
+            className="teamplace-btn primary"
+            type="button"
+            onClick={() => navigate(JOIN_ROUTE)}
+          >
             팀 입장하기
           </button>
-          <button className="teamplace-btn" type="button">
+          <button
+            className="teamplace-btn"
+            type="button"
+            onClick={() => navigate(CREATE_ROUTE)}
+          >
             팀 만들기
           </button>
         </section>
@@ -336,47 +320,67 @@ export default function JoinedTeamPlace() {
             ) : teams.length === 0 ? (
               <p className="teamplace-empty">아직 입장한 팀이 없어요.</p>
             ) : (
-              teams.map((team) => {
-                const chars = teamCharsMap?.[team.teamId] ?? [];
+              teams.map((team) => (
+                <article
+                  className="teamplace-teamcard"
+                  key={team.teamId}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => navigate(`/teamplacehome/${team.teamId}`)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      navigate(`/teamplacehome/${team.teamId}`);
+                    }
+                  }}
+                >
+                  <div className="teamplace-teamcard-top">
+                    <div className="teamplace-teamname">{team.name}</div>
+                  </div>
 
-                return (
-                  <article
-                    className="teamplace-teamcard"
-                    key={team.teamId}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => navigate(`/teamplacehome/${team.teamId}`)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        navigate(`/teamplacehome/${team.teamId}`);
-                      }
+                  {/* ✅✅✅ 연한(mid) 영역: 상단 날짜 + 하단 캐릭터 */}
+                  <div
+                    className="teamplace-teamcard-mid"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
                     }}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    role="presentation"
                   >
-                    <div className="teamplace-teamcard-top">
-                      <div className="teamplace-teamname">{team.name}</div>
+                    {/* ✅ 연한 부분 상단에 날짜 */}
+                    <div className="teamplace-period">
+                      {team.startDate} ~ {team.endDate}
                     </div>
 
-                    <div className="teamplace-teamcard-bottom">
-                      <div className="teamplace-period">
-                        {team.startDate} ~ {team.endDate}
+                    {/* ✅ 연한 부분 아래쪽에 캐릭터 + → */}
+                    <div className="teamplace-mid-row">
+                      <div className="teamplace-preview-wrap">
+                        <TeamCharactersPreview
+                          teamId={team.teamId}
+                          fetcher={getTeamCharacters}
+                          badgesFetcher={getTeamMembersBadges}
+                          max={999}
+                          scale={0.5}
+                          showNames={false}
+                        />
                       </div>
 
-                      {/* ✅ 팀 멤버 전부 캐릭터 */}
-                      <div
-                        className="teamplace-charRow"
-                        onClick={(e) => e.stopPropagation()} // ✅ 카드 클릭 방지 (스크롤/터치 보호)
-                        onMouseDown={(e) => e.stopPropagation()}
-                        onTouchStart={(e) => e.stopPropagation()} // ✅ 추가
-                        onTouchMove={(e) => e.stopPropagation()}
+                      <button
+                        type="button"
+                        className="teamplace-mini-btn teamplace-enter-btn"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          navigate(`/teamplacehome/${team.teamId}`);
+                        }}
+                        aria-label="팀플레이스 입장"
                       >
-                        {chars.map((u) => (
-                          <CharacterThumb key={u.userId} user={u} />
-                        ))}
-                      </div>
+                        →
+                      </button>
                     </div>
-                  </article>
-                );
-              })
+                  </div>
+                </article>
+              ))
             )}
           </div>
         </section>

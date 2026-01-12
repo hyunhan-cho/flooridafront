@@ -2,12 +2,20 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { API_BASE_URL, AUTH_TOKEN_KEY } from "../config.js";
 import { getTeamMembers } from "../services/api.js";
+import { getTeamMembersBadges } from "../services/badge.js"; // ✅ [ADD] 뱃지 API
 
 const PencilIcon = () => (
   <svg className="directIconSvg" viewBox="0 0 24 24" fill="currentColor">
     <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
   </svg>
 );
+
+const BASE_W = 114;
+const BASE_H = 126;
+
+function scaleToFitSquare(view) {
+  return Math.min(view / BASE_W, view / BASE_H);
+}
 
 function fmtDot(dateStr) {
   if (!dateStr) return "";
@@ -63,8 +71,68 @@ function todayYmd() {
   return `${y}-${m}-${day}`;
 }
 
-// ✅ 캐릭터 썸네일 (TeamPlace에서 쓰던 방식 그대로)
-function CharacterThumb({ user }) {
+/* ================================
+   ✅ 뱃지 관련 유틸 (ADD)
+================================ */
+function toNum(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function pickImgUrl(obj) {
+  const v =
+    obj?.imageUrl ??
+    obj?.imgUrl ??
+    obj?.image_url ??
+    obj?.img_url ??
+    obj?.badgeImageUrl ??
+    obj?.iconUrl ??
+    obj?.url ??
+    null;
+
+  if (typeof v !== "string") return "";
+  const u = v.trim();
+  if (!u) return "";
+  if (u.startsWith("http") || u.startsWith("/")) return u;
+  return `/${u}`;
+}
+
+function buildLayerStyle(raw) {
+  const x = toNum(raw?.offsetX ?? raw?.offset_x ?? raw?.x ?? raw?.left);
+  const y = toNum(raw?.offsetY ?? raw?.offset_y ?? raw?.y ?? raw?.top);
+  const w = toNum(raw?.width ?? raw?.w);
+  const h = toNum(raw?.height ?? raw?.h);
+
+  const style = {};
+  if (x != null) style.left = `${x}px`;
+  if (y != null) style.top = `${y}px`;
+  if (w != null && w > 0) style.width = `${w}px`;
+  if (h != null && h > 0) style.height = `${h}px`;
+  return style;
+}
+
+function normalizeList(raw) {
+  if (Array.isArray(raw)) return raw;
+  if (Array.isArray(raw?.data)) return raw.data;
+  if (Array.isArray(raw?.result)) return raw.result;
+  if (Array.isArray(raw?.members)) return raw.members;
+  return [];
+}
+
+function pickEquippedBadge(member) {
+  const list =
+    (Array.isArray(member?.equippedBadges) && member.equippedBadges) ||
+    (Array.isArray(member?.equipped) && member.equipped) ||
+    (Array.isArray(member?.badges) && member.badges) ||
+    [];
+  // swagger 기준 equipped:true 우선
+  return list.find((b) => b?.equipped === true) ?? list[0] ?? null;
+}
+
+/* ================================
+   ✅ 캐릭터 썸네일 + 뱃지(ADD)
+================================ */
+function CharacterThumb({ user, badge }) {
   const items = Array.isArray(user?.equippedItems) ? user.equippedItems : [];
 
   const order = {
@@ -83,31 +151,67 @@ function CharacterThumb({ user }) {
     return ao - bo;
   });
 
-  const LOGICAL = 100;
-  const VIEW = 44;
-  const scale = VIEW / LOGICAL;
+  const VIEW = 44; // ✅ 이 컴포넌트에서 쓰던 크기 유지
+  const scale = scaleToFitSquare(VIEW);
+
+  const badgeSrc = pickImgUrl(badge);
+
+  // 빈 경우도 레이아웃 깨지지 않게 박스는 유지
+  if (!user || sorted.length === 0) {
+    return <div className="tp-char" style={{ width: VIEW, height: VIEW }} />;
+  }
+
+  // ✅ badge 좌표/크기 있으면 그대로, 없으면 "비율 기반 fallback" (최후의 안전장치)
+  const badgeStyleFromServer = badge ? buildLayerStyle(badge) : null;
+  const hasServerSize =
+    !!badgeStyleFromServer?.width && !!badgeStyleFromServer?.height;
+
+  const fallbackSize = Math.round(Math.min(BASE_W, BASE_H) * 0.22); // 비율 기반
+  const fallbackPad = Math.round(Math.min(BASE_W, BASE_H) * 0.02);
+
+  const fallbackBadgeStyle = {
+    position: "absolute",
+    left: `${BASE_W - fallbackSize - fallbackPad}px`,
+    top: `${BASE_H - fallbackSize - fallbackPad}px`,
+    width: `${fallbackSize}px`,
+    height: `${fallbackSize}px`,
+    zIndex: 9999,
+    pointerEvents: "none",
+    userSelect: "none",
+    imageRendering: "pixelated",
+  };
 
   return (
-    <div className="tp-char">
-      <div className="tp-charViewport" aria-hidden="true">
+    <div className="tp-char" style={{ width: VIEW, height: VIEW }}>
+      <div
+        className="tp-charViewport"
+        aria-hidden="true"
+        style={{
+          width: VIEW,
+          height: VIEW,
+          position: "relative",
+          overflow: "visible",
+        }}
+      >
         <div
           className="tp-charStage"
           style={{
-            width: `${LOGICAL}px`,
-            height: `${LOGICAL}px`,
+            width: `${BASE_W}px`,
+            height: `${BASE_H}px`,
             transform: `scale(${scale})`,
             transformOrigin: "top left",
+            position: "relative",
           }}
         >
           {sorted.map((it, idx) => {
-            const w = Number(it?.width) || LOGICAL;
-            const h = Number(it?.height) || LOGICAL;
+            const w = Number(it?.width) || BASE_W;
+            const h = Number(it?.height) || BASE_H;
             const ox = Number(it?.offsetX) || 0;
             const oy = Number(it?.offsetY) || 0;
 
             return (
               <img
-                key={`${user.userId}-${it.itemId}-${idx}`}
+                key={`${user?.userId ?? "u"}-${it?.itemId ?? "i"}-${idx}`}
                 src={it.imageUrl}
                 alt=""
                 style={{
@@ -124,6 +228,24 @@ function CharacterThumb({ user }) {
               />
             );
           })}
+
+          {/* ✅ [ADD] 뱃지: 같은 좌표계로 stage 안에 올림 (scale 같이 먹음) */}
+          {badgeSrc ? (
+            <img
+              src={badgeSrc}
+              alt=""
+              style={{
+                position: "absolute",
+                ...(hasServerSize ? badgeStyleFromServer : fallbackBadgeStyle),
+                zIndex: 9999,
+                pointerEvents: "none",
+                userSelect: "none",
+                imageRendering: "pixelated",
+              }}
+              draggable={false}
+              onError={(e) => (e.currentTarget.style.display = "none")}
+            />
+          ) : null}
         </div>
       </div>
     </div>
@@ -190,6 +312,9 @@ export default function TeamFloorEditPanel({
   // ✅ teamId 캐릭터 맵
   const [teamCharByUserId, setTeamCharByUserId] = useState({});
 
+  // ✅ [ADD] teamId 뱃지 맵: userId -> equipped badge
+  const [teamBadgeByUserId, setTeamBadgeByUserId] = useState({});
+
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -213,18 +338,14 @@ export default function TeamFloorEditPanel({
   }, [task]);
 
   // ✅ dueDate가 min/max 범위 밖이면 자동으로 잘라주기
-  // - 오늘 이전이면 오늘로 올림
-  // - 팀 endDate 초과면 endDate로 내림
   useEffect(() => {
     if (!dueDate) return;
 
-    // 오늘 이전 금지
     if (dueDate < minDate) {
       setDueDate(minDate);
       return;
     }
 
-    // endDate 초과 금지 (maxDate가 있을 때만)
     if (maxDate && dueDate > maxDate) {
       setDueDate(maxDate);
       return;
@@ -292,6 +413,41 @@ export default function TeamFloorEditPanel({
     };
   }, [open, teamId]);
 
+  // ✅ [ADD] 팀 뱃지 로드 (/api/badges/team/{teamId}/members)
+  useEffect(() => {
+    let ignore = false;
+
+    const loadTeamBadges = async () => {
+      if (!open) return;
+      if (!Number.isFinite(Number(teamId))) return;
+
+      try {
+        const res = await getTeamMembersBadges(Number(teamId));
+        if (ignore) return;
+
+        const arr = normalizeList(res);
+        const map = {};
+
+        arr.forEach((m) => {
+          const uid = m?.userId ?? m?.userid ?? m?.memberId ?? m?.member_id;
+          if (uid == null) return;
+
+          const badge = pickEquippedBadge(m);
+          if (badge) map[uid] = badge;
+        });
+
+        if (!ignore) setTeamBadgeByUserId(map);
+      } catch (e) {
+        if (!ignore) setTeamBadgeByUserId({});
+      }
+    };
+
+    loadTeamBadges();
+    return () => {
+      ignore = true;
+    };
+  }, [open, teamId]);
+
   const canSubmit =
     title.trim().length > 0 &&
     !!dueDate &&
@@ -314,7 +470,6 @@ export default function TeamFloorEditPanel({
   const handleSave = async () => {
     if (!task?.id) return;
 
-    // ✅ 최종 방어 (min/max)
     if (dueDate < minDate) return;
     if (maxDate && dueDate > maxDate) return;
 
@@ -475,8 +630,8 @@ export default function TeamFloorEditPanel({
               className="stp-dateInput"
               type="date"
               value={dueDate}
-              min={minDate} // ✅ 오늘 이전 선택 금지
-              max={maxDate} // ✅ endDate 초과 선택 금지 (없으면 undefined)
+              min={minDate}
+              max={maxDate}
               onChange={(e) => setDueDate(e.target.value)}
               onBlur={() => setIsEditingDueDate(false)}
             />
@@ -512,6 +667,7 @@ export default function TeamFloorEditPanel({
             {members.map((m) => {
               const selected = selectedUserIds.includes(m.userId);
               const charUser = teamCharByUserId?.[m.userId];
+              const badge = teamBadgeByUserId?.[m.userId] ?? null; // ✅ [ADD]
 
               return (
                 <div
@@ -530,7 +686,7 @@ export default function TeamFloorEditPanel({
                   <div className="stp-inlineLeft">
                     <div className="stp-inlineAvatar" aria-hidden="true">
                       {charUser ? (
-                        <CharacterThumb user={charUser} />
+                        <CharacterThumb user={charUser} badge={badge} />
                       ) : (
                         <div style={{ width: 34, height: 34 }} />
                       )}

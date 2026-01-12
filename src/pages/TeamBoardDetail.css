@@ -1,0 +1,369 @@
+/* 헤더/목록 스타일 재사용 */
+@import "./TeamBoardList.css";
+
+.tp-board-detail-page {
+  min-height: 100vh;
+  background: #6f868a;
+  padding-bottom: 88px;
+}
+
+.tp-board-content {
+  padding: 16px;
+  display: flex;
+  justify-content: center;
+}
+
+/* ✅ 추가: TeamHeader가 fixed/sticky여도 이 페이지에서만 흐름대로 쌓이게 */
+.tp-board-detail-page .home-header.plan-header {
+  position: relative !important;
+  top: auto !important;
+  left: auto !important;
+  right: auto !important;
+  z-index: auto !important;
+  margin: 0 !important;
+}
+
+/* =========================
+   ✅ Figma Frame (352 x 409)
+   ========================= */
+.tp-figma-frame {
+  position: relative;
+  width: 352px;
+  height: 409px;
+  background: #eeeeee;
+  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.25);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+/* ===== (1) Post Header ===== */
+.tp-figma-post-avatar {
+  position: absolute;
+  left: 10px;
+  top: 14px;
+}
+
+.tp-figma-post-author {
+  position: absolute;
+  left: 65px;
+  top: 23px;
+
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 500;
+  font-size: 12px;
+  line-height: 15px;
+  text-align: left;
+  letter-spacing: -0.05em;
+  color: #000000;
+
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tp-figma-post-date {
+  position: absolute;
+  left: 66px;
+  top: 38px;
+
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 400;
+  font-size: 12px;
+  line-height: 15px;
+  text-align: left;
+  letter-spacing: -0.05em;
+  color: #8a8a8a;
+
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Like pill (Figma: 65x25, bg #D9D9D9, radius 7) */
+.tp-figma-like {
+  position: absolute;
+  left: 240px;
+  top: 25px;
+
+  width: 65px;
+  height: 25px;
+  background: #d9d9d9;
+  border-radius: 7px;
+  border: 0;
+  padding: 0;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+
+  cursor: pointer;
+  color: #000;
+}
+
+.tp-like-icon {
+  width: 12px;
+  height: 12px;
+}
+
+.tp-like-count {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 400;
+  font-size: 10px;
+  line-height: 12px;
+  letter-spacing: -0.05em;
+  color: #000000;
+}
+
+.tp-like-pill.is-liked {
+  background: rgba(42, 150, 153, 0.25);
+}
+
+/* ===== (2) Post Body Box ===== */
+.tp-figma-post-body-box {
+  box-sizing: border-box;
+  position: absolute;
+  left: 10px;
+  top: 72px;
+
+  width: calc(100% - 20px);
+  height: 125px;
+  border: 1px solid #dcdcdc;
+  border-radius: 8px;
+
+  background: transparent;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tp-figma-post-body-text {
+  position: absolute;
+  left: 12px;
+  top: 11px;
+
+  width: 290px;
+  min-height: 30px;
+
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 400;
+  font-size: 12px;
+  line-height: 15px;
+  letter-spacing: -0.05em;
+  color: #000000;
+
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ===== (3) Comment Input Frame ===== */
+.tp-figma-comment-input-frame {
+  box-sizing: border-box;
+  position: absolute;
+  left: 10px;
+  top: 207px;
+
+  width: 323px;
+  height: 32px;
+
+  background: #ffffff;
+  border: 1px solid #aaaaaa;
+  border-radius: 8px;
+
+  overflow: hidden;
+}
+
+.tp-figma-comment-input {
+  position: absolute;
+  left: 10px;
+  top: 0;
+
+  width: 245px; /* 버튼 영역 피해서 */
+  height: 32px;
+
+  border: 0;
+  outline: none;
+  background: transparent;
+
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 400;
+  font-size: 10px;
+  line-height: 12px;
+  letter-spacing: -0.05em;
+
+  color: #000000;
+}
+
+.tp-figma-comment-input::placeholder {
+  color: #b0b0b0;
+}
+
+.tp-figma-comment-send {
+  position: absolute;
+  left: 255px;
+  top: 6px;
+
+  width: 59px;
+  height: 20px;
+
+  background: #2a9699;
+  border-radius: 5px;
+  border: 0;
+
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 400;
+  font-size: 7px;
+  line-height: 10px;
+  letter-spacing: -0.05em;
+
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.tp-figma-comment-send:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* ===== (4) Comments Area (scroll) ===== */
+.tp-figma-comments-area {
+  position: absolute;
+  left: 10px;
+  top: 249px;
+
+  width: calc(100% - 20px);
+  height: 146px; /* 409 - 249 - 약간 여백 */
+
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-right: 2px; /* 스크롤바 여유 */
+}
+
+.tp-figma-state {
+  font-family: "Inter";
+  font-size: 12px;
+  line-height: 15px;
+  letter-spacing: -0.05em;
+  color: rgba(0, 0, 0, 0.5);
+  padding: 6px 2px;
+}
+
+.tp-figma-state-error {
+  color: rgba(220, 38, 38, 0.92);
+}
+
+/* Comment Card (Figma: 322 x 68, bg #DBDBDB, radius 8) */
+.tp-figma-comment-card {
+  position: relative;
+  width: 322px;
+  height: 68px;
+
+  background: #dbdbdb;
+  border-radius: 8px;
+  flex: 0 0 auto;
+}
+
+.tp-figma-comment-avatar {
+  position: absolute;
+  left: 7px;
+  top: 10px;
+}
+
+.tp-figma-comment-author {
+  position: absolute;
+  left: 60px;
+  top: 12px;
+
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 500;
+  font-size: 12px;
+  line-height: 15px;
+  text-align: left;
+  letter-spacing: -0.05em;
+  color: #000000;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tp-figma-comment-date {
+  position: absolute;
+  left: 61px;
+  top: 28px;
+
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 400;
+  font-size: 12px;
+  line-height: 15px;
+  text-align: left;
+  letter-spacing: -0.05em;
+  color: #8a8a8a;
+
+  max-width: 175px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tp-figma-comment-text {
+  position: absolute;
+  left: 61px;
+  top: 42px;
+
+  width: 240px;
+
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 400;
+  font-size: 12px;
+  line-height: 15px;
+  letter-spacing: -0.05em;
+  color: #000000;
+
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* 댓글 영역 가로 스크롤바 방지 */
+.tp-figma-comments-area {
+  overflow-x: hidden;
+}
+
+/* 댓글 카드가 부모 폭을 따라가게(고정 322px 제거) */
+.tp-figma-comment-card {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* 게시글 박스 가로 스크롤바 방지 */
+.tp-figma-post-body-box {
+  overflow-x: hidden;
+}
+
+/* 게시글 텍스트 폭을 부모 기준으로(고정 290px 제거) */
+.tp-figma-post-body-text {
+  width: calc(100% - 20px);
+}
+
+/* (추가만) TeamHeader가 fixed/sticky라서 겹칠 때만 필요 */
+.tp-board-detail-page .home-header.plan-header {
+  position: relative !important;
+  top: auto !important;
+  left: auto !important;
+  right: auto !important;
+  z-index: auto !important;
+}

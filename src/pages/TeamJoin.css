@@ -1,0 +1,332 @@
+.tj-page {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #6f8f8f;
+  font-family: "DungGeunMo", sans-serif;
+  padding-bottom: 80px;
+  box-sizing: border-box;
+}
+
+.tj-main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  justify-content: center;
+  padding: 18px 16px 0;
+  box-sizing: border-box;
+  overflow: auto;
+}
+
+.tj-card {
+  width: min(360px, calc(100vw - 32px));
+  background: #fff;
+  border-radius: 18px;
+  padding: 16px;
+  box-shadow: 0 14px 0 rgba(0, 0, 0, 0.14);
+  position: relative;
+  box-sizing: border-box;
+}
+
+.tj-backBtn {
+  position: absolute;
+  top: -7px;
+  left: -5px;
+  background: transparent;
+  border: none;
+  font-size: 22px;
+  font-weight: 900;
+  cursor: pointer;
+  color: #111;
+}
+
+.tj-title {
+  margin-top: 22px;
+  font-size: 14px;
+  font-weight: 900;
+  color: #2aa6a0;
+}
+
+.tj-desc {
+  margin-top: 6px;
+  font-size: 11px;
+  color: rgba(0, 0, 0, 0.55);
+  line-height: 1.4;
+  margin-bottom: 14px;
+}
+
+.tj-label {
+  display: block;
+  margin: 10px 0 6px;
+  font-size: 12px;
+  font-weight: 900;
+  color: #111;
+}
+
+.tj-input {
+  width: 100%;
+  height: 40px;
+  border: 1px solid #e7e7e7;
+  border-radius: 8px;
+  padding: 0 12px;
+  font-family: inherit;
+  font-size: 12px;
+  box-sizing: border-box;
+  outline: none;
+}
+
+.tj-primaryBtn {
+  width: 100%;
+  height: 44px;
+  margin-top: 18px;
+  background: #2aa6a0;
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 5px 0 rgba(0, 0, 0, 0.18);
+}
+.tj-primaryBtn:active {
+  transform: translateY(2px);
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.18);
+}
+
+.tj-teamInfo {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid #e7e7e7;
+  border-radius: 12px;
+  background: #f3f3f3;
+}
+
+.tj-teamName {
+  font-size: 13px;
+  font-weight: 900;
+  color: #111;
+}
+
+.tj-teamPeriod {
+  margin-top: 4px;
+  font-size: 11px;
+  color: rgba(0, 0, 0, 0.55);
+}
+
+.tj-members {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.tj-memberCard {
+  background: #fff;
+  border: 1px solid #e7e7e7;
+  border-radius: 12px;
+  padding: 10px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.tj-memberName {
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 900;
+  color: #111;
+  text-align: center;
+}
+
+.tj-charStage {
+  width: 72px;
+  height: 72px;
+  position: relative;
+}
+
+.tj-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.tj-charFallback {
+  width: 100%;
+  height: 100%;
+  border-radius: 10px;
+  background: #f8f8f8;
+  border: 1px solid #e7e7e7;
+}
+
+.tj-actions {
+  margin-top: 12px;
+  display: flex;
+  gap: 10px;
+}
+
+.tj-ghostBtn {
+  flex: 1;
+  height: 44px;
+  background: #d9d9d9;
+  border: none;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.tj-note {
+  margin-top: 10px;
+  font-size: 10px;
+  color: rgba(0, 0, 0, 0.55);
+  line-height: 1.4;
+}
+
+.tj-muted {
+  font-size: 11px;
+  color: rgba(0, 0, 0, 0.55);
+}
+
+.tj-error {
+  font-size: 12px;
+  color: #b00020;
+}
+
+/* ===== TeamJoin confirm 카드: JoinedTeamPlace 스타일 맞춤 ===== */
+
+.tj-teamcard {
+  height: 160px;
+  background: rgba(142, 142, 142, 0.08);
+  border-radius: 14px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  text-align: left;
+  border: 0;
+}
+
+.tj-teamcard-top {
+  padding: 10px 14px;
+  background: rgba(0, 0, 0, 0.07);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tj-teamname {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 18px;
+  font-weight: 900;
+  color: #111;
+}
+
+/* 연한 영역: 날짜(위) + 캐릭터(아래) */
+.tj-teamcard-mid {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 4px;
+  padding: 8px 14px 14px;
+  box-sizing: border-box;
+  min-height: 0;
+}
+
+.tj-period {
+  font-size: 9px;
+  color: rgba(0, 0, 0, 0.55);
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* 캐릭터 줄(가로 스크롤) */
+.tj-mid-row {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  min-height: 0;
+}
+
+.tj-preview-wrap {
+  flex: 1;
+  min-width: 0;
+
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+  gap: 10px;
+
+  overflow-x: auto;
+  overflow-y: visible;
+
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
+
+  padding-top: 10px; /* ✅ '똥' 위쪽 잘림 방지 */
+  box-sizing: border-box;
+
+  scrollbar-width: none;
+}
+.tj-preview-wrap::-webkit-scrollbar {
+  display: none;
+}
+
+.tj-preview-item {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.tj-actions {
+  display: flex;
+  gap: 12px;
+}
+
+/* ✅ tj-actions 안에서는 두 버튼 완전 동일 스펙 */
+.tj-actions .tj-ghostBtn,
+.tj-actions .tj-primaryBtn {
+  flex: 1;
+  width: auto; /* primary의 width:100% 무력화 */
+  height: 44px;
+  margin-top: 0; /* ✅ primary의 margin-top 제거 */
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  border-radius: 10px;
+}
+
+/* ✅ 받침(그림자)도 둘 중 하나로 통일 */
+.tj-actions .tj-primaryBtn {
+  box-shadow: none; /* (옵션 A) primary 받침 제거 */
+}
+
+/* (옵션 B) 받침을 둘 다 주고 싶으면 위 box-shadow:none 대신 이걸 사용)
+.tj-actions .tj-ghostBtn,
+.tj-actions .tj-primaryBtn{
+  box-shadow: 0 5px 0 rgba(0,0,0,0.18);
+}
+*/
+
+.tj-actions {
+  display: flex;
+  flex-direction: row-reverse; /* ✅ 좌우 반전 */
+  gap: 12px;
+}

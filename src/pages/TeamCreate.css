@@ -1,0 +1,232 @@
+.tc-page {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #6f8f8f;
+  font-family: "DungGeunMo", sans-serif;
+  padding-bottom: 80px;
+  box-sizing: border-box;
+}
+
+.tc-main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  justify-content: center;
+  padding: 18px 16px 0;
+  box-sizing: border-box;
+  overflow: auto;
+}
+
+.tc-card {
+  width: min(360px, calc(100vw - 32px));
+  background: #fff;
+  border-radius: 18px;
+  padding: 16px;
+  box-shadow: 0 14px 0 rgba(0, 0, 0, 0.14);
+  position: relative;
+  box-sizing: border-box;
+}
+
+.tc-backBtn {
+  position: absolute;
+  top: -7px;
+  left: -5px;
+  background: transparent;
+  border: none;
+  font-size: 22px;
+  font-weight: 900;
+  cursor: pointer;
+  color: #111;
+}
+
+.tc-title {
+  margin-top: 22px;
+  font-size: 14px;
+  font-weight: 900;
+  color: #2aa6a0;
+}
+
+.tc-desc {
+  margin-top: 6px;
+  font-size: 11px;
+  color: rgba(0, 0, 0, 0.55);
+  line-height: 1.4;
+  margin-bottom: 14px;
+}
+
+.tc-label {
+  display: block;
+  margin: 10px 0 6px;
+  font-size: 12px;
+  font-weight: 900;
+  color: #111;
+}
+
+.tc-textarea {
+  width: 100%;
+  height: 86px;
+  border: 1px solid #e7e7e7;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 12px;
+  box-sizing: border-box;
+  resize: none;
+  outline: none;
+}
+
+.tc-input {
+  width: 100%;
+  height: 40px;
+  border: 1px solid #e7e7e7;
+  border-radius: 8px;
+  padding: 0 12px;
+  font-family: inherit;
+  font-size: 12px;
+  box-sizing: border-box;
+  outline: none;
+}
+
+.tc-primaryBtn {
+  width: 100%;
+  height: 44px;
+  margin-top: 18px;
+  background: #2aa6a0;
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 5px 0 rgba(0, 0, 0, 0.18);
+}
+.tc-primaryBtn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.tc-primaryBtn:active {
+  transform: translateY(2px);
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.18);
+}
+
+/* ===== result 화면 ===== */
+.tc-summary {
+  margin-top: 10px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #e7e7e7;
+}
+
+.tc-summaryTop {
+  background: #d9d9d9;
+  padding: 10px 12px;
+}
+
+.tc-summaryName {
+  font-size: 13px;
+  font-weight: 900;
+  color: #111;
+}
+.tc-summaryPeriod {
+  margin-top: 4px;
+  font-size: 11px;
+  color: rgba(0, 0, 0, 0.55);
+}
+
+.tc-summaryBody {
+  background: #f3f3f3;
+  padding: 12px;
+  display: flex;
+  justify-content: flex-start;
+}
+/* 결과 화면 미리보기만 살짝 아래로 (공간 추가 X) */
+.tc-summaryBody .tc-charStage {
+  transform: translateY(9px); /* 6~14px 사이로 취향껏 */
+}
+
+.tc-charStage {
+  width: 86px;
+  height: 86px;
+  position: relative;
+}
+
+.tc-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.tc-charFallback {
+  width: 100%;
+  height: 100%;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px solid #e7e7e7;
+}
+
+.tc-joinBox {
+  margin-top: 14px;
+}
+
+.tc-joinLabel {
+  font-size: 12px;
+  font-weight: 900;
+  margin-bottom: 6px;
+}
+
+/* 입장코드 박스(피그마처럼: 한 박스 안에 버튼 들어가기) */
+.tc-joinRow {
+  position: relative;
+  width: 100%;
+  height: 39px;
+}
+
+/* input을 “박스 전체”로 깔고, 오른쪽에 버튼 자리만큼 padding 확보 */
+.tc-joinInput {
+  width: 100%;
+  height: 39px;
+
+  background: #ffffff;
+  border: 1px solid #dcdcdc;
+  border-radius: 8px;
+
+  padding-left: 16px;
+  padding-right: 78px; /* ✅ 버튼(61px) + 여백(대략 8~10px*2) 만큼 */
+
+  font-family: inherit;
+  font-size: 10px;
+  line-height: 22px;
+  color: #434343;
+
+  box-sizing: border-box;
+  outline: none;
+}
+
+/* 버튼을 박스 “안쪽 오른쪽”에 절대배치 */
+.tc-copyBtn {
+  position: absolute;
+  right: 8px; /* 피그마 left=218 같은 느낌을 반응형으로 */
+  top: 50%;
+  transform: translateY(-50%);
+
+  width: 61px;
+  height: 25px;
+
+  background: #dadada;
+  border: none;
+  border-radius: 4px;
+
+  font-family: inherit;
+  font-size: 10px;
+  line-height: 12px;
+  color: #000;
+
+  cursor: pointer;
+  white-space: nowrap;
+}

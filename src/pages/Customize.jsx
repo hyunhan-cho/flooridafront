@@ -629,27 +629,21 @@ const Customize = () => {
         </button>
 
         <div className="cust-character-stage">
-          {/* ✅✅✅ 서버 “완성 캐릭터(얼굴 포함)” 베이스 */}
-          {baseCharacterUrl && (
-            <img
-              src={baseCharacterUrl}
-              className="cust-layer-img"
-              style={{ zIndex: 0 }}
-              alt="base-character"
-              onError={(e) => (e.currentTarget.style.display = "none")}
-            />
-          )}
-
-          {/* ✅ 완성 캐릭터라서 face 레이어는 기본적으로 숨김(겹침 방지) */}
-          {!baseCharacterUrl && getPreviewSource("face") && (
-            <img
-              src={getPreviewSource("face")}
-              className="cust-layer-img"
-              style={{ ...previewStyles.face, zIndex: 1 }}
-              alt="face"
-              onError={(e) => (e.currentTarget.style.display = "none")}
-            />
-          )}
+          {/* ✅✅✅ [수정] face(=몸통 포함 베이스)를 최우선으로 그리고, 없으면 baseCharacterUrl로 fallback */}
+          {(() => {
+            const baseSrc = getPreviewSource("face") || baseCharacterUrl;
+            return (
+              baseSrc && (
+                <img
+                  src={baseSrc}
+                  className="cust-layer-img"
+                  style={{ ...previewStyles.face, zIndex: 0 }}
+                  alt="base"
+                  onError={(e) => (e.currentTarget.style.display = "none")}
+                />
+              )
+            );
+          })()}
 
           {/* 아이템(액세서리) 레이어 */}
           {getPreviewSource("item") && (
@@ -662,7 +656,7 @@ const Customize = () => {
             />
           )}
 
-          {/* ✅✅✅ [핵심 추가] 뱃지 레이어: 아이템과 “동시에” 가능 */}
+          {/* ✅✅✅ 뱃지 레이어: 아이템과 “동시에” 가능 */}
           {equippedBadges.map((b, idx) => (
             <img
               key={`badge-${b.id}`}

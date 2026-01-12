@@ -1,15 +1,22 @@
 import { API_BASE_URL, AUTH_TOKEN_KEY } from "../config.js";
 
-function buildHeaders(extra) {
+function buildHeaders(extra, { skipAuth = false } = {}) {
   const headers = new Headers({ "Content-Type": "application/json", ...extra });
-  const token = localStorage.getItem(AUTH_TOKEN_KEY);
-  if (token) headers.set("Authorization", `Bearer ${token}`);
+
+  if (!skipAuth) {
+    const token = localStorage.getItem(AUTH_TOKEN_KEY);
+    // ✅ "null"/"undefined" 문자열 꼬임 방지
+    if (token && token !== "null" && token !== "undefined") {
+      headers.set("Authorization", `Bearer ${token}`);
+    }
+  }
+
   return headers;
 }
 
 export async function request(
   path,
-  { method = "GET", body, headers, signal } = {}
+  { method = "GET", body, headers, signal, skipAuth = false } = {}
 ) {
   const url = path.startsWith("http")
     ? path
@@ -17,7 +24,7 @@ export async function request(
 
   const res = await fetch(url, {
     method,
-    headers: buildHeaders(headers),
+    headers: buildHeaders(headers, { skipAuth }),
     body: body ? JSON.stringify(body) : undefined,
     // include credentials only if your API needs cookies
     // credentials: 'include',
