@@ -217,6 +217,29 @@ function CharacterThumb({ user, badge }) {
     return ao - bo;
   });
 
+  // ✅ Base image selection for elevator: FACE item -> user's character -> baseChar
+  const faceItem = sorted.find(
+    (it) => String((it?.itemType ?? it?.type) || "").toUpperCase() === "FACE"
+  );
+  const baseUrl =
+    (faceItem?.imageUrl ?? faceItem?.imgUrl) ||
+    pick(
+      user,
+      "characterImageUrl",
+      "characterImgUrl",
+      "mergedImageUrl",
+      "imageUrl",
+      "imgUrl"
+    ) ||
+    baseChar;
+
+  // ✅ Don't overlay FACE twice if used as base
+  const layerItems = faceItem
+    ? sorted.filter(
+        (it) => String((it?.itemType ?? it?.type) || "").toUpperCase() !== "FACE"
+      )
+    : sorted;
+
   const VIEW = 56;
   const scale = Math.min(VIEW / BASE_W, VIEW / BASE_H);
 
@@ -282,7 +305,7 @@ function CharacterThumb({ user, badge }) {
 
 function ElevatorCharacterThumb({ user, badge, size = 120 }) {
   const items = Array.isArray(user?.equippedItems) ? user.equippedItems : [];
-  if (!user || items.length === 0) return null;
+  if (!user) return null;
 
   const badgeSrc =
     badge?.imageUrl ??
@@ -307,6 +330,29 @@ function ElevatorCharacterThumb({ user, badge, size = 120 }) {
     return ao - bo;
   });
 
+  // ✅ Base image selection for elevator: FACE item -> user's character -> baseChar
+  const faceItem = sorted.find(
+    (it) => String((it?.itemType ?? it?.type) || "").toUpperCase() === "FACE"
+  );
+  const baseUrl =
+    (faceItem?.imageUrl ?? faceItem?.imgUrl) ||
+    pick(
+      user,
+      "characterImageUrl",
+      "characterImgUrl",
+      "mergedImageUrl",
+      "imageUrl",
+      "imgUrl"
+    ) ||
+    baseChar;
+
+  // ✅ Don't overlay FACE twice if used as base
+  const layerItems = faceItem
+    ? sorted.filter(
+        (it) => String((it?.itemType ?? it?.type) || "").toUpperCase() !== "FACE"
+      )
+    : sorted;
+
   const VIEW = size;
   const scale = Math.min(VIEW / BASE_W, VIEW / BASE_H);
 
@@ -327,7 +373,30 @@ function ElevatorCharacterThumb({ user, badge, size = 120 }) {
           transformOrigin: "top left",
         }}
       >
-        {sorted.map((it, idx) => {
+        {/* ✅ Base character always rendered (handles no-items case too) */}
+        {baseUrl ? (
+          <img
+            src={baseUrl}
+            alt=""
+            style={{
+              position: "absolute",
+              left: 0,
+              top: 0,
+              width: BASE_W,
+              height: BASE_H,
+              objectFit: "contain",
+              imageRendering: "pixelated",
+              display: "block",
+              zIndex: 0,
+            }}
+            onError={(e) => {
+              e.currentTarget.style.display = "none";
+            }}
+            draggable={false}
+          />
+        ) : null}
+
+        {layerItems.map((it, idx) => {
           const w = Number(it?.width) || BASE_W;
           const h = Number(it?.height) || BASE_H;
           const ox = Number(it?.offsetX) || 0;
