@@ -68,6 +68,9 @@ import {
   unequipBadge,
 } from "../services/badge.js";
 
+// ✅ Zustand 전역 상태
+import { useUserStore } from "../store/userStore.js";
+
 // =========================
 // ✅ 메인 페이지 컴포넌트
 // =========================
@@ -286,47 +289,50 @@ const Customize = () => {
       if (coin !== undefined && coin !== null) {
         setUserCoins(Number(coin));
       }
-    } catch {}
+    } catch { }
   };
 
   // =========================
   // --- 데이터 로딩 useEffect들 ---
   // =========================
 
+  // ✅ Zustand store에서 캐싱된 데이터 사용
+  const {
+    profile: cachedProfile,
+    character: cachedCharacter,
+    fetchProfile,
+    fetchCharacter,
+    updateCoins,
+  } = useUserStore();
+
   useEffect(() => {
     (async () => {
-      // ✅✅✅ 서버 완성 캐릭터(얼굴 포함) 베이스 이미지 조회
-      try {
-        const res = await getMyCharacter();
-        const url =
-          res?.imageUrl ?? res?.data?.imageUrl ?? res?.result?.imageUrl;
+      // ✅ 캐시된 캐릭터 우선 사용
+      if (cachedCharacter) {
+        setBaseCharacterUrl(cachedCharacter);
+      } else {
+        const url = await fetchCharacter();
         if (url) setBaseCharacterUrl(url);
-      } catch (e) {
-        console.warn("캐릭터 베이스 로드 실패:", e);
       }
 
-      try {
-        const profile = await getMyProfile();
-        const coin =
-          profile?.coin ??
-          profile?.data?.coin ??
-          profile?.points ??
-          profile?.data?.points;
-
+      // ✅ 캐시된 프로필 우선 사용
+      if (cachedProfile?.coin !== undefined) {
+        setUserCoins(Number(cachedProfile.coin));
+      } else {
+        const profile = await fetchProfile();
+        const coin = profile?.coin ?? profile?.points;
         if (coin !== undefined && coin !== null) {
           setUserCoins(Number(coin));
         }
-      } catch (e) {
-        console.warn("프로필 로드 실패:", e);
       }
 
       try {
         const my = await getMyItems();
         const list = Array.isArray(my) ? my : my?.result ?? my?.data ?? [];
         setOwnedSet(new Set(list.map((x) => Number(x.itemId ?? x.id))));
-      } catch {}
+      } catch { }
     })();
-  }, []);
+  }, [cachedProfile, cachedCharacter, fetchProfile, fetchCharacter]);
 
   useEffect(() => {
     const onVisible = () => {
@@ -377,7 +383,7 @@ const Customize = () => {
         });
 
         setCatalogMetaById({ face: faceMeta, item: itemMeta });
-      } catch {}
+      } catch { }
     })();
   }, []);
 
@@ -440,7 +446,7 @@ const Customize = () => {
       setEquippedSet(newSet);
       setPreviewItems((prev) => ({ ...prev, ...newPreview }));
       setPreviewStyles((prev) => ({ ...prev, ...newStyles }));
-    } catch {}
+    } catch { }
   };
 
   useEffect(() => {
@@ -516,6 +522,8 @@ const Customize = () => {
               equipped: equippedSet.has(`${cat}:${id}`),
               imgUrl,
               fileName,
+              // ✅ 기본 민무늬 캐릭터는 장착 API 지원 안 됨
+              isBasicFace: cat === "face" && (item.name?.toLowerCase() === "basic" || item.name === "기본"),
             };
           })
           .filter(Boolean)
@@ -576,6 +584,30 @@ const Customize = () => {
 
   const handleEquip = async () => {
     if (!selectedItem) return;
+
+    // ✅ 기본 민무늬 캐릭터 장착 = 현재 장착된 FACE 아이템 해제
+    if (selectedItem.isBasicFace) {
+      try {
+        // 현재 장착된 FACE 아이템 찾기
+        const equippedFaceKey = [...equippedSet].find(key => key.startsWith("face:"));
+        if (equippedFaceKey) {
+          const faceId = Number(equippedFaceKey.split(":")[1]);
+          if (!isNaN(faceId)) {
+            await unequipItem(faceId);
+            await refreshEquipped();
+            alert("기본 캐릭터로 변경되었습니다!");
+          }
+        } else {
+          alert("이미 기본 캐릭터입니다.");
+        }
+        closePopup();
+        return;
+      } catch {
+        alert("변경 실패");
+        return;
+      }
+    }
+
     try {
       if (selectedItem.uiCategory === "badge") {
         await equipBadge(selectedItem.id);
@@ -593,6 +625,14 @@ const Customize = () => {
 
   const handleUnequip = async () => {
     if (!selectedItem) return;
+
+    // ✅ 기본 민무늬 캐릭터만 해제 불가
+    if (selectedItem.isBasicFace) {
+      alert("기본 캐릭터는 해제할 수 없습니다.");
+      closePopup();
+      return;
+    }
+
     try {
       if (selectedItem.uiCategory === "badge") {
         await unequipBadge(selectedItem.id);
@@ -639,24 +679,41 @@ const Customize = () => {
                   className="cust-layer-img"
                   style={{ ...previewStyles.face, zIndex: 0 }}
                   alt="base"
+                  onLoad={(e) => { e.currentTarget.dataset.ready = "true"; }}
                   onError={(e) => (e.currentTarget.style.display = "none")}
                 />
               )
             );
           })()}
 
-          {/* 아이템(액세서리) 레이어 */}
-          {getPreviewSource("item") && (
-            <img
-              src={getPreviewSource("item")}
-              className="cust-layer-img"
-              style={{ ...previewStyles.item, zIndex: 2 }}
-              alt="item"
-              onError={(e) => (e.currentTarget.style.display = "none")}
-            />
-          )}
+          {/* 아이템(액세서리) 레이어 - 로드 전 & 좌표 없으면 숨김 */}
+          {getPreviewSource("item") && (() => {
+            // ✅ 선택한 아이템이 있으면 해당 아이템의 좌표 스타일 사용
+            let itemStyle = previewStyles.item;
+            if (selectedItem && selectedItem.uiCategory === "item") {
+              const meta = catalogMetaById?.item?.[selectedItem.id];
+              itemStyle = buildLayerStyleFromServer(selectedItem, meta);
+            }
+            const hasPosition = itemStyle?.top || itemStyle?.left;
 
-          {/* ✅✅✅ 뱃지 레이어: 아이템과 “동시에” 가능 */}
+            return (
+              <img
+                src={getPreviewSource("item")}
+                className="cust-layer-img"
+                style={{ ...itemStyle, zIndex: 2 }}
+                alt="item"
+                onLoad={(e) => {
+                  if (hasPosition) {
+                    e.currentTarget.dataset.ready = "true";
+                  }
+                }}
+                data-ready={hasPosition ? "true" : "false"}
+                onError={(e) => (e.currentTarget.style.display = "none")}
+              />
+            );
+          })()}
+
+          {/* ✅✅✅ 뱃지 레이어: 아이템과 "동시에" 가능 - 로드 전 & 좌표 없으면 숨김 */}
           {equippedBadges.map((b, idx) => (
             <img
               key={`badge-${b.id}`}
@@ -664,6 +721,14 @@ const Customize = () => {
               className="cust-layer-img"
               style={{ ...b.style, zIndex: 3 + idx }}
               alt="badge"
+              onLoad={(e) => {
+                if (b.style?.top || b.style?.left) {
+                  e.currentTarget.dataset.ready = "true";
+                }
+              }}
+              data-ready={
+                (b.style?.top || b.style?.left) ? "true" : "false"
+              }
               onError={(e) => (e.currentTarget.style.display = "none")}
             />
           ))}
@@ -702,15 +767,14 @@ const Customize = () => {
             </div>
 
             <div
-              className={`cust-price-tag ${
-                item.uiCategory === "badge"
-                  ? item.owned
-                    ? "is-owned"
-                    : "is-hidden"
-                  : item.owned
+              className={`cust-price-tag ${item.uiCategory === "badge"
+                ? item.owned
+                  ? "is-owned"
+                  : "is-hidden"
+                : item.owned
                   ? "is-owned"
                   : "is-price"
-              }`}
+                }`}
             >
               {item.uiCategory === "badge" ? (
                 item.owned ? (

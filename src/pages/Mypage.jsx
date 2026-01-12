@@ -87,8 +87,13 @@ function getBadgeStyle(badge) {
   return style;
 }
 
+import CharacterDisplay from "../components/CharacterDisplay.jsx";
+import { useUserStore } from "../store/userStore.js";
+
 export default function Mypage() {
   const navigate = useNavigate();
+  const { itemMetadata, fetchItemMetadata } = useUserStore();
+
   const [user, setUser] = useState(null);
   const { weekDates, weekDateObjects, monday } = useMemo(
     () => getCurrentWeekDates(),
@@ -104,39 +109,31 @@ export default function Mypage() {
   const [username, setUsername] = useState("");
 
   useEffect(() => {
-    // localStorage에서 사용자 정보 가져오기
     const userData = localStorage.getItem(AUTH_USER_KEY);
     if (userData) {
       try {
         const parsedUser = JSON.parse(userData);
         setUser(parsedUser);
-        // localStorage에 닉네임이 있으면 임시로 표시
         setUsername(parsedUser.username || parsedUser.name || "");
       } catch (e) {
         console.error("사용자 정보 파싱 실패:", e);
       }
     }
 
-    // API에서 닉네임 로드
     const loadUsername = async () => {
       const token = localStorage.getItem(AUTH_TOKEN_KEY);
-      if (!token) {
-        return;
-      }
+      if (!token) return;
 
       try {
         const usernameData = await getMyUsername();
         if (usernameData && usernameData.username) {
           setUsername(usernameData.username);
-          // localStorage도 업데이트
           if (userData) {
             try {
               const parsedUser = JSON.parse(userData);
               const updatedUser = { ...parsedUser, username: usernameData.username };
               localStorage.setItem(AUTH_USER_KEY, JSON.stringify(updatedUser));
-            } catch (e) {
-              // 무시
-            }
+            } catch (e) { }
           }
         }
       } catch (error) {
@@ -147,29 +144,23 @@ export default function Mypage() {
     loadUsername();
   }, []);
 
-  // 캐릭터 이미지 로드
   useEffect(() => {
     const loadCharacter = async () => {
       const token = localStorage.getItem(AUTH_TOKEN_KEY);
-      if (!token) {
-        return;
-      }
+      if (!token) return;
 
       try {
         const items = await getMyEquippedItems();
         const itemList = Array.isArray(items) ? items : [];
         setEquippedItems(itemList.filter((item) => item?.equipped !== false));
+        fetchItemMetadata(); // 메타데이터 로드
       } catch (error) {
         console.error("장착 아이템 로드 실패:", error);
       }
 
       try {
         const badges = await getMyEquippedBadges();
-        const badgeList = Array.isArray(badges)
-          ? badges
-          : badges
-          ? [badges]
-          : [];
+        const badgeList = Array.isArray(badges) ? badges : badges ? [badges] : [];
         setEquippedBadges(badgeList.filter((badge) => badge?.equipped !== false));
       } catch (error) {
         console.error("장착 뱃지 로드 실패:", error);
@@ -179,13 +170,10 @@ export default function Mypage() {
     loadCharacter();
   }, []);
 
-  // 뱃지 목록 로드
   useEffect(() => {
     const loadBadges = async () => {
       const token = localStorage.getItem(AUTH_TOKEN_KEY);
-      if (!token) {
-        return;
-      }
+      if (!token) return;
 
       try {
         const data = await getMyBadges();
@@ -200,7 +188,6 @@ export default function Mypage() {
     loadBadges();
   }, []);
 
-  // 이번 주 달성률 데이터 로드
   useEffect(() => {
     const loadCalendarData = async () => {
       const token = localStorage.getItem(AUTH_TOKEN_KEY);
@@ -227,6 +214,19 @@ export default function Mypage() {
     loadCalendarData();
   }, [monday]);
 
+  const mergedItems = useMemo(() => {
+    return equippedItems.map(item => {
+      const id = item.itemId || item.id;
+      const meta = itemMetadata?.[id] || {};
+      return { ...meta, ...item };
+    });
+  }, [equippedItems, itemMetadata]);
+
+  const baseCharacterImg = useMemo(() => {
+    const face = mergedItems.find(it => it.type === "FACE" || it.uiCategory === "face");
+    return pickImageUrl(face) || null;
+  }, [mergedItems]);
+
   const handleLogout = () => {
     setShowLogoutModal(true);
   };
@@ -236,7 +236,6 @@ export default function Mypage() {
     navigate("/login");
   };
 
-  // 날짜별 완료율 가져오기
   const getCompletionRate = (dateObj) => {
     if (!calendarData || !Array.isArray(calendarData)) return null;
     const dateStr = formatDate(dateObj);
@@ -244,51 +243,35 @@ export default function Mypage() {
     return dayData ? dayData.completionRate : null;
   };
 
-  // 날짜별 상태 및 색상 결정
   const getDateStatus = (date, dateObj) => {
     const todayDate = new Date();
     todayDate.setHours(0, 0, 0, 0);
     const compareDate = new Date(dateObj);
     compareDate.setHours(0, 0, 0, 0);
 
-    // 미래 날짜는 색상 없이 표시
     if (compareDate > todayDate) {
       return { status: "normal", color: null };
     }
 
     const completionRate = getCompletionRate(dateObj);
 
-    // 오늘 날짜는 달성했을 때만 색상 표시
     if (date === today) {
       const isTodayDate = compareDate.getTime() === todayDate.getTime();
       if (isTodayDate) {
-        // 오늘 날짜이고 completionRate가 있고 0보다 크면 색상 표시
         if (completionRate !== null && completionRate > 0) {
           return {
             status: "current",
             color: getColorByCompletionRate(completionRate),
           };
         }
-        // 오늘 날짜이지만 달성하지 않았으면 색상 없이 표시
         return { status: "current", color: null };
       }
     }
 
-    if (completionRate === null) {
-      return { status: "normal", color: null };
-    }
-
-    if (completionRate === 0) {
-      return { status: "red", color: "#FF6A6A" };
-    }
-
-    if (completionRate >= 1 && completionRate <= 79) {
-      return { status: "yellow", color: "#E9DD3B" };
-    }
-
-    if (completionRate >= 80 && completionRate <= 100) {
-      return { status: "green", color: "#67D856" };
-    }
+    if (completionRate === null) return { status: "normal", color: null };
+    if (completionRate === 0) return { status: "red", color: "#FF6A6A" };
+    if (completionRate >= 1 && completionRate <= 79) return { status: "yellow", color: "#E9DD3B" };
+    if (completionRate >= 80 && completionRate <= 100) return { status: "green", color: "#67D856" };
 
     return { status: "normal", color: null };
   };
@@ -302,7 +285,6 @@ export default function Mypage() {
       date === today && compareDate.getTime() === todayDate.getTime();
 
     if (status === "current" || isToday) {
-      // 오늘 날짜이지만 색상이 없으면 (달성하지 않음) border만 표시
       if (!color) {
         return {
           background: "transparent",
@@ -311,7 +293,6 @@ export default function Mypage() {
           boxSizing: "border-box",
         };
       }
-      // 오늘 날짜이고 색상이 있으면 (달성함) 색상과 border 표시
       return {
         background: color,
         color: "#fff",
@@ -319,23 +300,14 @@ export default function Mypage() {
         boxSizing: "border-box",
       };
     }
-    if (status === "red") {
-      return { background: "#FF6A6A", color: "#fff", border: "none" };
-    }
-    if (status === "yellow") {
-      return { background: "#E9DD3B", color: "#111827", border: "none" };
-    }
-    if (status === "green") {
-      return { background: "#67D856", color: "#fff", border: "none" };
-    }
+    if (status === "red") return { background: "#FF6A6A", color: "#fff", border: "none" };
+    if (status === "yellow") return { background: "#E9DD3B", color: "#111827", border: "none" };
+    if (status === "green") return { background: "#67D856", color: "#fff", border: "none" };
     return { background: "transparent", color: "#111827", border: "none" };
   };
 
   return (
-    <div
-      className="app home-view"
-      style={{ background: "#DFDFDF", minHeight: "100vh" }}
-    >
+    <div className="app home-view" style={{ background: "#DFDFDF", minHeight: "100vh" }}>
       <PersonalHeader icon={settingIcon} title="마이페이지" />
 
       <main
@@ -352,23 +324,9 @@ export default function Mypage() {
         }}
       >
         {/* 프로필 및 설정 패널 */}
-        <div
-          style={{
-            background: "#ffffff",
-            borderRadius: "18px",
-            padding: "20px",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-          }}
-        >
+        <div style={{ background: "#ffffff", borderRadius: "18px", padding: "20px", boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
           {/* 프로필 헤더 */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              marginBottom: "16px",
-            }}
-          >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
               <div
                 style={{
@@ -383,75 +341,24 @@ export default function Mypage() {
                   justifyContent: "center",
                   fontSize: "32px",
                   position: "relative",
+                  overflow: "hidden", // 삐져나감 방지
+                  borderRadius: "50%" // 원형 클리핑 (선택사항)
                 }}
               >
-                {(() => {
-                  const { faceItem, accessoryItems } =
-                    splitEquippedItems(equippedItems);
-                  const faceSrc = pickImageUrl(faceItem);
-                  return (
-                    <div
-                      style={{
-                        position: "absolute",
-                        inset: 0,
-                        pointerEvents: "none",
-                      }}
-                    >
-                      {faceSrc && (
-                        <img
-                          src={faceSrc}
-                          alt="캐릭터"
-                          style={{
-                            position: "absolute",
-                            inset: 0,
-                            width: "100%",
-                            height: "100%",
-                            objectFit: "contain",
-                          }}
-                        />
-                      )}
-                      {accessoryItems.map((item, idx) => {
-                        const src = pickImageUrl(item);
-                        if (!src) return null;
-                        return (
-                          <img
-                            key={`equip-${item.itemId ?? item.id ?? idx}`}
-                            src={src}
-                            alt="캐릭터 아이템"
-                            style={{
-                              position: "absolute",
-                              inset: 0,
-                              width: "100%",
-                              height: "100%",
-                              objectFit: "contain",
-                            }}
-                          />
-                        );
-                      })}
-                      {equippedBadges.map((badge, idx) => {
-                        const src = pickImageUrl(badge);
-                        if (!src) return null;
-                        return (
-                          <img
-                            key={`badge-${badge.badgeId ?? badge.id ?? idx}`}
-                            src={src}
-                            alt="장착 뱃지"
-                            style={getBadgeStyle(badge)}
-                          />
-                        );
-                      })}
-                    </div>
-                  );
-                })()}
+                {/* CharacterDisplay 사용 */}
+                <CharacterDisplay
+                  base={baseCharacterImg}
+                  items={mergedItems}
+                  badges={equippedBadges}
+                  style={{
+                    width: "114px",
+                    height: "126px",
+                    transform: "scale(0.5)",
+                    transformOrigin: "center center",
+                  }}
+                />
               </div>
-              <span
-                style={{
-                  fontSize: "18px",
-                  fontWeight: 700,
-                  color: "#111827",
-                  fontFamily: "var(--font-sans)",
-                }}
-              >
+              <span style={{ fontSize: "18px", fontWeight: 700, color: "#111827", fontFamily: "var(--font-sans)" }}>
                 {username || user?.username || user?.name || "홍길동"}
               </span>
             </div>

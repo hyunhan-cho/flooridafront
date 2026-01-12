@@ -1,0 +1,244 @@
+/* src/components/TaskListSection.css */
+
+.task-list-section-message {
+    text-align: center;
+    padding: 60px 20px;
+    color: #9ca3af;
+    font-family: var(--font-pixel-kr);
+    width: 100%;
+    max-width: var(--panel-width);
+    margin: 0 auto;
+}
+
+/* Pagination */
+.task-pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 24px;
+    padding: 8px 0 24px 0;
+}
+
+.task-pagination-button {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    transition: opacity 0.2s;
+}
+
+.task-pagination-button:disabled {
+    cursor: default;
+    opacity: 0.3;
+}
+
+.task-pagination-info {
+    font-family: var(--font-pixel-kr);
+    font-size: 16px;
+    font-weight: bold;
+    color: #ffffff;
+    letter-spacing: 1px;
+}
+
+.task-pagination-button svg path {
+    stroke: #ffffff;
+}
+
+.task-pagination-separator {
+    color: #9CA3AF;
+    margin: 0 4px;
+}
+
+/* Task Card (Common) */
+.task-card,
+.undone-card {
+    background: #ffffff;
+    border-radius: 16px;
+    width: 100%;
+    max-width: var(--panel-width);
+    padding: 16px 20px;
+    margin: 0 16px 16px 16px;
+    /* margin for normal tasks */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s ease;
+    border: 1px solid #f3f4f6;
+    position: relative;
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.task-card-header,
+.undone-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+}
+
+.task-card-header-left,
+.undone-card-header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.task-color-dot,
+.undone-color-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.task-title,
+.undone-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1f2937;
+    font-family: var(--font-sans);
+    letter-spacing: -0.3px;
+}
+
+.task-progress-badge,
+.undone-progress-badge {
+    background: #e5e7eb;
+    color: #4b5563;
+    padding: 4px 10px;
+    border-radius: 99px;
+    font-size: 12px;
+    font-weight: 700;
+    font-family: var(--font-sans);
+    min-width: 40px;
+    text-align: center;
+}
+
+/* Subtask Item */
+.subtask-item,
+.undone-subtask-item {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 12px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    transition: all 0.2s ease;
+}
+
+.subtask-text,
+.undone-subtask-text {
+    font-size: 14px;
+    color: #374151;
+    font-family: var(--font-sans);
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 80%;
+}
+
+.subtask-text.done,
+.undone-subtask-text.done {
+    color: #9ca3af;
+    text-decoration: line-through;
+}
+
+.subtask-checkbox-wrapper {
+    position: relative;
+    width: 22px;
+    height: 22px;
+}
+
+.subtask-checkbox {
+    width: 22px;
+    height: 22px;
+    cursor: pointer;
+    accent-color: #6b7280;
+    margin: 0;
+}
+
+/* Undone Section */
+.undone-section {
+    width: 100%;
+    max-width: var(--panel-width);
+    margin: 0 auto 40px;
+    padding: 0 16px;
+    margin-top: 32px;
+}
+
+.undone-header {
+    background: #E69090;
+    padding: 16px 20px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    transition: border-radius 0.2s, box-shadow 0.2s;
+    position: relative;
+    z-index: 2;
+    border-radius: 16px;
+}
+
+.undone-header.open {
+    border-radius: 16px 16px 0 0;
+}
+
+.undone-header-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1f2937;
+    font-family: var(--font-sans);
+}
+
+.undone-header-arrow {
+    transition: transform 0.3s ease;
+}
+
+.undone-header-arrow.open {
+    transform: rotate(180deg);
+}
+
+.undone-content {
+    background: #e5e7eb;
+    border-radius: 0 0 16px 16px;
+    padding: 20px 16px;
+    padding-top: 10px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    position: relative;
+    z-index: 1;
+}
+
+/* Undone Card specific overrides */
+.undone-card {
+    margin: 0 0 12px 0;
+    /* different margin */
+    border-radius: 14px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    padding: 16px;
+}
+
+/* Undone subtask overrides */
+.undone-subtask-item {
+    margin-top: 8px;
+    /* margin top instead of bottom */
+    margin-bottom: 0;
+}
+
+/* 카드 내부 페이지네이션 버튼 (흰 배경 대응) */
+.undone-card .task-pagination-button svg path {
+    stroke: #4b5563;
+}
+
+.undone-card .task-pagination-button:hover {
+    background: #f3f4f6;
+    border-radius: 6px;
+}
+
+.undone-card .task-pagination-info {
+    color: #4b5563;
+}

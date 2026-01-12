@@ -8,10 +8,14 @@ import TaskListSection from "../components/TaskListSection.jsx";
 import QuestList from "../components/QuestList.jsx";
 import Navbar from "../components/Navbar.jsx";
 import WeeklyAchievementModal from "../components/WeeklyAchievementModal.jsx";
+import CharacterDisplay from "../components/CharacterDisplay.jsx";
 
 // ✅ 팝업(이식)
 import CoinPopup from "../components/CoinPopup.jsx";
 import BadgePopup from "../components/BadgePopup.jsx";
+
+// ✅ Zustand 전역 상태
+import { useUserStore } from "../store/userStore.js";
 
 import {
   getCalendarStats,
@@ -19,18 +23,15 @@ import {
   updateFloorCompletion,
   deleteSchedule,
   getFloorsStatusByDate,
-  getTodayFloors,
   getMyProfile,
   getMissedPersonalPlace,
   completeFloor,
   uncompleteFloor,
-  // ✅❌ 제거: getMyEquippedItems,
-  // ✅❌ 제거: getMyEquippedBadges,
-  // ✅ 캐릭터 베이스 이미지(아이템/뱃지 장착 로직 제거 후 대체)
   getMyCharacter,
-  // ✅ 뱃지 팝업 조회용
   http,
 } from "../services/api.js";
+import { getMyEquippedItems } from "../services/store.js";
+import { getMyEquippedBadges } from "../services/badge.js";
 
 import { AUTH_TOKEN_KEY } from "../config.js";
 
@@ -118,12 +119,10 @@ export default function Home() {
   const [currentFloor, setCurrentFloor] = useState(1);
   const [direction, setDirection] = useState("up");
 
-  // ✅❌ 제거: 아이템/뱃지 장착 상태
-  // const [equippedItems, setEquippedItems] = useState([]);
-  // const [equippedBadges, setEquippedBadges] = useState([]);
-
-  // ✅ 대체: 캐릭터 베이스 이미지
+  // ✅ 캐릭터 관련 상태
   const [characterImageUrl, setCharacterImageUrl] = useState(null);
+  const [equippedItems, setEquippedItems] = useState([]);
+  const [equippedBadges, setEquippedBadges] = useState([]);
 
   const [progressInfo, setProgressInfo] = useState({
     percent: 0,
@@ -172,6 +171,18 @@ export default function Home() {
     }
     return merged;
   });
+
+  // ✅✅✅ Zustand store에서 캐싱된 데이터 사용 (모든 useEffect 전에 선언 필수!)
+  const {
+    profile: cachedProfile,
+    character: cachedCharacter,
+    todayFloors: cachedTodayFloors,
+    itemMetadata,
+    fetchProfile,
+    fetchCharacter,
+    fetchTodayFloors,
+    fetchItemMetadata,
+  } = useUserStore();
 
   const goToFloor = (targetFloor) => {
     if (isMoving || !isOpen || currentFloor === targetFloor) {
@@ -298,7 +309,9 @@ export default function Home() {
       setPopupQueue(q);
 
       // ✅ 주간모달은 "기존 유저(온보딩 완료)"만, 그리고 큐 끝난 뒤에만 띄우기 위해 pending만 저장
-      if (!firstLoginBonusGiven && !needsOnboarding) {
+      // 또한, 이번 세션에서 이미 본 적이 없어야 함 (has_shown_weekly_modal)
+      const hasShownWeekly = sessionStorage.getItem("has_shown_weekly_modal") === "1";
+      if (!firstLoginBonusGiven && !needsOnboarding && !hasShownWeekly) {
         sessionStorage.setItem("weekly_modal_pending", "1");
       } else {
         sessionStorage.removeItem("weekly_modal_pending");
@@ -325,6 +338,7 @@ export default function Home() {
       sessionStorage.getItem("weekly_modal_pending") === "1";
     if (pendingWeekly) {
       setShowWeeklyModal(true);
+      sessionStorage.setItem("has_shown_weekly_modal", "1"); // ✅ 봤음 처리
       sessionStorage.removeItem("weekly_modal_pending");
     }
 
@@ -335,72 +349,76 @@ export default function Home() {
   // =========================
   // ✅ 오늘 날짜의 진행도 로드
   // =========================
+  // ✅ 오늘 날짜의 진행도 로드 (Store 연동)
   useEffect(() => {
     const loadTodayProgress = async () => {
       const token = localStorage.getItem(AUTH_TOKEN_KEY);
-      if (!token) {
-        return;
+      if (!token) return;
+
+      let floors = cachedTodayFloors;
+
+      // 캐시 없으면 fetch
+      if (!floors) {
+        floors = await fetchTodayFloors();
       }
 
+      // 그래도 없으면 중단
+      if (!Array.isArray(floors)) return;
+
       try {
-        const todayFloors = await getTodayFloors();
+        const total = floors.length;
+        let todayFloorsStatus = null;
+        try {
+          // 진행 상태 확인용 추가 API 호출 (이건 가벼우니 유지하거나, 이것도 캐싱 고려 가능)
+          const statusDate = getStatusDateFromFloors(floors);
+          todayFloorsStatus = await getFloorsStatusByDate(statusDate);
+        } catch (error) { }
 
-        if (Array.isArray(todayFloors)) {
-          const total = todayFloors.length;
+        let done = 0;
+        for (const floor of floors) {
+          let isCompleted = false;
 
-          let todayFloorsStatus = null;
-          try {
-            const statusDate = getStatusDateFromFloors(todayFloors);
-            todayFloorsStatus = await getFloorsStatusByDate(statusDate);
-          } catch (error) {}
-
-          let done = 0;
-          for (const floor of todayFloors) {
-            let isCompleted = false;
-
-            if (todayFloorsStatus && Array.isArray(todayFloorsStatus)) {
-              const statusFloor = todayFloorsStatus.find(
-                (f) => getFloorIdValue(f) === floor.floorId
-              );
-              if (statusFloor) {
-                isCompleted = isFloorCompleted(statusFloor);
-              }
+          if (todayFloorsStatus && Array.isArray(todayFloorsStatus)) {
+            const statusFloor = todayFloorsStatus.find(
+              (f) => getFloorIdValue(f) === floor.floorId
+            );
+            if (statusFloor) {
+              isCompleted = isFloorCompleted(statusFloor);
             }
-
-            if (!isCompleted) {
-              if (isFloorCompleted(floor)) {
-                isCompleted = true;
-              } else {
-                try {
-                  const detail = await getSchedule(floor.scheduleId);
-                  const detailFloors = detail.floors || [];
-                  const detailFloor = detailFloors.find(
-                    (f) => getFloorIdValue(f) === floor.floorId
-                  );
-                  if (detailFloor) {
-                    isCompleted = isFloorCompleted(detailFloor);
-                  }
-                } catch (err) {}
-              }
-            }
-            if (isCompleted) done++;
           }
-          const percent = total > 0 ? Math.round((done / total) * 100) : 0;
 
-          setTodayProgress({
-            percent,
-            done,
-            total,
-          });
+          if (!isCompleted) {
+            if (isFloorCompleted(floor)) {
+              isCompleted = true;
+            } else {
+              // 개별 상세 조회는 비용이 크므로 최소화 필요
+              try {
+                const detail = await getSchedule(floor.scheduleId);
+                const detailFloors = detail.floors || [];
+                const detailFloor = detailFloors.find(
+                  (f) => getFloorIdValue(f) === floor.floorId
+                );
+                if (detailFloor) {
+                  isCompleted = isFloorCompleted(detailFloor);
+                }
+              } catch (err) { }
+            }
+          }
+          if (isCompleted) done++;
         }
+        const percent = total > 0 ? Math.round((done / total) * 100) : 0;
+
+        setTodayProgress({
+          percent,
+          done,
+          total,
+        });
       } catch (error) {
-        if (error.status === 403) {
-          return;
-        }
+        if (error.status === 403) return;
       }
     };
     loadTodayProgress();
-  }, []);
+  }, [cachedTodayFloors, fetchTodayFloors]); // ✅ Store 데이터가 바뀌면 재실행
 
   // 프로젝트 개수 변경 시 todayProgress의 total 업데이트
   useEffect(() => {
@@ -417,37 +435,82 @@ export default function Home() {
     }
   }, [projectCount]);
 
-  // ✅✅✅ (정리) 캐릭터 베이스 이미지 로드만 유지 (아이템/뱃지 장착 API 제거)
-  useEffect(() => {
-    const loadCharacter = async () => {
-      const token = localStorage.getItem(AUTH_TOKEN_KEY);
-      if (!token) return;
 
+
+  // ✅ 캐릭터 기본 로드 (캐시 우선)
+  useEffect(() => {
+    if (cachedCharacter) {
+      setCharacterImageUrl(cachedCharacter);
+    } else {
+      const loadBase = async () => {
+        const url = await fetchCharacter();
+        // fetchCharacter가 url 문자열을 반환한다고 가정 (userStore.js 참고)
+        if (url) {
+          const actualUrl = typeof url === "string" ? url : url.imageUrl || url.character;
+          if (actualUrl) setCharacterImageUrl(actualUrl);
+        }
+      };
+      loadBase();
+    }
+  }, [cachedCharacter, fetchCharacter]);
+
+  // ✅ 장착 아이템/뱃지 별도 로드 (베이스 로드와 분리하여 영향 주지 않음)
+  useEffect(() => {
+    const loadEquipped = async () => {
       try {
-        const data = await getMyCharacter();
-        const url = data?.imageUrl ?? data?.imgUrl ?? null;
-        if (url) setCharacterImageUrl(url);
-      } catch (error) {
-        if (error?.status === 403) return;
+        const [itemsResp, badgesResp] = await Promise.all([
+          getMyEquippedItems().catch(() => []),
+          getMyEquippedBadges().catch(() => []),
+        ]);
+
+        const items = Array.isArray(itemsResp)
+          ? itemsResp
+          : itemsResp?.data || itemsResp?.items || [];
+        const badges = Array.isArray(badgesResp)
+          ? badgesResp
+          : badgesResp?.data || badgesResp?.badges || [];
+
+        setEquippedItems(items);
+        setEquippedBadges(badges);
+
+        // 메타데이터도 로드 (좌표 보정용)
+        fetchItemMetadata();
+      } catch (e) {
+        console.error("Home: 장착 정보 로드 실패", e);
       }
     };
-    loadCharacter();
+    loadEquipped();
   }, []);
 
-  // 사용자 프로필에서 층수 로드
+  // ✅ 메타데이터 적용된 아이템 리스트 생성
+  const mergedItems = React.useMemo(() => {
+    return equippedItems.map(item => {
+      // item.itemId 혹은 item.id로 매칭
+      const id = item.itemId || item.id;
+      const meta = itemMetadata?.[id] || {};
+      // item 속성 우선, 없으면 meta 속성 (좌표 등) 사용
+      // 특히 offsetX, offsetY가 중요
+      return { ...meta, ...item };
+    });
+  }, [equippedItems, itemMetadata]);
+
+  // ✅ 프로필 로드 (캐시 우선)
   useEffect(() => {
     const loadProfile = async () => {
       const token = localStorage.getItem(AUTH_TOKEN_KEY);
-      if (!token) {
+      if (!token) return;
+
+      // 캐시된 프로필이 있으면 즉시 사용
+      if (cachedProfile?.personalLevel !== undefined) {
+        setPersonalLevel(cachedProfile.personalLevel);
         return;
       }
 
-      try {
-        const profile = await getMyProfile();
-        if (profile && profile.personalLevel !== undefined) {
-          setPersonalLevel(profile.personalLevel);
-        }
-      } catch (error) {}
+      // 없으면 fetch (내부에서 캐싱됨)
+      const profile = await fetchProfile();
+      if (profile?.personalLevel !== undefined) {
+        setPersonalLevel(profile.personalLevel);
+      }
     };
 
     loadProfile();
@@ -494,7 +557,11 @@ export default function Home() {
     const todayStr = formatDate(today);
     const token = localStorage.getItem(AUTH_TOKEN_KEY);
 
-    setLoading(true);
+    // ✅ 캐시된 데이터가 있으면 로딩 표시 생략 (깜빡임 방지)
+    const hasCache = cachedTodayFloors && cachedTodayFloors.length > 0;
+    if (!hasCache) {
+      setLoading(true);
+    }
 
     if (!token) {
       setTasks([]);
@@ -504,7 +571,8 @@ export default function Home() {
     }
 
     try {
-      const todayFloors = await getTodayFloors();
+      // Store 캐싱 사용 - 불필요한 API 재요청 방지
+      const todayFloors = await fetchTodayFloors();
 
       if (Array.isArray(todayFloors) && todayFloors.length > 0) {
         const scheduleMap = new Map();
@@ -526,7 +594,7 @@ export default function Home() {
         try {
           const statusDate = getStatusDateFromFloors(todayFloors);
           todayFloorsStatus = await getFloorsStatusByDate(statusDate);
-        } catch (error) {}
+        } catch (error) { }
 
         const todayTasks = await Promise.all(
           Array.from(scheduleMap.values()).map(async (schedule) => {
@@ -557,8 +625,8 @@ export default function Home() {
               if (targetFloorId && todayFloorsStatus) {
                 const statusFloor = Array.isArray(todayFloorsStatus)
                   ? todayFloorsStatus.find(
-                      (f) => getFloorIdValue(f) === targetFloorId
-                    )
+                    (f) => getFloorIdValue(f) === targetFloorId
+                  )
                   : null;
                 if (statusFloor) {
                   completedStatus = isFloorCompleted(statusFloor);
@@ -605,9 +673,8 @@ export default function Home() {
               return {
                 id: schedule.scheduleId?.toString() || `task-${Date.now()}`,
                 title: schedule.title,
-                progress: `${subtasks.filter((s) => s.done).length}/${
-                  subtasks.length
-                }`,
+                // ✅ 디자인 요구사항: "전체 할 일 중 몇 번째인지" (예: 7/10)
+                progress: `${Math.min(daysDiff + 1, detail.floors?.length || 1)}/${detail.floors?.length || 1}`,
                 subtasks,
                 color: schedule.color,
                 startDate: detail.startDate,
@@ -639,8 +706,8 @@ export default function Home() {
           const missedSchedules = Array.isArray(missedResponse)
             ? missedResponse
             : missedResponse
-            ? [missedResponse]
-            : [];
+              ? [missedResponse]
+              : [];
           const undoneQuestsList = missedSchedules.map(
             (schedule, scheduleIndex) => {
               const scheduleFloors = schedule.floors || [];
@@ -720,7 +787,7 @@ export default function Home() {
                 if (detailFloor) {
                   isCompleted = isFloorCompleted(detailFloor);
                 }
-              } catch (err) {}
+              } catch (err) { }
             }
           }
           if (isCompleted) done++;
@@ -740,7 +807,7 @@ export default function Home() {
           if (profile && profile.personalLevel !== undefined) {
             setPersonalLevel(profile.personalLevel);
           }
-        } catch (error) {}
+        } catch (error) { }
       } else {
         setTasks([]);
         setUndoneTasks([]);
@@ -836,7 +903,7 @@ export default function Home() {
             serverCompleted = isFloorCompleted(statusFloor);
           }
         }
-      } catch (statusError) {}
+      } catch (statusError) { }
 
       if (!serverCompleted) {
         try {
@@ -848,7 +915,7 @@ export default function Home() {
           if (detailFloor) {
             serverCompleted = isFloorCompleted(detailFloor);
           }
-        } catch (scheduleError) {}
+        } catch (scheduleError) { }
       }
 
       if (!serverCompleted && subtask.done === true) {
@@ -904,7 +971,7 @@ export default function Home() {
             });
           }
         } catch (progressError) {
-          const updatedTodayFloors = await getTodayFloors();
+          const updatedTodayFloors = await fetchTodayFloors(true);
           if (Array.isArray(updatedTodayFloors)) {
             const total = updatedTodayFloors.length;
             let done = 0;
@@ -924,7 +991,7 @@ export default function Home() {
         const fallbackLevel = Math.max(1, currentFloorBeforeUpdate - 1);
         const nextPersonalLevel =
           Number.isFinite(normalizedApiLevel) &&
-          normalizedApiLevel !== currentFloorBeforeUpdate
+            normalizedApiLevel !== currentFloorBeforeUpdate
             ? normalizedApiLevel
             : fallbackLevel;
         if (nextPersonalLevel !== undefined) {
@@ -1010,7 +1077,7 @@ export default function Home() {
           });
         }
       } catch (progressError) {
-        const updatedTodayFloors = await getTodayFloors();
+        const updatedTodayFloors = await fetchTodayFloors(true);
         if (Array.isArray(updatedTodayFloors)) {
           const total = updatedTodayFloors.length;
           let done = 0;
@@ -1029,7 +1096,7 @@ export default function Home() {
       const fallbackLevel = Math.max(1, currentFloorBeforeUpdate + 1);
       const nextPersonalLevel =
         Number.isFinite(normalizedApiLevel) &&
-        normalizedApiLevel !== currentFloorBeforeUpdate
+          normalizedApiLevel !== currentFloorBeforeUpdate
           ? normalizedApiLevel
           : fallbackLevel;
       if (nextPersonalLevel !== undefined) {
@@ -1097,7 +1164,7 @@ export default function Home() {
             setTodayProgress({ done, total, percent });
           }
         } catch (progressError) {
-          const updatedTodayFloors = await getTodayFloors();
+          const updatedTodayFloors = await fetchTodayFloors(true);
           if (Array.isArray(updatedTodayFloors)) {
             const total = updatedTodayFloors.length;
             let done = 0;
@@ -1117,7 +1184,7 @@ export default function Home() {
         const fallbackLevel = Math.max(1, currentFloorBeforeUpdate - 1);
         const nextPersonalLevel =
           Number.isFinite(normalizedApiLevel) &&
-          normalizedApiLevel !== currentFloorBeforeUpdate
+            normalizedApiLevel !== currentFloorBeforeUpdate
             ? normalizedApiLevel
             : fallbackLevel;
         if (nextPersonalLevel !== undefined) {
@@ -1173,7 +1240,7 @@ export default function Home() {
           setTodayProgress({ done, total, percent });
         }
       } catch (progressError) {
-        const updatedTodayFloors = await getTodayFloors();
+        const updatedTodayFloors = await fetchTodayFloors(true);
         if (Array.isArray(updatedTodayFloors)) {
           const total = updatedTodayFloors.length;
           let done = 0;
@@ -1192,7 +1259,7 @@ export default function Home() {
       const fallbackLevel = Math.max(1, currentFloorBeforeUpdate + 1);
       const nextPersonalLevel =
         Number.isFinite(normalizedApiLevel) &&
-        normalizedApiLevel !== currentFloorBeforeUpdate
+          normalizedApiLevel !== currentFloorBeforeUpdate
           ? normalizedApiLevel
           : fallbackLevel;
       if (nextPersonalLevel !== undefined) {
@@ -1246,11 +1313,24 @@ export default function Home() {
             style={{ backgroundImage: `url(${elevatorInsideImg})` }}
           >
             {/* ✅❌ 아이템/뱃지 장착 렌더 제거 → 캐릭터 베이스만 */}
+            {/* 캐릭터 + 아이템 + 뱃지 표시 */}
             {characterImageUrl && (
-              <img
-                src={characterImageUrl}
-                alt="캐릭터"
+              <CharacterDisplay
+                base={characterImageUrl}
+                items={mergedItems}
+                badges={equippedBadges}
                 className="elevator-character"
+                style={{
+                  position: "absolute",
+                  bottom: "25px",  // 발 위치 조정
+                  left: "50%",
+                  // 원본 크기(114x126) 유지하고 scale로만 확대해야 좌표가 맞음
+                  width: "114px",
+                  height: "126px",
+                  transform: "translateX(-50%) scale(1.3)", // 1.3배 확대 (필요시 조정)
+                  transformOrigin: "bottom center",
+                  zIndex: 15,
+                }}
               />
             )}
           </div>

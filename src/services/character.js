@@ -5,3 +5,13 @@ import { http } from "./api.js";
 export async function getMyCharacter() {
   return await http.get("/api/characters/me");
 }
+
+// ✅ 장착 아이템 조회
+export async function getEquippedItems() {
+  return await http.get("/api/items/equipped/items");
+}
+
+// ✅ 장착 뱃지 조회
+export async function getEquippedBadges() {
+  return await http.get("/api/items/equipped/badges");
+}

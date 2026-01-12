@@ -1,0 +1,21 @@
+/* src/components/CharacterDisplay.css */
+
+.character-display-container {
+    position: relative;
+    /* 크기는 부모에서 제어 */
+    width: 100%;
+    height: 100%;
+    /* 픽셀 아트 렌더링 */
+    image-rendering: pixelated;
+}
+
+/* 로딩 깜빡임 방지 로직 제거하고 항상 보이게 수정 */
+.character-layer-img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+}

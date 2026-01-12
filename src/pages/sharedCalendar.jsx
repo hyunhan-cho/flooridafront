@@ -351,15 +351,15 @@ export default function 공유용캘린더() {
       <main
         className="page-content"
         style={{
-          width: "100vw",
+          width: "100%",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
           marginTop: "0",
           marginBottom: "0",
           gap: "0",
-          marginLeft: "calc(50% - 50vw)",
-          marginRight: "calc(50% - 50vw)",
+          marginLeft: 0,
+          marginRight: 0,
           paddingTop: "0",
         }}
       >

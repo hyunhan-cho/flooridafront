@@ -134,12 +134,12 @@ export default function TeamCalendar() {
       <main
         className="page-content"
         style={{
-          width: "100vw",
+          width: "100%",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          marginLeft: "calc(50% - 50vw)",
-          marginRight: "calc(50% - 50vw)",
+          marginLeft: 0,
+          marginRight: 0,
           paddingTop: 0,
         }}
       >

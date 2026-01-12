@@ -3,23 +3,29 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
+  width: 100%;
+  /* 부모(#root 430px)에 맞춤 */
   background-color: #ffffff;
   font-family: "DungGeunMo", sans-serif;
-  padding-bottom: 80px; /* Navbar 공간 */
+  padding-bottom: 80px;
+  /* Navbar 공간 */
   box-sizing: border-box;
   overflow: hidden;
 }
 
 /* ✅ 상단 헤더 (청록 바) */
 .cust-header-row {
-  height: 60px;
+  width: 100%;
+  /* 부모 너비에 맞춤 */
+  height: 72px;
   background: #0b7f82;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   position: relative;
-  overflow: visible; /* ✅ 코인뱃지 겹치기 허용 */
+  overflow: visible;
+  /* ✅ 코인뱃지 겹치기 허용 */
   padding: 0 16px;
 }
 
@@ -34,7 +40,8 @@
 
 /* ✅ 타이틀 */
 .cust-page-title {
-  position: absolute; /* ✅ 이거 추가해야 left가 먹음 */
+  position: absolute;
+  /* ✅ 이거 추가해야 left가 먹음 */
   left: 50px;
   top: 45%;
   transform: translateY(-50%);
@@ -50,7 +57,8 @@
   position: absolute;
   left: 14px;
   top: 74px;
-  bottom: auto; /* ✅ 헤더 밖으로 내려서 미리보기 안에 있는 것처럼 */
+  bottom: auto;
+  /* ✅ 헤더 밖으로 내려서 미리보기 안에 있는 것처럼 */
   display: flex;
   align-items: center;
   gap: 6px;
@@ -77,13 +85,15 @@
 .cust-preview-area {
   flex-shrink: 0;
   margin: 0;
-  height: clamp(240px, 38vh, 340px); /* ✅ 작은 화면에서도 아이템 영역 남도록 */
+  height: clamp(240px, 38vh, 340px);
+  /* ✅ 작은 화면에서도 아이템 영역 남도록 */
   background-color: #d9d9d9;
   display: flex;
   justify-content: center;
   align-items: center;
   position: relative;
-  padding-top: 28px; /* 코인뱃지 겹침 여백 */
+  padding-top: 28px;
+  /* 코인뱃지 겹침 여백 */
 }
 
 /* ✅ "이대로 저장" 버튼 */
@@ -122,7 +132,7 @@
   transform-origin: center;
 }
 
-/* 겹쳐지는 이미지들 */
+/* 겹쳐지는 이미지들 - 기본 숨김 상태로 시작 */
 .cust-layer-img {
   position: absolute;
   top: 0;
@@ -131,6 +141,14 @@
   height: 100%;
   object-fit: contain;
   pointer-events: none;
+  /* ✅ 좌표가 적용되기 전까지 숨김 처리 */
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+}
+
+/* ✅ 좌표가 설정된 레이어만 표시 (JS에서 data-ready 속성 추가) */
+.cust-layer-img[data-ready="true"] {
+  opacity: 1;
 }
 
 /* ✅ 탭 메뉴: 언더라인 스타일 */
@@ -164,7 +182,8 @@
 /* ✅ 아이템 그리드: “안 보임” 방지 핵심 = flex:1 + min-height:0 */
 .cust-item-grid {
   flex: 1;
-  min-height: 0; /* ✅ 이거 없으면 overflow 안 먹고 리스트가 사라져 보일 수 있음 */
+  min-height: 0;
+  /* ✅ 이거 없으면 overflow 안 먹고 리스트가 사라져 보일 수 있음 */
   background: #ffffff;
   margin: 0;
   border-radius: 0 0 18px 18px;
@@ -216,27 +235,37 @@
   box-sizing: border-box;
   position: absolute;
 
-  height: 21px; /* 피그마: 21 */
+  height: 21px;
+  /* 피그마: 21 */
   background: #ffffff;
-  border: 1px solid #e7e7e7; /* 피그마 */
-  border-radius: 5px; /* 피그마 */
-  box-shadow: none; /* 피그마(그림자 없음) */
+  border: 1px solid #e7e7e7;
+  /* 피그마 */
+  border-radius: 5px;
+  /* 피그마 */
+  box-shadow: none;
+  /* 피그마(그림자 없음) */
 
   font-family: "DungGeunMo", sans-serif;
   font-style: normal;
   font-weight: 400;
-  font-size: 12px; /* 피그마 */
-  line-height: 22px; /* 피그마 */
+  font-size: 12px;
+  /* 피그마 */
+  line-height: 22px;
+  /* 피그마 */
   color: #000000;
 
-  padding: 0; /* ✅ 피그마는 내부 absolute라 padding 없음 */
+  padding: 0;
+  /* ✅ 피그마는 내부 absolute라 padding 없음 */
 }
 
 /* 가격 상태(coin + 숫자): 피그마 예시(500) 기준 */
 .cust-price-tag.is-price {
-  width: 56px; /* 피그마: 48 */
-  top: 5px; /* 피그마: top 5 (500 케이스) */
-  right: 5px; /* 피그마 left 67 -> 카드120 기준 right 5 */
+  width: 56px;
+  /* 피그마: 48 */
+  top: 5px;
+  /* 피그마: top 5 (500 케이스) */
+  right: 5px;
+  /* 피그마 left 67 -> 카드120 기준 right 5 */
   left: auto;
 }
 
@@ -252,16 +281,20 @@
   position: absolute;
   width: 12px;
   height: 12px;
-  left: 5px; /* 피그마 */
-  top: 5px; /* 피그마 */
+  left: 5px;
+  /* 피그마 */
+  top: 5px;
+  /* 피그마 */
 }
 
 /* 숫자: 피그마 absolute
    (피그마 코드에서 500 텍스트 top이 frame보다 1px 위로 잡히는 경우가 많아서 -1px 보정) */
 .cust-price-tag .price-num {
   position: absolute;
-  left: 17px; /* 5(코인 left) + 12(코인 width) + 3(gap) = 20 */
-  top: -1px; /* ✅ 피그마의 텍스트 기준선 느낌 맞추기 */
+  left: 17px;
+  /* 5(코인 left) + 12(코인 width) + 3(gap) = 20 */
+  top: -1px;
+  /* ✅ 피그마의 텍스트 기준선 느낌 맞추기 */
   font-weight: 400;
 }
 
@@ -280,11 +313,16 @@
 
 /* 보유 텍스트: 줄바꿈/쪼개짐 방지 */
 .cust-price-tag.is-owned .owned-label {
-  position: static; /* ✅ absolute 해제 */
-  transform: none; /* ✅ translate 해제 */
-  white-space: nowrap; /* ✅ 줄바꿈 금지 */
-  word-break: keep-all; /* ✅ 한글 글자 분리 줄바꿈 방지 */
-  line-height: 22px; /* 피그마 텍스트 라인하이트 */
+  position: static;
+  /* ✅ absolute 해제 */
+  transform: none;
+  /* ✅ translate 해제 */
+  white-space: nowrap;
+  /* ✅ 줄바꿈 금지 */
+  word-break: keep-all;
+  /* ✅ 한글 글자 분리 줄바꿈 방지 */
+  line-height: 22px;
+  /* 피그마 텍스트 라인하이트 */
 }
 
 /* -------------------- Modal (기존 그대로) -------------------- */
@@ -335,9 +373,11 @@
 }
 
 .cust-modal-img img {
-  max-width: 65%;
-  max-height: 65%;
+  max-width: 90%;
+  max-height: 90%;
   object-fit: contain;
+  image-rendering: pixelated;
+  /* 픽셀 아트 선명하게 */
 }
 
 .cust-modal-price {

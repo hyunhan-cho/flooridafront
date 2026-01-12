@@ -1,4 +1,91 @@
-import React from "react";
+import React, { useState } from "react";
+import "./TaskListSection.css";
+
+const ITEMS_PER_PAGE = 3;
+const SUBTASKS_PER_PAGE = 5;
+
+// ✅ 서브태스크 페이지네이션을 위해 분리된 미달성 카드 컴포넌트
+function UndoneTaskCard({ task, onSubtaskToggle }) {
+  const [page, setPage] = useState(0);
+
+  const subtasks = task.subtasks || [];
+  const totalPages = Math.ceil(subtasks.length / SUBTASKS_PER_PAGE);
+
+  const startIdx = page * SUBTASKS_PER_PAGE;
+  const currentSubtasks = subtasks.slice(startIdx, startIdx + SUBTASKS_PER_PAGE);
+
+  const goPrev = (e) => {
+    e.stopPropagation();
+    setPage((p) => Math.max(0, p - 1));
+  };
+  const goNext = (e) => {
+    e.stopPropagation();
+    setPage((p) => Math.min(totalPages - 1, p + 1));
+  };
+
+  return (
+    <div className="undone-card">
+      {/* 상단: 색상점 + 타이틀 + 뱃지 */}
+      <div className="undone-card-header">
+        <div className="undone-card-header-left">
+          <div
+            className="undone-color-dot"
+            style={{ background: task.color }}
+          />
+          <span className="undone-title">{task.title}</span>
+        </div>
+        <div className="undone-progress-badge">{task.progress}</div>
+      </div>
+
+      {/* 서브태스크 목록 */}
+      {currentSubtasks.map((subtask) => (
+        <div key={subtask.id} className="undone-subtask-item">
+          <span
+            className={`undone-subtask-text ${subtask.done ? "done" : ""}`}
+          >
+            {subtask.text}
+          </span>
+
+          {/* 체크박스 */}
+          <div className="subtask-checkbox-wrapper">
+            <input
+              type="checkbox"
+              checked={subtask.done}
+              disabled={subtask.isTeamPlan}
+              onChange={(e) => onSubtaskToggle?.(task, subtask, e)}
+              className="subtask-checkbox"
+            />
+          </div>
+        </div>
+      ))}
+
+      {/* 서브태스크 페이지네이션 컨트롤 (5개 이상일 때만 표시) */}
+      {totalPages > 1 && (
+        <div className="task-pagination" style={{ marginTop: "8px", justifyContent: "center", gap: "10px" }}>
+          <button
+            onClick={goPrev}
+            disabled={page === 0}
+            className="task-pagination-button small"
+            style={{ width: "24px", height: "24px" }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4B5563" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 19L8 12L15 5"></path></svg>
+          </button>
+          <span className="task-pagination-info" style={{ fontSize: "12px" }}>
+            {page + 1}/{totalPages}
+          </span>
+          <button
+            onClick={goNext}
+            disabled={page === totalPages - 1}
+            className="task-pagination-button small"
+            style={{ width: "24px", height: "24px" }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4B5563" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 5L16 12L9 19"></path></svg>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function TaskListSection({
   loading,
@@ -9,350 +96,250 @@ export default function TaskListSection({
   onSubtaskToggle,
   onUndoneSubtaskToggle,
 }) {
+  const [currentPage, setCurrentPage] = useState(0);
+  const [undonePage, setUndonePage] = useState(0);
+
+  // 페이지네이션 계산
+  const totalPages = Math.ceil((tasks?.length || 0) / ITEMS_PER_PAGE);
+  const startIdx = currentPage * ITEMS_PER_PAGE;
+  const endIdx = startIdx + ITEMS_PER_PAGE;
+  const currentTasks = (tasks || []).slice(startIdx, endIdx);
+
+  // 페이지 변경 시 범위 체크
+  const goToPrevPage = () => setCurrentPage((prev) => Math.max(0, prev - 1));
+  const goToNextPage = () =>
+    setCurrentPage((prev) => Math.min(totalPages - 1, prev + 1));
+
   return (
     <>
       {/* 작업 목록 섹션 */}
       {loading ? (
-        <div
-          style={{
-            textAlign: "center",
-            padding: "40px",
-            color: "#6b7280",
-            fontFamily: "var(--font-pixel-kr)",
-            width: "100%",
-            maxWidth: "var(--panel-width)",
-            margin: "0 auto",
-          }}
-        >
-          로딩 중...
-        </div>
+        <div className="task-list-section-message">로딩 중...</div>
       ) : tasks.length === 0 ? (
-        <div
-          style={{
-            textAlign: "center",
-            padding: "40px",
-            color: "#6b7280",
-            fontFamily: "var(--font-pixel-kr)",
-            width: "100%",
-            maxWidth: "var(--panel-width)",
-            margin: "0 auto",
-          }}
-        >
-          등록된 계획이 없습니다.
+        <div className="task-list-section-message">
+          오늘의 할 일(To-Do)이 없습니다.
         </div>
       ) : (
-        tasks.map((task) => {
-          const allDone =
-            task.subtasks.length > 0 && task.subtasks.every((s) => s.done);
-          return (
-            <div
-              key={task.id}
-              className="card"
-              style={{
-                background: allDone ? "#d1fae5" : "#e5e7eb",
-                borderRadius: "18px",
-                width: "100%",
-                maxWidth: "var(--panel-width)",
-                padding: "14px",
-                margin: "0 16px 12px 16px",
-                display: "flex",
-                alignItems: "flex-start",
-                gap: "12px",
-                transition: "all 0.5s ease-in-out",
-                transform: "translateY(0)",
-                opacity: 1,
-                position: "relative",
-              }}
-            >
-              <div
-                style={{
-                  width: "24px",
-                  height: "24px",
-                  borderRadius: "50%",
-                  background: task.color,
-                  flexShrink: 0,
-                  marginTop: "2px",
-                }}
-              />
-              <div style={{ flex: 1, position: "relative" }}>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: "8px",
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: "15px",
-                      fontWeight: 800,
-                      color: allDone ? "#059669" : "#111827",
-                      fontFamily: "var(--font-sans)",
-                    }}
-                  >
-                    {task.title}
-                  </span>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px",
-                    }}
-                  >
-                    <span
-                      style={{
-                        background: "#d1d5db",
-                        color: "#111827",
-                        padding: "4px 10px",
-                        borderRadius: "12px",
-                        fontSize: "12px",
-                        fontWeight: 700,
-                        fontFamily: "var(--font-sans)",
-                      }}
-                    >
-                      {task.progress}
-                    </span>
+        <>
+          {/* 현재 페이지의 작업들 */}
+          {currentTasks.map((task) => {
+            return (
+              <div key={task.id} className="task-card">
+                {/* 헤더: 색상 점 + 타이틀 + 뱃지 */}
+                <div className="task-card-header">
+                  <div className="task-card-header-left">
+                    {/* 카테고리 색상 점 */}
+                    <div
+                      className="task-color-dot"
+                      style={{ background: task.color || "#ccc" }}
+                    />
+                    {/* 타이틀 */}
+                    <span className="task-title">{task.title}</span>
                   </div>
+
+                  {/* 진행률 뱃지 (7/10 등) */}
+                  <div className="task-progress-badge">{task.progress}</div>
                 </div>
-                {task.subtasks.map((subtask) => (
-                  <div
-                    key={subtask.id}
-                    style={{
-                      background: subtask.done ? "#9ca3af" : "#f3f4f6",
-                      borderRadius: "8px",
-                      padding: "8px 12px",
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginBottom: "4px",
-                      opacity: subtask.done ? 0.7 : 1,
-                      transition: "all 0.3s ease",
-                      transform: subtask.done ? "scale(0.98)" : "scale(1)",
-                    }}
-                  >
+
+                {/* 서브태스크 영역 (회색 박스) */}
+                {(task.subtasks || []).map((subtask) => (
+                  <div key={subtask.id} className="subtask-item">
                     <span
-                      style={{
-                        fontSize: "13px",
-                        color: subtask.done ? "#6b7280" : "#111827",
-                        fontFamily: "var(--font-sans)",
-                        textDecoration: subtask.done ? "line-through" : "none",
-                      }}
+                      className={`subtask-text ${subtask.done ? "done" : ""}`}
                     >
                       {subtask.text}
                     </span>
-                    <input
-                      type="checkbox"
-                      checked={subtask.done}
-                      disabled={subtask.isTeamPlan}
-                      onChange={(e) => onSubtaskToggle?.(task, subtask, e)}
-                      style={{
-                        width: "18px",
-                        height: "18px",
-                        cursor: "pointer",
-                        transition: "transform 0.2s ease",
-                      }}
-                      onMouseDown={(e) => {
-                        e.currentTarget.style.transform = "scale(0.9)";
-                      }}
-                      onMouseUp={(e) => {
-                        e.currentTarget.style.transform = "scale(1)";
-                      }}
-                    />
+
+                    {/* 체크박스 */}
+                    <div className="subtask-checkbox-wrapper">
+                      <input
+                        type="checkbox"
+                        checked={subtask.done}
+                        disabled={subtask.isTeamPlan}
+                        onChange={(e) => onSubtaskToggle?.(task, subtask, e)}
+                        className="subtask-checkbox"
+                      />
+                    </div>
                   </div>
                 ))}
               </div>
+            );
+          })}
+
+          {/* 페이지네이션 컨트롤 (하단으로 이동) */}
+          {totalPages > 1 && (
+            <div className="task-pagination">
+              <button
+                onClick={goToPrevPage}
+                disabled={currentPage === 0}
+                className="task-pagination-button"
+              >
+                {/* 왼쪽 화살표 아이콘 */}
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M15 19L8 12L15 5"
+                    stroke="#4B5563"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+
+              <span className="task-pagination-info">
+                {currentPage + 1}{" "}
+                <span className="task-pagination-separator">/</span>{" "}
+                {totalPages}
+              </span>
+
+              <button
+                onClick={goToNextPage}
+                disabled={currentPage === totalPages - 1}
+                className="task-pagination-button"
+              >
+                {/* 오른쪽 화살표 아이콘 */}
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M9 5L16 12L9 19"
+                    stroke="#4B5563"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
             </div>
-          );
-        })
+          )}
+        </>
       )}
 
       {/* 미달성 퀘스트 섹션 */}
       {undoneTasks.length > 0 && (
-        <div
-          style={{
-            width: "100%",
-            maxWidth: "var(--panel-width)",
-            margin: "0 16px 12px 16px",
-          }}
-        >
-          {/* 헤더 */}
+        <div className="undone-section">
+          {/* 헤더: 붉은색 + 둥근 모서리 */}
           <div
-            className="card"
             onClick={onToggleUndoneQuests}
-            style={{
-              background: "#FF9090",
-              borderRadius: "18px",
-              borderBottomLeftRadius: showUndoneQuests ? "12px" : "18px",
-              borderBottomRightRadius: showUndoneQuests ? "12px" : "18px",
-              width: "100%",
-              padding: "14px 16px",
-              paddingBottom: showUndoneQuests ? "18px" : "14px",
-              marginBottom: showUndoneQuests ? "0" : "12px",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              cursor: "pointer",
-            }}
+            className={`undone-header ${showUndoneQuests ? "open" : ""}`}
           >
-            <span
-              style={{
-                fontSize: "15px",
-                fontWeight: 800,
-                color: "#111827",
-                fontFamily: "var(--font-pixel-kr)",
-              }}
+            <span className="undone-header-title">미달성 퀘스트</span>
+            {/* SVG 화살표 아이콘 */}
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              className={`undone-header-arrow ${showUndoneQuests ? "open" : ""
+                }`}
             >
-              미달성 퀘스트
-            </span>
-            <span
-              style={{
-                fontSize: "12px",
-                color: "#6b7280",
-                transform: showUndoneQuests ? "rotate(180deg)" : "rotate(0deg)",
-                transition: "transform 0.2s ease",
-              }}
-            >
-              ▼
-            </span>
+              <path
+                d="M6 9L12 15L18 9"
+                stroke="#1f2937"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
           </div>
 
           {/* 미달성 퀘스트 목록 (토글) */}
           {showUndoneQuests && (
-            <div
-              className="card"
-              style={{
-                background: "#f3f4f6",
-                borderRadius: "18px",
-                borderTopLeftRadius: "0",
-                borderTopRightRadius: "0",
-                width: "100%",
-                padding: "14px",
-                paddingTop: "18px",
-                marginTop: "-4px",
-              }}
-            >
-              {undoneTasks.map((task) => {
-                const allDone =
-                  task.subtasks.length > 0 &&
-                  task.subtasks.every((s) => s.done);
+            <div className="undone-content">
+              {(() => {
+                // 미달성 페이지네이션 로직 (퀘스트 자체)
+                const undoneTotalPages = Math.ceil((undoneTasks?.length || 0) / ITEMS_PER_PAGE);
+                const undoneStartIdx = undonePage * ITEMS_PER_PAGE;
+                const undoEndIdx = undoneStartIdx + ITEMS_PER_PAGE;
+                const currentUndoneTasks = (undoneTasks || []).slice(undoneStartIdx, undoEndIdx);
+
+                const goToPrevUndone = (e) => {
+                  e.stopPropagation();
+                  setUndonePage((prev) => Math.max(0, prev - 1));
+                };
+                const goToNextUndone = (e) => {
+                  e.stopPropagation();
+                  setUndonePage((prev) => Math.min(undoneTotalPages - 1, prev + 1));
+                };
+
                 return (
-                  <div
-                    key={task.id}
-                    style={{
-                      background: "#e5e7eb",
-                      borderRadius: "18px",
-                      width: "100%",
-                      padding: "14px",
-                      marginBottom: "12px",
-                      display: "flex",
-                      alignItems: "flex-start",
-                      gap: "12px",
-                      transition: "all 0.5s ease-in-out",
-                      opacity: allDone ? 0.7 : 1,
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: "24px",
-                        height: "24px",
-                        borderRadius: "50%",
-                        background: task.color,
-                        flexShrink: 0,
-                        marginTop: "2px",
-                      }}
-                    />
-                    <div style={{ flex: 1 }}>
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          marginBottom: "8px",
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontSize: "15px",
-                            fontWeight: 800,
-                            color: "#111827",
-                            fontFamily: "var(--font-sans)",
-                          }}
+                  <>
+                    {currentUndoneTasks.map((task) => (
+                      <UndoneTaskCard
+                        key={task.id}
+                        task={task}
+                        onSubtaskToggle={onUndoneSubtaskToggle}
+                      />
+                    ))}
+
+                    {/* 미달성 퀘스트 페이지네이션 컨트롤 */}
+                    {undoneTotalPages > 1 && (
+                      <div className="task-pagination" style={{ marginTop: "10px" }}>
+                        <button
+                          onClick={goToPrevUndone}
+                          disabled={undonePage === 0}
+                          className="task-pagination-button"
                         >
-                          {task.title}
-                        </span>
-                        <span
-                          style={{
-                            background: "#d1d5db",
-                            color: "#111827",
-                            padding: "4px 10px",
-                            borderRadius: "12px",
-                            fontSize: "12px",
-                            fontWeight: 700,
-                            fontFamily: "var(--font-sans)",
-                          }}
-                        >
-                          {task.progress}
-                        </span>
-                      </div>
-                      {task.subtasks.map((subtask) => {
-                        const subtaskDone = subtask.done || false;
-                        return (
-                          <div
-                            key={subtask.id}
-                            style={{
-                              background: subtaskDone ? "#9ca3af" : "#f3f4f6",
-                              borderRadius: "8px",
-                              padding: "8px 12px",
-                              display: "flex",
-                              justifyContent: "space-between",
-                              alignItems: "center",
-                              marginBottom: "4px",
-                              opacity: subtaskDone ? 0.7 : 1,
-                              transition: "all 0.3s ease",
-                              transform: subtaskDone
-                                ? "scale(0.98)"
-                                : "scale(1)",
-                            }}
+                          <svg
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
                           >
-                            <span
-                              style={{
-                                fontSize: "13px",
-                                color: subtaskDone ? "#6b7280" : "#111827",
-                                fontFamily: "var(--font-sans)",
-                                textDecoration: subtaskDone
-                                  ? "line-through"
-                                  : "none",
-                              }}
-                            >
-                              {subtask.dayNumber}일차
-                            </span>
-                            <input
-                              type="checkbox"
-                              checked={subtaskDone}
-                              onChange={(e) =>
-                                onUndoneSubtaskToggle?.(task, subtask, e)
-                              }
-                              style={{
-                                width: "18px",
-                                height: "18px",
-                                cursor: "pointer",
-                                transition: "transform 0.2s ease",
-                              }}
-                              onMouseDown={(e) => {
-                                e.currentTarget.style.transform = "scale(0.9)";
-                              }}
-                              onMouseUp={(e) => {
-                                e.currentTarget.style.transform = "scale(1)";
-                              }}
+                            <path
+                              d="M15 19L8 12L15 5"
+                              stroke="#4B5563"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
                             />
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
+                          </svg>
+                        </button>
+
+                        <span className="task-pagination-info">
+                          {undonePage + 1}{" "}
+                          <span className="task-pagination-separator">/</span>{" "}
+                          {undoneTotalPages}
+                        </span>
+
+                        <button
+                          onClick={goToNextUndone}
+                          disabled={undonePage === undoneTotalPages - 1}
+                          className="task-pagination-button"
+                        >
+                          <svg
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M9 5L16 12L9 19"
+                              stroke="#4B5563"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        </button>
+                      </div>
+                    )}
+                  </>
                 );
-              })}
+              })()}
             </div>
           )}
         </div>

@@ -19,7 +19,7 @@
 }
 
 .tc-card {
-  width: min(360px, calc(100vw - 32px));
+  width: min(360px, calc(100% - 32px));
   background: #fff;
   border-radius: 18px;
   padding: 16px;
@@ -102,10 +102,12 @@
   cursor: pointer;
   box-shadow: 0 5px 0 rgba(0, 0, 0, 0.18);
 }
+
 .tc-primaryBtn:disabled {
   opacity: 0.6;
   cursor: default;
 }
+
 .tc-primaryBtn:active {
   transform: translateY(2px);
   box-shadow: 0 3px 0 rgba(0, 0, 0, 0.18);
@@ -129,6 +131,7 @@
   font-weight: 900;
   color: #111;
 }
+
 .tc-summaryPeriod {
   margin-top: 4px;
   font-size: 11px;
@@ -141,9 +144,11 @@
   display: flex;
   justify-content: flex-start;
 }
+
 /* 결과 화면 미리보기만 살짝 아래로 (공간 추가 X) */
 .tc-summaryBody .tc-charStage {
-  transform: translateY(9px); /* 6~14px 사이로 취향껏 */
+  transform: translateY(9px);
+  /* 6~14px 사이로 취향껏 */
 }
 
 .tc-charStage {
@@ -197,7 +202,8 @@
   border-radius: 8px;
 
   padding-left: 16px;
-  padding-right: 78px; /* ✅ 버튼(61px) + 여백(대략 8~10px*2) 만큼 */
+  padding-right: 78px;
+  /* ✅ 버튼(61px) + 여백(대략 8~10px*2) 만큼 */
 
   font-family: inherit;
   font-size: 10px;
@@ -211,7 +217,8 @@
 /* 버튼을 박스 “안쪽 오른쪽”에 절대배치 */
 .tc-copyBtn {
   position: absolute;
-  right: 8px; /* 피그마 left=218 같은 느낌을 반응형으로 */
+  right: 8px;
+  /* 피그마 left=218 같은 느낌을 반응형으로 */
   top: 50%;
   transform: translateY(-50%);
 

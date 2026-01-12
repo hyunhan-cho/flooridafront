@@ -19,7 +19,7 @@
 }
 
 .tj-card {
-  width: min(360px, calc(100vw - 32px));
+  width: min(360px, calc(100% - 32px));
   background: #fff;
   border-radius: 18px;
   padding: 16px;
@@ -89,6 +89,7 @@
   cursor: pointer;
   box-shadow: 0 5px 0 rgba(0, 0, 0, 0.18);
 }
+
 .tj-primaryBtn:active {
   transform: translateY(2px);
   box-shadow: 0 3px 0 rgba(0, 0, 0, 0.18);
@@ -277,11 +278,13 @@
   -webkit-overflow-scrolling: touch;
   touch-action: pan-x;
 
-  padding-top: 10px; /* ✅ '똥' 위쪽 잘림 방지 */
+  padding-top: 10px;
+  /* ✅ '똥' 위쪽 잘림 방지 */
   box-sizing: border-box;
 
   scrollbar-width: none;
 }
+
 .tj-preview-wrap::-webkit-scrollbar {
   display: none;
 }
@@ -302,9 +305,11 @@
 .tj-actions .tj-ghostBtn,
 .tj-actions .tj-primaryBtn {
   flex: 1;
-  width: auto; /* primary의 width:100% 무력화 */
+  width: auto;
+  /* primary의 width:100% 무력화 */
   height: 44px;
-  margin-top: 0; /* ✅ primary의 margin-top 제거 */
+  margin-top: 0;
+  /* ✅ primary의 margin-top 제거 */
   box-sizing: border-box;
   display: flex;
   align-items: center;
@@ -315,7 +320,8 @@
 
 /* ✅ 받침(그림자)도 둘 중 하나로 통일 */
 .tj-actions .tj-primaryBtn {
-  box-shadow: none; /* (옵션 A) primary 받침 제거 */
+  box-shadow: none;
+  /* (옵션 A) primary 받침 제거 */
 }
 
 /* (옵션 B) 받침을 둘 다 주고 싶으면 위 box-shadow:none 대신 이걸 사용)
@@ -327,6 +333,7 @@
 
 .tj-actions {
   display: flex;
-  flex-direction: row-reverse; /* ✅ 좌우 반전 */
+  flex-direction: row-reverse;
+  /* ✅ 좌우 반전 */
   gap: 12px;
 }

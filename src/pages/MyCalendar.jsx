@@ -550,15 +550,15 @@ export default function MyCalendar() {
       <main
         className="page-content"
         style={{
-          width: "100vw",
+          width: "100%",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
           marginTop: "0",
           marginBottom: "0",
           gap: "0",
-          marginLeft: "calc(50% - 50vw)",
-          marginRight: "calc(50% - 50vw)",
+          marginLeft: 0,
+          marginRight: 0,
           paddingTop: "0",
           background: "#DFDFDF",
         }}
@@ -786,9 +786,8 @@ export default function MyCalendar() {
                     return {
                       ...task,
                       subtasks: updatedSubtasks, // 정렬된 subtasks
-                      progress: `${
-                        task.subtasks.filter((s) => s.done).length
-                      }/${task.subtasks.length + 1}`,
+                      progress: `${task.subtasks.filter((s) => s.done).length
+                        }/${task.subtasks.length + 1}`,
                     };
                   }
                   return task; // 다른 task는 그대로 유지 (순서 그대로)
