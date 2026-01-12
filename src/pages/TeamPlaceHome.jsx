@@ -65,7 +65,7 @@ function pick(obj, ...keys) {
 // ✅ DB 좌표(offsetX/offsetY)는 "BASE 좌표계"로 가정하고 -> 화면(px)로 변환해서 오버레이로 렌더
 function getBadgeOverlayStyle(
   badgeRaw,
-  { scale, dx = 0, dy = 0, fallbackPx = 18 }
+  { scale, dx = 0, dy = 0, fallbackPx = 18, forceChest = false }
 ) {
   const b = badgeRaw?.badge ?? badgeRaw ?? {};
 
@@ -79,8 +79,17 @@ function getBadgeOverlayStyle(
   const baseW = w0 && w0 > 0 ? w0 : 40; // 대충 badge 원본이 40쯤인 케이스가 많아서 안전값
   const baseH = h0 && h0 > 0 ? h0 : 40;
 
-  const bx = x != null ? x : BASE_W - baseW - 4;
-  const by = y != null ? y : BASE_H - baseH - 4;
+  let bx, by;
+
+  if (forceChest) {
+    // ✅ 가슴팍 강제 위치 (중앙 하단)
+    // BASE_W(114)의 중앙 ≈ 57, 근데 badge width 절반 빼야 함
+    bx = (BASE_W - baseW) / 2 + 5; // +5는 살짝 우측 보정 (캐릭터 몸통 기준)
+    by = 85;
+  } else {
+    bx = x != null ? x : BASE_W - baseW - 4;
+    by = y != null ? y : BASE_H - baseH - 4;
+  }
 
   // 3) 화면(px)로 변환 (stage의 transform을 “수동 적용”)
   const leftPx = dx + bx * scale;
@@ -114,53 +123,12 @@ function getBadgeOverlayStyle(
 
 const elevatorInsideImg = "/images/frame.png";
 
-// "YYYY-MM-DD" → 로컬 날짜로 안전하게 Date 만들기 (타임존 이슈 방지)
-function parseYmdToLocalDate(ymd) {
-  if (!ymd || typeof ymd !== "string") return null;
-  const [y, m, d] = ymd.split("-").map((v) => Number(v));
-  if (!y || !m || !d) return null;
-  return new Date(y, m - 1, d); // 로컬 00:00 기준
-}
+// ... (중략) ...
 
-/** ✅ 팀 캐릭터용 requestJson */
-async function requestJson(method, path) {
-  const token = localStorage.getItem(AUTH_TOKEN_KEY);
-  if (!token) {
-    const err = new Error("로그인이 필요합니다.");
-    err.status = 401;
-    throw err;
-  }
 
-  const url = path.startsWith("http")
-    ? path
-    : `${API_BASE_URL.replace(/\/$/, "")}${path}`;
 
-  const res = await fetch(url, {
-    method,
-    headers: {
-      Accept: "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-  });
 
-  const text = await res.text();
-  let data = null;
-  try {
-    data = text ? JSON.parse(text) : null;
-  } catch {
-    data = text;
-  }
 
-  if (!res.ok) {
-    const err = new Error(
-      (data && (data.message || data.error)) || `HTTP ${res.status}`
-    );
-    err.status = res.status;
-    err.data = data;
-    throw err;
-  }
-  return data;
-}
 
 /** ✅ 캐릭터 썸네일(모두의 할 일 좌측) */
 function CharacterThumb({ user, badge }) {
@@ -367,6 +335,46 @@ function ElevatorCharacterThumb({ user, badge, size = 120 }) {
   );
 }
 
+
+function parseYmdToLocalDate(ymdString) {
+  if (!ymdString) return null;
+  const [y, m, d] = ymdString.split("-").map(Number);
+  if (!y || !m || !d) return null;
+  return new Date(y, m - 1, d);
+}
+
+async function requestJson(method, endpoint, body) {
+  const token = localStorage.getItem(AUTH_TOKEN_KEY);
+  const headers = { "Content-Type": "application/json" };
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const url = endpoint.startsWith("http") ? endpoint : `${API_BASE_URL}${endpoint}`;
+  const res = await fetch(url, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    let msg = `HTTP ${res.status}`;
+    try {
+      const json = JSON.parse(text);
+      if (json.message) msg = json.message;
+    } catch (_) { }
+    const err = new Error(msg);
+    err.status = res.status;
+    throw err;
+  }
+
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    return text;
+  }
+}
+
 export default function TeamPlaceHome() {
   const navigate = useNavigate();
   const { teamId: teamIdParam } = useParams();
@@ -457,7 +465,7 @@ export default function TeamPlaceHome() {
       if (Number.isFinite(teamId)) {
         localStorage.setItem(`teamLevel:${teamId}`, String(raw));
       }
-    } catch (_) {}
+    } catch (_) { }
 
     const now = currentFloorRef.current;
 
@@ -493,7 +501,7 @@ export default function TeamPlaceHome() {
       if (Number.isFinite(n) && n >= 1) {
         setTeamLevel(n);
       }
-    } catch (_) {}
+    } catch (_) { }
   }, [teamId, TEAM_LEVEL_CACHE_KEY]);
 
   // ✅ teamId로 팀 정보 로드 (myRole, joinCode, level, endDate)
@@ -532,7 +540,7 @@ export default function TeamPlaceHome() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teamId, navigate]);
 
-  // ✅ 팀 할 일 목록 + teamLevel 로드 (새 스펙 대응: { teamLevel, floors })
+  // ✅ 팀 할 일 목록 + teamLevel 로드 (새 스펙 대응: {teamLevel, floors})
   useEffect(() => {
     let ignore = false;
 
@@ -553,13 +561,13 @@ export default function TeamPlaceHome() {
 
         const list =
           data &&
-          typeof data === "object" &&
-          !Array.isArray(data) &&
-          Array.isArray(data.floors)
+            typeof data === "object" &&
+            !Array.isArray(data) &&
+            Array.isArray(data.floors)
             ? data.floors
             : Array.isArray(data)
-            ? data
-            : [];
+              ? data
+              : [];
 
         if (nextTeamLevel != null) {
           applyTeamLevel(nextTeamLevel, { animate: false });
@@ -1118,21 +1126,21 @@ export default function TeamPlaceHome() {
         }
 
         /* ✅ 엘리베이터 내부: 팀원 캐릭터 전원 배치 (레이아웃 영향 X: 내부 오버레이만) */
-        .elevator-teamChars{
+        /* ✅ 엘리베이터 내부: 사실적인 원근감 배치 (Absolute) */
+        .elevator-teamChars {
           position: absolute;
           inset: 0;
-          display: flex;
-          flex-wrap: wrap;
-          align-content: flex-end;
-          justify-content: center;
-          gap: 6px;
-          padding: 10px 10px 14px;
-          box-sizing: border-box;
-          pointer-events: none; /* 클릭 방해 X */
+          pointer-events: none;
+          z-index: 10;
+          overflow: hidden; /* 영역 밖으로 나가는 것 방지 */
         }
-        .elevator-teamCharItem{
-          transform: none; /* 내부 공간에 맞게 축소 (레이아웃 변화 X) */
-          transform-origin: center bottom;
+        /* 개별 아이템은 인라인 스타일로 제어 */
+        .elevator-teamCharItem {
+          position: absolute;
+          width: 100px; /* 터치 영역 등 고려 */
+          display: flex;
+          justify-content: center;
+          /* transform 등은 JS에서 동적 처리 */
         }
       `}</style>
 
@@ -1166,17 +1174,50 @@ export default function TeamPlaceHome() {
             className="elevator-inside"
             style={{ backgroundImage: `url(${elevatorInsideImg})` }}
           >
-            {/* ✅ 여기: 기존 characterImageUrl img 삭제하고 팀원 캐릭터 전원 렌더 */}
+            {/* ✅ 팀원 캐릭터 전원 렌더 (원근감/겹침 처리) */}
             <div className="elevator-teamChars" aria-hidden="true">
-              {(teamChars || []).map((u) => (
-                <div className="elevator-teamCharItem" key={u?.userId}>
-                  <ElevatorCharacterThumb
-                    user={u}
-                    badge={u?.userId ? badgeByUserId?.[u.userId] : null}
-                    size={120}
-                  />
-                </div>
-              ))}
+              {(teamChars || []).map((u, i) => {
+                // 최대 6명 가정: 0,1(뒤) / 2,3(중간) / 4,5(앞)
+                const row = Math.floor(i / 2);
+                const col = i % 2; // 0:Left, 1:Right
+
+                // 뒤에서부터 앞으로 나오면서 커짐 & 내려옴 (뒤에 애들 보이게 높이 차이 확 줌)
+                // Row 0 (Back):   Scale 0.9, Bottom 130
+                // Row 1 (Mid):    Scale 1.1, Bottom 55
+                // Row 2 (Front):  Scale 1.3, Bottom -20
+                const scale = 0.9 + (row * 0.2);
+                const bottom = 130 - (row * 75);
+                const zIndex = 10 + row;
+
+                // 좌우 간격 (붙어있지 않게 더 벌림)
+                // Row 0: 60px, Row 1: 75px, Row 2: 90px
+                const spread = 60 + (row * 15);
+                const xOffset = col === 0 ? -spread : spread;
+
+                // 뒷줄일수록 거리감 명암
+                const brightness = row === 0 ? '0.9' : (row === 1 ? '0.97' : '1');
+
+                return (
+                  <div
+                    className="elevator-teamCharItem"
+                    key={u?.userId}
+                    style={{
+                      left: `calc(50% + ${xOffset}px)`,
+                      bottom: `${bottom}px`,
+                      transform: `translateX(-50%) scale(${scale})`,
+                      transformOrigin: 'bottom center',
+                      zIndex: zIndex,
+                      filter: `brightness(${brightness})`,
+                    }}
+                  >
+                    <ElevatorCharacterThumb
+                      user={u}
+                      badge={u?.userId ? badgeByUserId?.[u.userId] : null}
+                      size={130} /* ✅ 사이즈 키움 (110 -> 130) */
+                    />
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -1207,8 +1248,8 @@ export default function TeamPlaceHome() {
         const label = teamLoading
           ? "D-?"
           : diff == null
-          ? "-"
-          : formatDdayLabel(diff);
+            ? "-"
+            : formatDdayLabel(diff);
         const isOver = !teamLoading && diff != null && diff < 0;
 
         return (
@@ -1256,17 +1297,15 @@ export default function TeamPlaceHome() {
                   </div>
 
                   <div
-                    className={`task-box ${
-                      isOverdue ? "task-box--overdue" : ""
-                    }`}
+                    className={`task-box ${isOverdue ? "task-box--overdue" : ""
+                      }`}
                     role="group"
                     aria-label="팀 할 일"
                   >
                     <div className="task-left">
                       <div
-                        className={`task-meta ${
-                          isOverdue ? "task-meta--overdue" : ""
-                        }`}
+                        className={`task-meta ${isOverdue ? "task-meta--overdue" : ""
+                          }`}
                       >
                         {metaText}
                       </div>
