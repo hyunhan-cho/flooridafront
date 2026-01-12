@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import "./CharacterPreview.css";
+import baseChar from "../assets/ch/cha_1.png";
 
 /**
  * 기준 캔버스(좌표계) 크기
@@ -133,9 +134,8 @@ export function CharacterCanvas({
         {layers.map((l) => (
           <img
             key={l.key}
-            className={`cp-layer ${
-              l.kind === "badge" ? "cp-badge" : "cp-item"
-            }`}
+            className={`cp-layer ${l.kind === "badge" ? "cp-badge" : "cp-item"
+              }`}
             src={l.url}
             alt={l.kind ?? "layer"}
             style={l.style}
@@ -184,7 +184,7 @@ export function MemberCharacterPreview({
         "mergedImageUrl",
         "imageUrl"
       )
-    );
+    ) || baseChar;
 
   const layers = useMemo(() => {
     const uid = getUserId(member) ?? "m";

@@ -1,44 +1,12 @@
 import React, { useEffect, useState } from "react";
-/**
- * React 핵심 훅들
- * - useState: 컴포넌트 내부 상태(state) 저장/갱신
- * - useEffect: 특정 시점(마운트/업데이트)에 부수효과(API 호출, 이벤트 등록 등) 실행
- */
-
 import Navbar from "../components/Navbar";
-/**
- * 하단 네비게이션 바(탭/메뉴 등) 컴포넌트
- * Customize 화면의 하단 공통 UI를 유지하기 위해 포함
- */
-
 import coinIcon from "../assets/coin.png";
-/**
- * 코인 UI에 표시할 이미지(코인 아이콘)
- */
-
-import paintIcon from "../assets/paint.png"; // ✅ [추가] 페인트 아이콘
-/**
- * 화면 헤더에 표시할 ‘커스터마이징’ 느낌의 페인트 아이콘
- */
-
+import paintIcon from "../assets/paint.png";
 import "./Customize.css";
-/**
- * 이 페이지에서 사용하는 스타일 시트
- * - 프리뷰 영역(캐릭터 캔버스)
- * - 상점 그리드
- * - 모달(팝업)
- * - 탭 버튼 등
- */
+import "../components/CoinPopup.css"; // ✅ Import shared popup styles
 
-// =========================
-// ✅ API 서비스(백엔드 연동 함수)
-// =========================
+// ✅ API 서비스
 import { getMyProfile } from "../services/profile.js";
-/**
- * 유저 프로필 조회 API 래퍼 함수
- * - 코인(coin/points) 등 유저 정보 가져오는 용도
- */
-
 import {
   getStoreItems,
   purchaseItem,
@@ -47,20 +15,7 @@ import {
   getMyItems,
   getMyEquippedItems,
 } from "../services/store.js";
-/**
- * 상점/아이템 관련 API 래퍼 함수 모음
- * - getStoreItems(type): 상점 카탈로그 조회(FACE / ACCESSORY)
- * - purchaseItem(itemId): 아이템 구매
- * - equipItem(itemId): 아이템 장착
- * - unequipItem(itemId): 아이템 해제
- * - getMyItems(): 내가 보유한 아이템 리스트 조회
- * - getMyEquippedItems(): 내가 현재 장착 중인 아이템 리스트 조회
- */
-
-// ✅✅✅ 캐릭터 API는 character.js로 분리
 import { getMyCharacter } from "../services/character.js";
-
-// ✅✅✅ 뱃지 API는 badge.js에서 관리
 import {
   getMyBadgesSummary,
   getMyEquippedBadges,
@@ -71,9 +26,6 @@ import {
 // ✅ Zustand 전역 상태
 import { useUserStore } from "../store/userStore.js";
 
-// =========================
-// ✅ 메인 페이지 컴포넌트
-// =========================
 const Customize = () => {
   // -------------------------
   // 1) 화면/유저 상태(state)
@@ -84,75 +36,61 @@ const Customize = () => {
   const [storeItems, setStoreItems] = useState([]);
   const [ownedSet, setOwnedSet] = useState(new Set());
   const [equippedSet, setEquippedSet] = useState(new Set());
+  const [savePopupOpen, setSavePopupOpen] = useState(false); // ✅ 저장 완료 팝업
 
   const [previewItems, setPreviewItems] = useState({
     face: null,
     item: null,
   });
 
-  // ✅ 프리뷰에 적용할 style 저장
   const [previewStyles, setPreviewStyles] = useState({
     face: {},
     item: {},
   });
 
-  // ✅✅✅ [추가] 장착된 뱃지 레이어(여러 개여도 대응)
   const [equippedBadges, setEquippedBadges] = useState([]);
 
-  // ✅ 카탈로그(상점 목록)에서 itemId -> (offsetX/width/height...) 메타 매핑
   const [catalogMetaById, setCatalogMetaById] = useState({
     face: {},
     item: {},
   });
 
-  // ✅✅✅ 서버 “완성 캐릭터(얼굴 포함)” 베이스 이미지 URL
   const [baseCharacterUrl, setBaseCharacterUrl] = useState(null);
 
   // -------------------------
-  // 3) 유틸 함수들(규칙/파싱/이미지 결정)
+  // 3) 유틸 함수들
   // -------------------------
   const tabToServerType = (tab) => (tab === "face" ? "FACE" : "ACCESSORY");
 
-  // ✅ 확정: ACCESSORY에는 아이템만 / FACE는 face만
   const inferUiCategory = (raw) => {
     if (raw?.type === "FACE") return "face";
     if (raw?.type === "ACCESSORY") return "item";
     return "item";
   };
 
-  // ✅ 스웨거 확정 키 반영 + CSV/구버전 대응
-  // - 아이템: imgUrl (swagger) / img_url (csv)
-  // - 뱃지: imageUrl (swagger) / image_url (csv)
   const pickImgUrl = (obj) => {
     const v =
-      obj?.imgUrl ?? // items swagger
-      obj?.imageUrl ?? // badges swagger
-      obj?.img_url ?? // item_rows.csv
-      obj?.image_url ?? // badges_rows.csv
+      obj?.imgUrl ??
+      obj?.imageUrl ??
+      obj?.img_url ??
+      obj?.image_url ??
       obj?.url ??
       obj?.image ??
       null;
-
     return typeof v === "string" && v.trim() ? v.trim() : null;
   };
 
   const resolveImageSrc = (uiCategory, fileName, imgUrl) => {
-    // 1) 서버 URL이 있으면 최우선 사용
     if (imgUrl && typeof imgUrl === "string") {
       const u = imgUrl.trim();
       if (u.startsWith("http") || u.startsWith("/")) return u;
-
       if (!u.includes(".")) fileName = u;
       else return u;
     }
-
-    // 2) fileName이 URL 자체면 그대로 사용
     if (typeof fileName === "string") {
       const k = fileName.trim();
       if (k.startsWith("http") || k.startsWith("/")) return k;
     }
-
-    // 3) 서버 카탈로그 메타에서 id로 imgUrl 찾아보기(얼굴/아이템만)
     const n = Number(fileName);
     if (!Number.isNaN(n)) {
       if (uiCategory === "face") {
@@ -166,8 +104,6 @@ const Customize = () => {
         if (url) return url;
       }
     }
-
-    // ✅ 하드코딩 제거: 로컬 fallback 없음
     return "";
   };
 
@@ -183,14 +119,12 @@ const Customize = () => {
     if (savedFileName) {
       return resolveImageSrc(category, savedFileName);
     }
-
-    // ✅ 하드코딩 제거: 기본 face는 "서버 FACE 카탈로그 첫 항목"
+    // 기본 face fallback
     if (category === "face") {
       const keys = Object.keys(catalogMetaById?.face ?? {});
       const firstId = keys.length ? keys[0] : null;
       return firstId ? resolveImageSrc("face", firstId) : null;
     }
-
     return null;
   };
 
@@ -214,7 +148,6 @@ const Customize = () => {
       return null;
     };
 
-    // ✅ 스웨거: offsetX/offsetY, CSV: offset_x/offset_y 둘 다 대응
     const xRaw = pick(
       raw?.offsetX,
       raw?.offset_x,
@@ -227,7 +160,6 @@ const Customize = () => {
       meta?.posX,
       meta?.left
     );
-
     const yRaw = pick(
       raw?.offsetY,
       raw?.offset_y,
@@ -240,11 +172,8 @@ const Customize = () => {
       meta?.posY,
       meta?.top
     );
-
-    // ✅ 스웨거: width/height, CSV도 width/height
     const wRaw = pick(raw?.width, raw?.itemWidth, raw?.w, meta?.width);
     const hRaw = pick(raw?.height, raw?.itemHeight, raw?.h, meta?.height);
-
     const sRaw = pick(raw?.scale, raw?.size, meta?.scale, meta?.size);
 
     const x = toNum(xRaw);
@@ -256,12 +185,10 @@ const Customize = () => {
     const scale = sNum == null ? null : sNum > 10 ? sNum / 100 : sNum;
 
     const style = {};
-
     if (x != null) style.left = `${x}px`;
     if (y != null) style.top = `${y}px`;
 
     const looksLikeRatio = (n) => n != null && n > 0 && n <= 3;
-
     if (w != null && !looksLikeRatio(w)) style.width = `${w}px`;
     if (h != null && !looksLikeRatio(h)) style.height = `${h}px`;
 
@@ -296,18 +223,16 @@ const Customize = () => {
   // --- 데이터 로딩 useEffect들 ---
   // =========================
 
-  // ✅ Zustand store에서 캐싱된 데이터 사용
   const {
     profile: cachedProfile,
     character: cachedCharacter,
     fetchProfile,
     fetchCharacter,
-    updateCoins,
   } = useUserStore();
 
   useEffect(() => {
     (async () => {
-      // ✅ 캐시된 캐릭터 우선 사용
+      // 캐시된 캐릭터 우선 사용
       if (cachedCharacter) {
         setBaseCharacterUrl(cachedCharacter);
       } else {
@@ -315,7 +240,7 @@ const Customize = () => {
         if (url) setBaseCharacterUrl(url);
       }
 
-      // ✅ 캐시된 프로필 우선 사용
+      // 캐시된 프로필 우선 사용
       if (cachedProfile?.coin !== undefined) {
         setUserCoins(Number(cachedProfile.coin));
       } else {
@@ -376,7 +301,6 @@ const Customize = () => {
           if (!Number.isNaN(id)) faceMeta[id] = it;
         });
 
-        // ✅ ACCESSORY는 item만
         accList.forEach((it) => {
           const id = Number(it.itemId ?? it.id);
           if (!Number.isNaN(id)) itemMeta[id] = it;
@@ -389,14 +313,12 @@ const Customize = () => {
 
   const refreshEquipped = async () => {
     try {
-      // ✅✅✅ 아이템/얼굴 장착 + 뱃지 장착을 동시에 가져옴
       const [eq, badgeEqRaw] = await Promise.all([
         getMyEquippedItems(),
         getMyEquippedBadges().catch(() => null),
       ]);
 
       const list = Array.isArray(eq) ? eq : eq?.result ?? eq?.data ?? [];
-
       const badgeList = Array.isArray(badgeEqRaw)
         ? badgeEqRaw
         : badgeEqRaw?.result ?? badgeEqRaw?.data ?? [];
@@ -405,14 +327,12 @@ const Customize = () => {
       const newPreview = { face: null, item: null };
       const newStyles = { face: {}, item: {} };
 
-      // ✅ 아이템/얼굴 장착 (아이템은 1개만 가능해도 프론트는 "현재 장착된 것"만 보여줌)
       list.forEach((it) => {
         const cat = inferUiCategory(it);
         const id = Number(it.itemId ?? it.id);
         if (Number.isNaN(id)) return;
 
         newSet.add(`${cat}:${id}`);
-
         if (cat === "face") newPreview.face = String(id);
         if (cat === "item") newPreview.item = String(id);
 
@@ -422,16 +342,14 @@ const Customize = () => {
         }
       });
 
-      // ✅✅✅ 뱃지 장착: “보이게” 하려면 이미지+좌표를 상태로 들고 있어야 함
       const normalizedBadges = (badgeList ?? [])
         .map((b) => {
           const id = Number(b.badgeId ?? b.badge_id ?? b.id);
           if (Number.isNaN(id)) return null;
 
           newSet.add(`badge:${id}`);
-
-          const imgUrl = pickImgUrl(b); // swagger: imageUrl
-          const style = buildLayerStyleFromServer(b, b); // badge 응답에 offsetX/width/height 포함
+          const imgUrl = pickImgUrl(b);
+          const style = buildLayerStyleFromServer(b, b);
 
           return {
             id,
@@ -442,7 +360,6 @@ const Customize = () => {
         .filter(Boolean);
 
       setEquippedBadges(normalizedBadges);
-
       setEquippedSet(newSet);
       setPreviewItems((prev) => ({ ...prev, ...newPreview }));
       setPreviewStyles((prev) => ({ ...prev, ...newStyles }));
@@ -451,7 +368,6 @@ const Customize = () => {
 
   useEffect(() => {
     refreshEquipped();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -461,12 +377,11 @@ const Customize = () => {
     ) {
       refreshEquipped();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [catalogMetaById]);
 
   useEffect(() => {
     (async () => {
-      // ✅ 뱃지 탭: 미보유 제외 OK → summary(보유 목록)만 사용
+      // 뱃지 탭
       if (activeTab === "badge") {
         try {
           const raw = await getMyBadgesSummary();
@@ -487,7 +402,7 @@ const Customize = () => {
                 price: 0,
                 owned: true,
                 equipped: equippedSet.has(`badge:${id}`),
-                imgUrl: pickImgUrl(b), // ✅ swagger: imageUrl
+                imgUrl: pickImgUrl(b),
               };
             })
             .filter(Boolean);
@@ -499,19 +414,19 @@ const Customize = () => {
         return;
       }
 
-      // ✅ face/item 탭: /api/items?type=FACE|ACCESSORY
+      // face / item 탭
       try {
         const raw = await getStoreItems(tabToServerType(activeTab));
         const list = Array.isArray(raw) ? raw : raw?.result ?? raw?.data ?? [];
 
         const mapped = list
           .map((item) => {
-            const cat = inferUiCategory(item); // face or item
+            const cat = inferUiCategory(item);
             const id = Number(item.itemId ?? item.id);
             if (Number.isNaN(id)) return null;
 
             const fileName = String(id);
-            const imgUrl = pickImgUrl(item); // ✅ swagger: imgUrl
+            const imgUrl = pickImgUrl(item);
 
             return {
               id,
@@ -522,7 +437,6 @@ const Customize = () => {
               equipped: equippedSet.has(`${cat}:${id}`),
               imgUrl,
               fileName,
-              // ✅ 기본 민무늬 캐릭터는 장착 API 지원 안 됨
               isBasicFace: cat === "face" && (item.name?.toLowerCase() === "basic" || item.name === "기본"),
             };
           })
@@ -551,7 +465,7 @@ const Customize = () => {
   const handleSaveNow = async () => {
     try {
       await refreshEquipped();
-      alert("현재 장착 상태로 저장되었습니다!");
+      setSavePopupOpen(true); // ✅ 팝업 오픈
     } catch {
       alert("저장 상태 확인 실패");
     }
@@ -559,22 +473,17 @@ const Customize = () => {
 
   const handlePurchase = async () => {
     if (!selectedItem) return;
-
     if (userCoins < selectedItem.price) {
       alert("코인이 부족합니다.");
       return;
     }
-
     try {
       await purchaseItem(selectedItem.id);
-
       setUserCoins((prev) => {
         const next = prev - selectedItem.price;
         return next < 0 ? 0 : next;
       });
-
       setOwnedSet((prev) => new Set(prev).add(selectedItem.id));
-
       alert("구매 완료!");
       closePopup();
     } catch {
@@ -585,10 +494,8 @@ const Customize = () => {
   const handleEquip = async () => {
     if (!selectedItem) return;
 
-    // ✅ 기본 민무늬 캐릭터 장착 = 현재 장착된 FACE 아이템 해제
     if (selectedItem.isBasicFace) {
       try {
-        // 현재 장착된 FACE 아이템 찾기
         const equippedFaceKey = [...equippedSet].find(key => key.startsWith("face:"));
         if (equippedFaceKey) {
           const faceId = Number(equippedFaceKey.split(":")[1]);
@@ -614,7 +521,6 @@ const Customize = () => {
       } else {
         await equipItem(selectedItem.id);
       }
-
       await refreshEquipped();
       alert("장착 완료!");
       closePopup();
@@ -625,21 +531,17 @@ const Customize = () => {
 
   const handleUnequip = async () => {
     if (!selectedItem) return;
-
-    // ✅ 기본 민무늬 캐릭터만 해제 불가
     if (selectedItem.isBasicFace) {
       alert("기본 캐릭터는 해제할 수 없습니다.");
       closePopup();
       return;
     }
-
     try {
       if (selectedItem.uiCategory === "badge") {
         await unequipBadge(selectedItem.id);
       } else {
         await unequipItem(selectedItem.id);
       }
-
       await refreshEquipped();
       alert("해제 완료!");
       closePopup();
@@ -648,15 +550,14 @@ const Customize = () => {
     }
   };
 
-  // =========================
-  // 6) JSX 렌더링(화면 구조)
-  // =========================
+  // -------------------------
+  // 6) JSX 렌더링
+  // -------------------------
   return (
     <div className="customize-page-container">
       <header className="cust-header-row">
         <img className="cust-paint-icon" src={paintIcon} alt="paint" />
         <h2 className="cust-page-title">캐릭터 꾸미기</h2>
-
         <div className="cust-coin-badge">
           <img src={coinIcon} alt="coin" />
           <span>{Number(userCoins).toLocaleString()}</span>
@@ -669,7 +570,6 @@ const Customize = () => {
         </button>
 
         <div className="cust-character-stage">
-          {/* ✅✅✅ [수정] face(=몸통 포함 베이스)를 최우선으로 그리고, 없으면 baseCharacterUrl로 fallback */}
           {(() => {
             const baseSrc = getPreviewSource("face") || baseCharacterUrl;
             return (
@@ -686,16 +586,13 @@ const Customize = () => {
             );
           })()}
 
-          {/* 아이템(액세서리) 레이어 - 로드 전 & 좌표 없으면 숨김 */}
           {getPreviewSource("item") && (() => {
-            // ✅ 선택한 아이템이 있으면 해당 아이템의 좌표 스타일 사용
             let itemStyle = previewStyles.item;
             if (selectedItem && selectedItem.uiCategory === "item") {
               const meta = catalogMetaById?.item?.[selectedItem.id];
               itemStyle = buildLayerStyleFromServer(selectedItem, meta);
             }
             const hasPosition = itemStyle?.top || itemStyle?.left;
-
             return (
               <img
                 src={getPreviewSource("item")}
@@ -703,9 +600,7 @@ const Customize = () => {
                 style={{ ...itemStyle, zIndex: 2 }}
                 alt="item"
                 onLoad={(e) => {
-                  if (hasPosition) {
-                    e.currentTarget.dataset.ready = "true";
-                  }
+                  if (hasPosition) e.currentTarget.dataset.ready = "true";
                 }}
                 data-ready={hasPosition ? "true" : "false"}
                 onError={(e) => (e.currentTarget.style.display = "none")}
@@ -713,7 +608,6 @@ const Customize = () => {
             );
           })()}
 
-          {/* ✅✅✅ 뱃지 레이어: 아이템과 "동시에" 가능 - 로드 전 & 좌표 없으면 숨김 */}
           {equippedBadges.map((b, idx) => (
             <img
               key={`badge-${b.id}`}
@@ -765,7 +659,6 @@ const Customize = () => {
                 onError={(e) => (e.currentTarget.style.display = "none")}
               />
             </div>
-
             <div
               className={`cust-price-tag ${item.uiCategory === "badge"
                 ? item.owned
@@ -777,9 +670,7 @@ const Customize = () => {
                 }`}
             >
               {item.uiCategory === "badge" ? (
-                item.owned ? (
-                  <span className="owned-label">보유</span>
-                ) : null
+                item.owned ? <span className="owned-label">보유</span> : null
               ) : item.owned ? (
                 <span className="owned-label">보유</span>
               ) : (
@@ -805,48 +696,92 @@ const Customize = () => {
                   selectedItem.fileName,
                   selectedItem.imgUrl
                 )}
-                alt="preview"
-                onError={(e) => (e.currentTarget.style.display = "none")}
+                alt={selectedItem.name}
               />
             </div>
 
-            <div className="cust-modal-price">
-              {selectedItem.uiCategory === "badge" ? (
-                <span style={{ fontWeight: "bold" }}>보유함</span>
-              ) : (
-                <>
-                  <img src={coinIcon} alt="coin" />
-                  <span>{selectedItem.price}</span>
-                </>
-              )}
-            </div>
+            {selectedItem.uiCategory !== "badge" && !selectedItem.owned && (
+              <div className="cust-modal-price">
+                <img src={coinIcon} alt="coin" />
+                <span>{selectedItem.price}</span>
+              </div>
+            )}
 
             <div className="cust-modal-actions">
-              {selectedItem.owned ? (
+              {/* 기본 캐릭터인 경우 '해제 불가' 등 처리 */}
+              {selectedItem.isBasicFace ? (
                 selectedItem.equipped ? (
-                  <button className="cust-btn-yes" onClick={handleUnequip}>
-                    해제
-                  </button>
+                  // 이미 장착중 -> 아무것도 안함 or '현재 장착중' 표시
+                  <button className="cust-btn-yes" onClick={closePopup}>확인</button>
                 ) : (
-                  <button className="cust-btn-yes" onClick={handleEquip}>
-                    장착
-                  </button>
+                  // 장착 안됨 -> 변경 가능
+                  <>
+                    <button className="cust-btn-yes" onClick={handleEquip}>변경</button>
+                    <button className="cust-btn-no" onClick={closePopup}>취소</button>
+                  </>
+                )
+              ) : selectedItem.owned ? (
+                selectedItem.equipped ? (
+                  <>
+                    <button className="cust-btn-no" onClick={handleUnequip}>
+                      해제
+                    </button>
+                    <button className="cust-btn-yes" onClick={closePopup}>
+                      닫기
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button className="cust-btn-yes" onClick={handleEquip}>
+                      장착
+                    </button>
+                    <button className="cust-btn-no" onClick={closePopup}>
+                      닫기
+                    </button>
+                  </>
                 )
               ) : (
-                <button className="cust-btn-yes" onClick={handlePurchase}>
-                  구매
-                </button>
+                <>
+                  <button className="cust-btn-yes" onClick={handlePurchase}>
+                    구매
+                  </button>
+                  <button className="cust-btn-no" onClick={closePopup}>
+                    취소
+                  </button>
+                </>
               )}
-
-              <button className="cust-btn-no" onClick={closePopup}>
-                X
-              </button>
             </div>
           </div>
         </div>
       )}
 
       <Navbar />
+
+      {/* ✅ 저장 완료 팝업 (CoinPopup 스타일) */}
+      {savePopupOpen && (
+        <div className="popup-overlay">
+          <div className="popup-box">
+            <h3 className="popup-title">저장 완료!</h3>
+            <div className="popup-content" style={{ flexDirection: "column", gap: "10px" }}>
+              <img
+                src={paintIcon}
+                alt="저장"
+                className="coin-img"
+                style={{ width: "50px", height: "50px" }}
+              />
+              <span style={{ fontSize: "16px", fontWeight: "700", wordBreak: "keep-all" }}>
+                현재 장착 상태로 저장되었습니다!
+              </span>
+            </div>
+            <button
+              className="popup-confirm-btn"
+              onClick={() => setSavePopupOpen(false)}
+            >
+              확인
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

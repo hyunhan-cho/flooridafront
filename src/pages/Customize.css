@@ -56,7 +56,7 @@
 .cust-coin-badge {
   position: absolute;
   left: 14px;
-  top: 74px;
+  top: 86px;
   bottom: auto;
   /* ✅ 헤더 밖으로 내려서 미리보기 안에 있는 것처럼 */
   display: flex;

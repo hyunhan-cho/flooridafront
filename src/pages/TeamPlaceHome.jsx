@@ -17,6 +17,7 @@ import {
 import { AUTH_TOKEN_KEY, API_BASE_URL } from "../config.js";
 
 import "../App.css";
+import baseChar from "../assets/ch/cha_1.png";
 
 // ✅ 홈이 쓰는 이미지 그대로
 import floorBoardImg from "../assets/img/board 1.png";
@@ -143,7 +144,37 @@ function CharacterThumb({ user, badge }) {
     null;
 
   // ✅ 기존 로직 유지 + (배지 오버레이만 추가)
-  if (!user || items.length === 0) {
+  // [MODIFIED] Fallback to base character if no specific items, instead of gray placeholder
+  if (!user || (!user.imageUrl && items.length === 0)) {
+    // Try to use a base image if available properties exist, otherwise placeholder
+    const baseImg = user?.imageUrl ?? user?.imgUrl ?? baseChar;
+
+    if (baseImg) {
+      return (
+        <div className="member-avatar">
+          <div className="member-avatarViewport" aria-hidden="true">
+            <img
+              src={baseImg}
+              alt=""
+              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+            />
+            {badgeSrc && (
+              <img
+                src={badgeSrc}
+                alt=""
+                style={getBadgeOverlayStyle(badge, {
+                  scale: 1, // Full size for fallback
+                  dx: 0,
+                  dy: 0,
+                  fallbackPx: 18,
+                })}
+              />
+            )}
+          </div>
+        </div>
+      )
+    }
+
     return (
       <div className="member-avatar">
         <div className="member-avatarViewport" aria-hidden="true">
