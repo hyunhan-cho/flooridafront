@@ -547,7 +547,7 @@ export default function TeamPlaceHome() {
     fetchTeamInfo(teamId);
     fetchTeamFloors(teamId);
     fetchTeamCharacters(teamId);
-    fetchTeamBadges(teamId);
+    fetchTeamBadges(teamId, true);
   }, [teamId, fetchTeamInfo, fetchTeamFloors, fetchTeamCharacters, fetchTeamBadges]);
 
   // ✅ teamLevel 변경 감지 및 애니메이션 적용

@@ -368,7 +368,12 @@ export default function JoinedTeamPlace() {
                           fetcher={fetchTeamCharacters} // ✅ Store action 사용
                           badgesFetcher={async (tid) => {
                             const map = await fetchTeamBadges(tid);
-                            return Object.values(map || {});
+                            // map: { [userId]: badgeObj, ... }
+                            // -> [{ userId, equippedBadges: [badgeObj] }, ...]
+                            return Object.entries(map || {}).map(([uid, badge]) => ({
+                              userId: Number(uid),
+                              equippedBadges: badge ? [badge] : []
+                            }));
                           }}
                           max={999}
                           scale={0.5}
