@@ -43,7 +43,7 @@
   left: 50%;
   transform: translateX(-50%);
   width: 100%;
-  max-width: 600px;
+  max-width: 480px;
   bottom: 0;
   min-height: var(--nav-height, 80px);
   background: var(--brand-teal);
@@ -1379,7 +1379,7 @@
 
 .floor-indicator-bg {
   width: auto;
-  height: clamp(70px, 14vw, 105px);
+  height: clamp(50px, 10vw, 75px);
   image-rendering: pixelated;
   -ms-interpolation-mode: nearest-neighbor;
   display: block;
@@ -1391,7 +1391,7 @@
   top: 50%;
   transform: translate(-50%, -50%);
   font-weight: 900;
-  font-size: clamp(32px, 8vw, 48px);
+  font-size: clamp(22px, 5.5vw, 34px);
   font-family: var(--font-pixel-latin);
   font-variant-numeric: tabular-nums;
   color: #000;
@@ -1564,7 +1564,8 @@
 .back-btn {
   position: fixed;
   top: 12px;
-  left: 12px;
+  /* 앱 컨테이너(480px) 안에 맞추기: 중앙 - 240px + 12px */
+  left: max(12px, calc(50% - 240px + 12px));
   background: transparent;
   border: none;
   padding: 6px;

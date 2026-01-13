@@ -61,8 +61,8 @@ body {
 
 #root {
   width: 100%;
-  max-width: 600px;
-  /* iPhone Pro Max width approx -> Tablet/Large Phone support */
+  max-width: 480px;
+  /* 80% of previous 600px */
   min-height: 100vh;
   margin: 0 auto;
   position: relative;

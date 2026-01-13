@@ -192,9 +192,7 @@ export default function JoinedTeamPlace() {
           min-height: 0;
         }
 
-        .joined-teamplace .teamplace-mid-row{
-  transform: translateY(15px); /* 6~14px 사이로 조절 */
-}
+
         /* ✅✅✅ 팀원 캐릭터 프리뷰: 가로 스크롤(스와이프) */
         .joined-teamplace .teamplace-preview-wrap{
           flex: 1;
@@ -257,7 +255,10 @@ export default function JoinedTeamPlace() {
           align-items: center;
           justify-content: center;
           flex: 0 0 auto;
-          position: relative;
+          /* ✅ 버튼 오른쪽 고정 */
+          position: absolute;
+          right: 0;
+          bottom: 10px; /* 위치 미세 조정 */
           z-index: 10;
         }
 
@@ -274,6 +275,9 @@ export default function JoinedTeamPlace() {
 .joined-teamplace .teamplace-mid-row{
   margin-top: 2px;
   align-items: flex-end;
+  position: relative; /* 버튼 기준점 */
+  transform: translateY(32px); /* 엘베 앞쪽으로 당김 */
+  min-height: 50px; /* 버튼 높이 확보 */
 }
 
 /* 3) ✅ 똥 잘림의 진짜 원인 제거: 프리뷰/내부 wrapper overflow 풀고 위 여유 확보 */
@@ -281,6 +285,7 @@ export default function JoinedTeamPlace() {
   overflow-x: auto;
   overflow-y: visible;   /* 중요 */
   padding-top: 10px;     /* 똥 머리 공간 */
+  padding-right: 64px; /* 버튼 공간 확보 */
 }
 
 .joined-teamplace .teamplace-preview-wrap .cp-wrap{
@@ -288,7 +293,7 @@ export default function JoinedTeamPlace() {
 }
 
 .joined-teamplace .teamplace-enter-btn{
-  transform: translateY(-12px); /* -4 ~ -10px 사이로 조절 */
+  /* transform 제거 (absolute로 제어) */
 }
 
       `}</style>

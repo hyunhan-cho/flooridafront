@@ -9,7 +9,8 @@
 /* 실제 좌표계(114x126) 스테이지 */
 .cp-stage {
   position: relative;
-  overflow: visible; /* ✅ 중요: -25 같은 offsetY가 잘리지 않게 */
+  overflow: visible;
+  /* ✅ 중요: -25 같은 offsetY가 잘리지 않게 */
   user-select: none;
   -webkit-user-drag: none;
 }
