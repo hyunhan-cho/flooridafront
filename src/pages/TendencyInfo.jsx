@@ -12,6 +12,20 @@ const PLANNING_OPTIONS = [
 const HOURS_OPTIONS = ["0-1", "1-3", "3-6", "6-10", "10시간 이상"];
 const PRIMARY_COLOR = "var(--brand-teal)";
 
+const PLANNING_VALUE_MAP = {
+  "할 일을 최대한 미룬다": "PROCRASTINATES",
+  "계획은 세우는데 실천하지 못한다": "PLANS_ONLY",
+  "꼼꼼하게 계획을 세우고 이행한다": "PLANS_AND_EXECUTES",
+};
+
+const HOURS_VALUE_MAP = {
+  "0-1": "HOURS_0_1",
+  "1-3": "HOURS_1_3",
+  "3-6": "HOURS_3_6",
+  "6-10": "HOURS_6_10",
+  "10시간 이상": "HOURS_10_PLUS",
+};
+
 const styles = {
   section: {
     marginTop: 20,
@@ -85,7 +99,7 @@ export default function TendencyInfo() {
 
     // 나중에 하기 (건너뛰어도 첫 진입이므로 50코인 팝업 표시)
     if (skip) {
-      navigate("/home", { state: { isFirstLogin: true } });
+      navigate("/home");
       return;
     }
 
@@ -96,9 +110,12 @@ export default function TendencyInfo() {
 
     try {
       setLoading(true);
-      await saveTendency({ planningTendency, dailyStudyHours });
+      await saveTendency({
+        planningTendency: PLANNING_VALUE_MAP[planningTendency],
+        dailyStudyHours: HOURS_VALUE_MAP[dailyStudyHours],
+      });
       // 설정 완료 후 첫 진입이므로 50코인 팝업 표시
-      navigate("/home", { state: { isFirstLogin: true } });
+      navigate("/home");
     } catch (e) {
       setError(e?.data?.message || e.message || "정보 저장에 실패했습니다.");
     } finally {
