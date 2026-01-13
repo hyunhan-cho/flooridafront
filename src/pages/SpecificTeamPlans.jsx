@@ -6,6 +6,7 @@ import Navbar from "../components/Navbar.jsx";
 
 import { API_BASE_URL, AUTH_TOKEN_KEY } from "../config.js";
 import { getTeamMembers } from "../services/api.js";
+import { useTeamStore } from "../store/teamStore.js";
 
 const PencilIcon = () => (
   <svg className="directIconSvg" viewBox="0 0 24 24" fill="currentColor">
@@ -252,6 +253,7 @@ export default function SpecificTeamPlans({ onBack, onSuccess }) {
   const navigate = useNavigate();
   const { teamId: teamIdParam } = useParams();
   const teamId = Number(teamIdParam);
+  const { invalidateTeam } = useTeamStore();
 
   // 입력값
   const [title, setTitle] = useState("");
@@ -426,7 +428,11 @@ export default function SpecificTeamPlans({ onBack, onSuccess }) {
       });
 
       if (onSuccess) onSuccess(data);
-      else navigate(-1);
+      else {
+        // ✅ 캐시 무효화 후 TeamPlaceHome으로 이동
+        invalidateTeam(teamId, 'floors');
+        navigate(`/teamplacehome/${teamId}`, { replace: true });
+      }
     } catch (e) {
       if (e?.status === 401) return navigate("/login", { replace: true });
       if (e?.status === 404) {
