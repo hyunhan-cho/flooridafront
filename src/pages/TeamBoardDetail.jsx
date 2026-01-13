@@ -12,7 +12,7 @@ import {
   getTeamBoardComments,
   toggleTeamBoardLike,
 } from "../services/teamBoard.js";
-import { http } from "../services/api.js";
+import { http, getTeamCharacters } from "../services/api.js";
 
 // ✅ 기본 바디
 import baseChar from "../assets/ch/cha_1.png";
@@ -246,14 +246,16 @@ export default function TeamBoardDetail() {
 
       try {
         const [charsRes, badgesRes] = await Promise.allSettled([
-          http.get(`/api/items/${teamId}/characters`),
+          getTeamCharacters(teamId),
           http.get(`/api/badges/team/${teamId}/members`),
         ]);
 
         if (ignore) return;
 
         const chars =
-          charsRes.status === "fulfilled" ? normalizeList(charsRes.value) : [];
+          charsRes.status === "fulfilled"
+            ? (Array.isArray(charsRes.value) ? charsRes.value : normalizeList(charsRes.value))
+            : [];
         const badges =
           badgesRes.status === "fulfilled"
             ? normalizeList(badgesRes.value)
