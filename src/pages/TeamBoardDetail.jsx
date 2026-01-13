@@ -232,6 +232,7 @@ export default function TeamBoardDetail() {
 
   const [commentText, setCommentText] = useState("");
   const [sending, setSending] = useState(false);
+  const [liking, setLiking] = useState(false);
 
   // ✅ 팀원 캐릭터/뱃지 상태
   const [membersChars, setMembersChars] = useState([]);
@@ -379,19 +380,21 @@ export default function TeamBoardDetail() {
   }, [post]);
 
   const onToggleLike = async () => {
-    if (!post) return;
+    if (!post || liking) return;
 
+    const prevLiked = !!(
+      post.liked ??
+      post.isLiked ??
+      post.myLike ??
+      post._liked
+    );
+    const prevCount = toNum(post.likeCount, 0);
+
+    // Optimistic Update
     setPost((prev) => {
       if (!prev) return prev;
-      const nowLiked = !!(
-        prev.liked ??
-        prev.isLiked ??
-        prev.myLike ??
-        prev._liked
-      );
-      const nowCount = toNum(prev.likeCount, 0);
-      const nextLiked = !nowLiked;
-      const nextCount = Math.max(0, nowCount + (nextLiked ? 1 : -1));
+      const nextLiked = !prevLiked;
+      const nextCount = Math.max(0, prevCount + (nextLiked ? 1 : -1));
       return {
         ...prev,
         _liked: nextLiked,
@@ -400,6 +403,7 @@ export default function TeamBoardDetail() {
       };
     });
 
+    setLiking(true);
     try {
       const res = await toggleTeamBoardLike(teamId, boardId);
       if (res && typeof res === "object" && res.likeCount != null) {
@@ -410,24 +414,18 @@ export default function TeamBoardDetail() {
         );
       }
     } catch (_) {
+      // 에러 시 원복
       setPost((prev) => {
         if (!prev) return prev;
-        const nowLiked = !!(
-          prev.liked ??
-          prev.isLiked ??
-          prev.myLike ??
-          prev._liked
-        );
-        const nowCount = toNum(prev.likeCount, 0);
-        const nextLiked = !nowLiked;
-        const nextCount = Math.max(0, nowCount + (nextLiked ? 1 : -1));
         return {
           ...prev,
-          _liked: nextLiked,
-          liked: nextLiked,
-          likeCount: nextCount,
+          _liked: prevLiked,
+          liked: prevLiked,
+          likeCount: prevCount,
         };
       });
+    } finally {
+      setLiking(false);
     }
   };
 
@@ -496,9 +494,8 @@ export default function TeamBoardDetail() {
             </div>
 
             <button
-              className={`tp-like-pill tp-figma-like ${
-                vm.liked ? "is-liked" : ""
-              }`}
+              className={`tp-like-pill tp-figma-like ${vm.liked ? "is-liked" : ""
+                }`}
               onClick={onToggleLike}
               type="button"
               aria-label="좋아요"
