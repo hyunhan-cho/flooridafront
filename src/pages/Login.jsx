@@ -79,46 +79,50 @@ export default function Login() {
           <h2 className="login-title">로그인</h2>
           <p className="login-subtitle">플로리다에 오신 것을 환영합니다!</p>
 
-          <label className="login-label" htmlFor="email">
-            아이디
-          </label>
-          <input
-            id="email"
-            className="login-input"
-            type="email"
-            placeholder="name1234@naver.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-
-          <label className="login-label" htmlFor="password">
-            비밀번호
-          </label>
-          <input
-            id="password"
-            className="login-input"
-            type="password"
-            placeholder="비밀번호를 입력하세요"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleLogin();
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleLogin();
             }}
-          />
-
-          {error && (
-            <div style={{ color: "#ef4444", fontSize: 12, marginTop: 8 }}>
-              {error}
-            </div>
-          )}
-
-          <button
-            className="login-button"
-            onClick={handleLogin}
-            disabled={loading}
           >
-            {loading ? "로그인 중…" : "플로리다 시작!"}
-          </button>
+            <label className="login-label" htmlFor="email">
+              아이디
+            </label>
+            <input
+              id="email"
+              className="login-input"
+              type="email"
+              placeholder="name1234@naver.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+
+            <label className="login-label" htmlFor="password">
+              비밀번호
+            </label>
+            <input
+              id="password"
+              className="login-input"
+              type="password"
+              placeholder="비밀번호를 입력하세요"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+
+            {error && (
+              <div style={{ color: "#ef4444", fontSize: 12, marginTop: 8 }}>
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              className="login-button"
+              disabled={loading}
+            >
+              {loading ? "로그인 중…" : "플로리다 시작!"}
+            </button>
+          </form>
 
           <div className="login-footer">
             <span>계정이 없으신가요?</span>

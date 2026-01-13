@@ -98,7 +98,7 @@ export default function DirectAddForm({ onBack, onSuccess }) {
           style={{
             background: "#ffffff",
             borderRadius: "28px",
-            minHeight: "870px",
+            minHeight: "85vh", // 화면 크기에 유동적으로 대응
             boxShadow: "0 20px 40px rgba(0,0,0,0.35)",
             margin: 0,
             padding: "20px",
@@ -419,10 +419,10 @@ export default function DirectAddForm({ onBack, onSuccess }) {
                                     start || end
                                       ? "var(--brand-teal)"
                                       : inRange
-                                      ? "rgba(58, 130, 132, 0.2)"
-                                      : todayCell
-                                      ? "#d1d5db"
-                                      : "transparent",
+                                        ? "rgba(58, 130, 132, 0.2)"
+                                        : todayCell
+                                          ? "#d1d5db"
+                                          : "transparent",
                                   borderRadius: "50%",
                                   cursor: d ? "pointer" : "default",
                                   transition: "background-color 0.2s ease",
@@ -465,9 +465,9 @@ export default function DirectAddForm({ onBack, onSuccess }) {
                 <span className="directFieldText directDateText">
                   {startDate && endDate
                     ? `${startDate.replace(/-/g, ".")}.~${endDate.replace(
-                        /-/g,
-                        "."
-                      )}.`
+                      /-/g,
+                      "."
+                    )}.`
                     : "목표 기간을 선택하세요"}
                 </span>
               )}
@@ -492,6 +492,7 @@ export default function DirectAddForm({ onBack, onSuccess }) {
             className="directPrimaryBtn"
             type="button"
             onClick={handleCreatePlan}
+            style={{ marginTop: "auto" }}
           >
             계획 생성하기!
           </button>
