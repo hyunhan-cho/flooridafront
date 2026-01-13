@@ -114,9 +114,24 @@ export default function Home() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // ✅✅✅ Zustand store에서 캐싱된 데이터 사용 (Hook 상단 이동)
+  const {
+    profile: cachedProfile,
+    character: cachedCharacter,
+    todayFloors: cachedTodayFloors,
+    itemMetadata,
+    fetchProfile,
+    fetchCharacter,
+    fetchTodayFloors,
+    fetchItemMetadata,
+  } = useUserStore();
+
+  // ✅ 초기 레벨 설정 (배경 깜빡임 방지)
+  const initialLevel = cachedProfile?.personalLevel ?? 1;
+
   const [isOpen, setIsOpen] = useState(true);
   const [isMoving, setIsMoving] = useState(false);
-  const [currentFloor, setCurrentFloor] = useState(1);
+  const [currentFloor, setCurrentFloor] = useState(initialLevel);
   const [direction, setDirection] = useState("up");
 
   // ✅ 캐릭터 관련 상태
@@ -139,19 +154,9 @@ export default function Home() {
   // ✅ 주간 모달: 팝업 큐 끝난 뒤에만
   const [showWeeklyModal, setShowWeeklyModal] = useState(false);
 
-  // ✅✅✅ Zustand store에서 캐싱된 데이터 사용 (모든 useEffect 전에 선언 필수!)
-  const {
-    profile: cachedProfile,
-    character: cachedCharacter,
-    todayFloors: cachedTodayFloors,
-    itemMetadata,
-    fetchProfile,
-    fetchCharacter,
-    fetchTodayFloors,
-    fetchItemMetadata,
-  } = useUserStore();
 
-  const [personalLevel, setPersonalLevel] = useState(1); // 현재 층수
+
+  const [personalLevel, setPersonalLevel] = useState(initialLevel); // 현재 층수
   const pendingFloorRef = useRef(null);
   const hasInitialFloorSyncRef = useRef(false);
 

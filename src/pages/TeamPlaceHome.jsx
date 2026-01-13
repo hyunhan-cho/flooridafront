@@ -398,14 +398,23 @@ export default function TeamPlaceHome() {
 
   const TEAM_LEVEL_CACHE_KEY = `teamLevel:${teamId}`;
 
+  const getInitialLevel = () => {
+    if (!Number.isFinite(teamId)) return 1;
+    try {
+      const v = localStorage.getItem(`teamLevel:${teamId}`);
+      const n = Number(v);
+      return (Number.isFinite(n) && n >= 1) ? n : 1;
+    } catch { return 1; }
+  };
+
   const [isOpen, setIsOpen] = useState(true);
   const [isMoving, setIsMoving] = useState(false);
 
-  // ✅ 애니메이션 기준 currentFloor는 1 유지 OK
-  const [currentFloor, setCurrentFloor] = useState(1);
+  // ✅ 배경 깜빡임 방지: 초기값으로 캐시된 레벨 사용
+  const [currentFloor, setCurrentFloor] = useState(getInitialLevel);
 
-  // ✅ 초기 로딩 동안 '1' 깜빡임 제거: null이면 숫자 숨김
-  const [teamLevel, setTeamLevel] = useState(null);
+  // ✅ 상단 숫자도 바로 보여주기
+  const [teamLevel, setTeamLevel] = useState(getInitialLevel);
 
   // ✅ Store 사용 (캐싱 & 상태관리)
   const { fetchTeamInfo, fetchTeamFloors, fetchTeamCharacters, fetchTeamBadges, teamCache } = useTeamStore();
@@ -509,28 +518,17 @@ export default function TeamPlaceHome() {
   };
 
   // ✅ teamId 바뀌면 refs 초기화 + 로딩 중 숫자 숨김(null)
+  // ✅ teamId 바뀌면 캐시된 레벨로 초기화 (1층 리셋 방지)
   useEffect(() => {
     didInitFromServerRef.current = false;
     lastAppliedLevelRef.current = null;
 
-    setTeamLevel(null);
-    setCurrentFloor(1);
+    const initLvl = getInitialLevel();
+    setTeamLevel(initLvl);
+    setCurrentFloor(initLvl);
 
     // Store 사용으로 로컬 state 초기화 불필요
   }, [teamId]);
-
-  // ✅ 캐시된 teamLevel이 있으면 서버 오기 전 먼저 보여주기
-  useEffect(() => {
-    if (!Number.isFinite(teamId)) return;
-
-    try {
-      const cached = localStorage.getItem(TEAM_LEVEL_CACHE_KEY);
-      const n = Number(cached);
-      if (Number.isFinite(n) && n >= 1) {
-        setTeamLevel(n);
-      }
-    } catch (_) { }
-  }, [teamId, TEAM_LEVEL_CACHE_KEY]);
 
   // ✅ Store를 이용한 데이터 로딩 (병렬 & 캐싱)
   useEffect(() => {
