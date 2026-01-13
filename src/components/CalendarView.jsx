@@ -78,6 +78,8 @@ export default function CalendarView({
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [scheduleToDelete, setScheduleToDelete] = useState(null);
   const [taskPage, setTaskPage] = useState(0); // ✅ 페이지네이션 상태
+  const [subtaskPage, setSubtaskPage] = useState(0);
+  const SUBTASKS_PER_PAGE = 5;
   const today = new Date();
 
   const cells = buildMonthMatrix(currentDate);
@@ -413,6 +415,7 @@ export default function CalendarView({
                           onTaskSelect?.(isSelected ? null : task);
                           // 계획 클릭 시 바로 토글 열기/닫기
                           onEditingTaskChange?.(isExpanded ? null : task);
+                          setSubtaskPage(0);
                         }}
                         style={{
                           background: isSelected
@@ -496,213 +499,332 @@ export default function CalendarView({
                             border: "1px solid #e5e7eb",
                           }}
                         >
-                          {task.subtasks.map((detailSubtask, index) => {
-                            // startDate부터 시작해서 각 subtask의 날짜 계산
-                            let taskDate = null;
-                            if (task.startDate) {
-                              taskDate = new Date(task.startDate);
-                              taskDate.setDate(taskDate.getDate() + index);
-                            }
-
-                            const weekdays = [
-                              "일",
-                              "월",
-                              "화",
-                              "수",
-                              "목",
-                              "금",
-                              "토",
-                            ];
-                            const weekday = taskDate
-                              ? weekdays[taskDate.getDay()]
-                              : "";
-                            const month = taskDate ? taskDate.getMonth() + 1 : 0;
-                            const day = taskDate ? taskDate.getDate() : 0;
+                          {(() => {
+                            const subtasks = task.subtasks || [];
+                            const totalSubPages = Math.ceil(
+                              subtasks.length / SUBTASKS_PER_PAGE
+                            );
+                            const currentSubPage =
+                              subtaskPage >= totalSubPages ? 0 : subtaskPage;
+                            const startIdx = currentSubPage * SUBTASKS_PER_PAGE;
+                            const currentSubtasks = subtasks.slice(
+                              startIdx,
+                              startIdx + SUBTASKS_PER_PAGE
+                            );
 
                             return (
-                              <div
-                                key={detailSubtask.id}
-                                style={{
-                                  background: "#f3f4f6",
-                                  borderRadius: "8px",
-                                  padding: "10px 12px",
-                                  marginBottom: "8px",
-                                  display: "flex",
-                                  justifyContent: "space-between",
-                                  alignItems: "center",
-                                }}
-                              >
-                                <div
-                                  style={{
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    gap: "4px",
-                                  }}
-                                >
-                                  {taskDate && (
-                                    <span
+                              <>
+                                {currentSubtasks.map((detailSubtask, i) => {
+                                  const index = startIdx + i;
+                                  // startDate부터 시작해서 각 subtask의 날짜 계산
+                                  let taskDate = null;
+                                  if (task.startDate) {
+                                    taskDate = new Date(task.startDate);
+                                    taskDate.setDate(
+                                      taskDate.getDate() + index
+                                    );
+                                  }
+
+                                  const weekdays = [
+                                    "일",
+                                    "월",
+                                    "화",
+                                    "수",
+                                    "목",
+                                    "금",
+                                    "토",
+                                  ];
+                                  const weekday = taskDate
+                                    ? weekdays[taskDate.getDay()]
+                                    : "";
+                                  const month = taskDate
+                                    ? taskDate.getMonth() + 1
+                                    : 0;
+                                  const day = taskDate
+                                    ? taskDate.getDate()
+                                    : 0;
+
+                                  return (
+                                    <div
+                                      key={detailSubtask.id}
                                       style={{
-                                        fontSize: "14px",
-                                        fontWeight: 600,
-                                        color: "#111827",
-                                        fontFamily: "var(--font-sans)",
+                                        background: "#f3f4f6",
+                                        borderRadius: "8px",
+                                        padding: "10px 12px",
+                                        marginBottom: "8px",
+                                        display: "flex",
+                                        justifyContent: "space-between",
+                                        alignItems: "center",
                                       }}
                                     >
-                                      {month}/{day}({weekday})
-                                    </span>
-                                  )}
-                                  {editingFloor === detailSubtask.id ? (
-                                    <input
-                                      type="text"
-                                      value={editingFloorText}
-                                      onChange={(e) =>
-                                        onEditingFloorTextChange?.(e.target.value)
-                                      }
-                                      onKeyDown={(e) => {
-                                        if (e.key === "Enter") {
-                                          e.preventDefault();
-                                        }
-                                      }}
-                                      style={{
-                                        fontSize: "12px",
-                                        fontWeight: 500,
-                                        color: "#374151",
-                                        fontFamily: "var(--font-sans)",
-                                        background: "#ffffff",
-                                        border: "1px solid #d1d5db",
-                                        borderRadius: "6px",
-                                        padding: "4px 8px",
-                                        width: "100%",
-                                        maxWidth: "300px",
-                                      }}
-                                      autoFocus
-                                    />
-                                  ) : (
-                                    <span
-                                      style={{
-                                        fontSize: "12px",
-                                        fontWeight: 500,
-                                        color: "#374151",
-                                        fontFamily: "var(--font-sans)",
-                                      }}
-                                    >
-                                      {detailSubtask.text}
-                                    </span>
-                                  )}
-                                </div>
-                                {editingFloor === detailSubtask.id ? (
+                                      <div
+                                        style={{
+                                          display: "flex",
+                                          flexDirection: "column",
+                                          gap: "4px",
+                                        }}
+                                      >
+                                        {taskDate && (
+                                          <span
+                                            style={{
+                                              fontSize: "14px",
+                                              fontWeight: 600,
+                                              color: "#111827",
+                                              fontFamily: "var(--font-sans)",
+                                            }}
+                                          >
+                                            {month}/{day}({weekday})
+                                          </span>
+                                        )}
+                                        {editingFloor === detailSubtask.id ? (
+                                          <input
+                                            type="text"
+                                            value={editingFloorText}
+                                            onChange={(e) =>
+                                              onEditingFloorTextChange?.(
+                                                e.target.value
+                                              )
+                                            }
+                                            onKeyDown={(e) => {
+                                              if (e.key === "Enter") {
+                                                e.preventDefault();
+                                              }
+                                            }}
+                                            style={{
+                                              fontSize: "12px",
+                                              fontWeight: 500,
+                                              color: "#374151",
+                                              fontFamily: "var(--font-sans)",
+                                              background: "#ffffff",
+                                              border: "1px solid #d1d5db",
+                                              borderRadius: "6px",
+                                              padding: "4px 8px",
+                                              width: "100%",
+                                              maxWidth: "300px",
+                                            }}
+                                            autoFocus
+                                          />
+                                        ) : (
+                                          <span
+                                            style={{
+                                              fontSize: "12px",
+                                              fontWeight: 500,
+                                              color: "#374151",
+                                              fontFamily: "var(--font-sans)",
+                                            }}
+                                          >
+                                            {detailSubtask.text}
+                                          </span>
+                                        )}
+                                      </div>
+                                      {editingFloor === detailSubtask.id ? (
+                                        <div
+                                          style={{
+                                            display: "flex",
+                                            flexDirection: "column",
+                                            gap: "4px",
+                                            alignItems: "flex-end",
+                                            flexShrink: 0,
+                                          }}
+                                        >
+                                          <button
+                                            onClick={async (e) => {
+                                              e.stopPropagation();
+                                              if (
+                                                window.confirm(
+                                                  "이 세부 계획을 삭제하시겠습니까? 삭제된 계획은 복구할 수 없습니다."
+                                                )
+                                              ) {
+                                                try {
+                                                  await onFloorDelete?.(
+                                                    detailSubtask.id
+                                                  );
+                                                  onEditingFloorChange?.(null);
+                                                  onEditingFloorTextChange?.(
+                                                    ""
+                                                  );
+                                                } catch (error) {
+                                                  console.error(
+                                                    "세부 계획 삭제 실패:",
+                                                    error
+                                                  );
+                                                  const errorMessage =
+                                                    error.status === 500
+                                                      ? "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+                                                      : error.data?.message ||
+                                                      error.message ||
+                                                      "세부 계획 삭제에 실패했습니다.";
+                                                  alert(errorMessage);
+                                                }
+                                              }
+                                            }}
+                                            style={{
+                                              background: "#ef4444",
+                                              border: "none",
+                                              borderRadius: "6px",
+                                              padding: "4px 12px",
+                                              fontSize:
+                                                "clamp(9px, 2vw, 11px)",
+                                              fontWeight: 600,
+                                              color: "#fff",
+                                              cursor: "pointer",
+                                              fontFamily: "var(--font-sans)",
+                                              display: "flex",
+                                              alignItems: "center",
+                                              justifyContent: "center",
+                                              flexShrink: 0,
+                                              whiteSpace: "nowrap",
+                                              width: "100%",
+                                              minWidth: "60px",
+                                            }}
+                                          >
+                                            ✕
+                                          </button>
+                                          <button
+                                            onClick={async (e) => {
+                                              e.stopPropagation();
+                                              try {
+                                                await onFloorUpdate?.(
+                                                  detailSubtask.id,
+                                                  {
+                                                    title: editingFloorText,
+                                                  }
+                                                );
+                                                onEditingFloorChange?.(null);
+                                                onEditingFloorTextChange?.("");
+                                                // 토글은 열어둠
+                                              } catch (error) {
+                                                console.error(
+                                                  "계획 수정 실패:",
+                                                  error
+                                                );
+                                                alert(
+                                                  "계획 수정에 실패했습니다."
+                                                );
+                                              }
+                                            }}
+                                            style={{
+                                              background: "var(--brand-teal)",
+                                              border: "none",
+                                              borderRadius: "6px",
+                                              padding: "4px 12px",
+                                              fontSize:
+                                                "clamp(9px, 2vw, 11px)",
+                                              fontWeight: 600,
+                                              color: "#fff",
+                                              cursor: "pointer",
+                                              fontFamily: "var(--font-sans)",
+                                              whiteSpace: "nowrap",
+                                              flexShrink: 0,
+                                              width: "100%",
+                                              minWidth: "60px",
+                                            }}
+                                          >
+                                            완료
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <img
+                                          src={editIcon}
+                                          alt="수정"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            onEditingFloorChange?.(
+                                              detailSubtask.id
+                                            );
+                                            onEditingFloorTextChange?.(
+                                              detailSubtask.text
+                                            );
+                                          }}
+                                          style={{
+                                            width: "14px",
+                                            height: "14px",
+                                            cursor: "pointer",
+                                          }}
+                                        />
+                                      )}
+                                    </div>
+                                  );
+                                })}
+
+                                {/* 페이지네이션 컨트롤 */}
+                                {totalSubPages > 1 && (
                                   <div
                                     style={{
                                       display: "flex",
-                                      flexDirection: "column",
-                                      gap: "4px",
-                                      alignItems: "flex-end",
-                                      flexShrink: 0,
+                                      justifyContent: "center",
+                                      gap: "12px",
+                                      marginTop: "16px",
+                                      marginBottom: "16px", // 하단 여백 추가
+                                      alignItems: "center",
                                     }}
                                   >
                                     <button
-                                      onClick={async (e) => {
+                                      onClick={(e) => {
                                         e.stopPropagation();
-                                        if (
-                                          window.confirm(
-                                            "이 세부 계획을 삭제하시겠습니까? 삭제된 계획은 복구할 수 없습니다."
-                                          )
-                                        ) {
-                                          try {
-                                            await onFloorDelete?.(detailSubtask.id);
-                                            onEditingFloorChange?.(null);
-                                            onEditingFloorTextChange?.("");
-                                          } catch (error) {
-                                            console.error(
-                                              "세부 계획 삭제 실패:",
-                                              error
-                                            );
-                                            const errorMessage =
-                                              error.status === 500
-                                                ? "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
-                                                : error.data?.message ||
-                                                error.message ||
-                                                "세부 계획 삭제에 실패했습니다.";
-                                            alert(errorMessage);
-                                          }
-                                        }
+                                        setSubtaskPage((p) =>
+                                          Math.max(0, p - 1)
+                                        );
                                       }}
+                                      disabled={currentSubPage === 0}
                                       style={{
-                                        background: "#ef4444",
                                         border: "none",
-                                        borderRadius: "6px",
-                                        padding: "4px 12px",
-                                        fontSize: "clamp(9px, 2vw, 11px)",
-                                        fontWeight: 600,
-                                        color: "#fff",
-                                        cursor: "pointer",
-                                        fontFamily: "var(--font-sans)",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        flexShrink: 0,
-                                        whiteSpace: "nowrap",
-                                        width: "100%",
-                                        minWidth: "60px",
+                                        background: "transparent",
+                                        cursor:
+                                          currentSubPage === 0
+                                            ? "default"
+                                            : "pointer",
+                                        opacity:
+                                          currentSubPage === 0 ? 0.3 : 1,
+                                        fontWeight: "bold",
+                                        fontSize: "18px",
+                                        color: "#333",
                                       }}
                                     >
-                                      ✕
+                                      &lt;
                                     </button>
-                                    <button
-                                      onClick={async (e) => {
-                                        e.stopPropagation();
-                                        try {
-                                          await onFloorUpdate?.(detailSubtask.id, {
-                                            title: editingFloorText,
-                                          });
-                                          onEditingFloorChange?.(null);
-                                          onEditingFloorTextChange?.("");
-                                          // 토글은 열어둠
-                                        } catch (error) {
-                                          console.error("계획 수정 실패:", error);
-                                          alert("계획 수정에 실패했습니다.");
-                                        }
-                                      }}
+                                    <span
                                       style={{
-                                        background: "var(--brand-teal)",
-                                        border: "none",
-                                        borderRadius: "6px",
-                                        padding: "4px 12px",
-                                        fontSize: "clamp(9px, 2vw, 11px)",
-                                        fontWeight: 600,
-                                        color: "#fff",
-                                        cursor: "pointer",
-                                        fontFamily: "var(--font-sans)",
-                                        whiteSpace: "nowrap",
-                                        flexShrink: 0,
-                                        width: "100%",
-                                        minWidth: "60px",
+                                        fontSize: "14px",
+                                        fontWeight: "bold",
+                                        color: "#4b5563",
                                       }}
                                     >
-                                      완료
+                                      {currentSubPage + 1} / {totalSubPages}
+                                    </span>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSubtaskPage((p) =>
+                                          Math.min(totalSubPages - 1, p + 1)
+                                        );
+                                      }}
+                                      disabled={
+                                        currentSubPage === totalSubPages - 1
+                                      }
+                                      style={{
+                                        border: "none",
+                                        background: "transparent",
+                                        cursor:
+                                          currentSubPage === totalSubPages - 1
+                                            ? "default"
+                                            : "pointer",
+                                        opacity:
+                                          currentSubPage === totalSubPages - 1
+                                            ? 0.3
+                                            : 1,
+                                        fontWeight: "bold",
+                                        fontSize: "18px",
+                                        color: "#333",
+                                      }}
+                                    >
+                                      &gt;
                                     </button>
                                   </div>
-                                ) : (
-                                  <img
-                                    src={editIcon}
-                                    alt="수정"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      onEditingFloorChange?.(detailSubtask.id);
-                                      onEditingFloorTextChange?.(
-                                        detailSubtask.text
-                                      );
-                                    }}
-                                    style={{
-                                      width: "14px",
-                                      height: "14px",
-                                      cursor: "pointer",
-                                    }}
-                                  />
                                 )}
-                              </div>
+                              </>
                             );
-                          })}
+                          })()}
                           <div
                             style={{
                               display: "flex",
