@@ -524,8 +524,32 @@ const Customize = () => {
       await refreshEquipped();
       alert("장착 완료!");
       closePopup();
-    } catch {
-      alert("장착 실패");
+    } catch (e) {
+      if (e?.status === 409) {
+        // [Auto-Swap] 배지 슬롯이 꽉 찼을 때 자동 교체 제안
+        if (selectedItem.uiCategory === "badge" && equippedBadges.length > 0) {
+          const toRemove = equippedBadges[0]; // 첫 번째 배지를 교체 대상으로 선정
+          const removeName = toRemove.name || toRemove.title || "기존 배지";
+
+          if (window.confirm(`뱃지 장착 슬롯이 가득 찼습니다.\n'${removeName}'을(를) 해제하고 장착하시겠습니까?`)) {
+            try {
+              const rmId = toRemove.badgeId ?? toRemove.id;
+              await unequipBadge(rmId);
+              await equipBadge(selectedItem.id);
+              await refreshEquipped();
+              alert("교체 완료!");
+              closePopup();
+              return;
+            } catch (retryErr) {
+              alert("교체 실패: " + (retryErr?.message || "다시 시도해주세요."));
+              return;
+            }
+          }
+        }
+        alert("이미 장착 중이거나, 장착 가능한 최대 개수를 초과했습니다.");
+      } else {
+        alert(e?.message || "장착 실패");
+      }
     }
   };
 
