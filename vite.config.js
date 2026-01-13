@@ -8,6 +8,9 @@ export default defineConfig({
     }),
   ],
   server: {
+    watch: {
+      usePolling: true,
+    },
     proxy: {
       "/api": {
         target: "https://app.floorida.site",

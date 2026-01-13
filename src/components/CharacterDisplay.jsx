@@ -2,6 +2,7 @@
 import React from "react";
 import { buildLayerStyleFromServer, pickImgUrl } from "../utils/characterUtils";
 import "./CharacterDisplay.css";
+import baseChar from "../assets/ch/cha_1.png";
 
 /**
  * 캐릭터(베이스 + 아이템 + 뱃지)를 레이어링하여 보여주는 컴포넌트
@@ -16,50 +17,52 @@ export default function CharacterDisplay({
     className = "",
     style = {},
 }) {
+    // FACE 아이템 찾기
+    const faceItem = items.find(
+        (it) => it.type === "FACE" || it.uiCategory === "face"
+    );
+
+    // 베이스 이미지: props로 받은 base -> FACE 아이템 -> 기본 캐릭터
+    const baseImg = base || pickImgUrl(faceItem) || baseChar;
+
+    // FACE가 아닌 아이템들 (액세서리)
+    const accessoryItems = items.filter(
+        (it) => it.type !== "FACE" && it.uiCategory !== "face"
+    );
+
     return (
         <div className={`character-display-container ${className}`} style={style}>
             {/* 1. 베이스 캐릭터 */}
-            {base && (
+            {baseImg && (
                 <img
-                    src={base}
+                    src={baseImg}
                     alt="character base"
-                    className="character-layer-img"
+                    className="character-layer-base"
                     style={{ zIndex: 0 }}
                 />
             )}
 
-            {/* 2. 아이템 (FACE는 z-index 1, ACCESSORY는 z-index 2) */}
-            {items
-                .slice()
-                .sort((a, b) => {
-                    // FACE가 먼저 오도록 정렬
-                    const typeA = a.type || a.uiCategory; // 메타데이터에 type 있음
-                    const typeB = b.type || b.uiCategory;
-                    if (typeA === "FACE" && typeB !== "FACE") return -1;
-                    if (typeA !== "FACE" && typeB === "FACE") return 1;
-                    return 0;
-                })
-                .map((item, idx) => {
-                    const src = pickImgUrl(item);
-                    if (!src) return null;
+            {/* 2. 액세서리 아이템 */}
+            {accessoryItems.map((item, idx) => {
+                const src = pickImgUrl(item);
+                if (!src) return null;
 
-                    const layerStyle = buildLayerStyleFromServer(item);
-                    const isFace = item.type === "FACE" || item.uiCategory === "face";
-                    // FACE는 베이스 바로 위(1), 액세서리는 그 위(2)
-                    const zIndex = isFace ? 1 : 2;
+                const layerStyle = buildLayerStyleFromServer(item);
 
-                    return (
-                        <img
-                            key={`item-${item.id || idx}`}
-                            src={src}
-                            alt={item.name || "item"}
-                            className="character-layer-img"
-                            style={{ ...layerStyle, zIndex }}
-                        />
-                    );
-                })}
+                return (
+                    <img
+                        key={`item-${item.id || item.itemId || idx}`}
+                        src={src}
+                        alt={item.name || "item"}
+                        className="character-layer-item"
+                        style={{ ...layerStyle, zIndex: 2 + idx }}
+                        onLoad={(e) => { e.currentTarget.dataset.ready = "true"; }}
+                        onError={(e) => { e.currentTarget.style.display = "none"; }}
+                    />
+                );
+            })}
 
-            {/* 3. 뱃지 (z-index 3 이상) */}
+            {/* 3. 뱃지 */}
             {badges.map((badge, idx) => {
                 const src = pickImgUrl(badge);
                 if (!src) return null;
@@ -67,11 +70,13 @@ export default function CharacterDisplay({
                 const layerStyle = buildLayerStyleFromServer(badge);
                 return (
                     <img
-                        key={`badge-${badge.id || idx}`}
+                        key={`badge-${badge.id || badge.badgeId || idx}`}
                         src={src}
                         alt={badge.name || "badge"}
-                        className="character-layer-img"
-                        style={{ ...layerStyle, zIndex: 3 + idx }}
+                        className="character-layer-item"
+                        style={{ ...layerStyle, zIndex: 10 + idx }}
+                        onLoad={(e) => { e.currentTarget.dataset.ready = "true"; }}
+                        onError={(e) => { e.currentTarget.style.display = "none"; }}
                     />
                 );
             })}

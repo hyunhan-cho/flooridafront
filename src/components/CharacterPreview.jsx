@@ -78,12 +78,31 @@ function buildLayerStyle(raw) {
   const y = toNum(pick(raw, "offsetY", "offset_y", "y", "top", "posY"));
   const w = toNum(pick(raw, "width", "w", "itemWidth"));
   const h = toNum(pick(raw, "height", "h", "itemHeight"));
+  const sRaw = pick(raw, "scale", "size");
+
+  const sNum = toNum(sRaw);
+  // 10보다 크면 백분율로 간주 (e.g. 85 -> 0.85)
+  const scale = sNum == null ? null : sNum > 10 ? sNum / 100 : sNum;
 
   const style = {};
   if (x != null) style.left = `${x}px`;
   if (y != null) style.top = `${y}px`;
-  if (w != null && w > 0) style.width = `${w}px`;
-  if (h != null && h > 0) style.height = `${h}px`;
+
+  // width/height가 3 이하(비율?)가 아니면 px로 적용
+  const looksLikeRatio = (n) => n != null && n > 0 && n <= 3;
+  if (w != null && !looksLikeRatio(w)) style.width = `${w}px`;
+  if (h != null && !looksLikeRatio(h)) style.height = `${h}px`;
+
+  // w/h가 없거나 비율이거나, scale이 있으면 transform 적용
+  if (
+    (w == null || h == null || looksLikeRatio(w) || looksLikeRatio(h)) &&
+    scale != null &&
+    scale !== 1
+  ) {
+    style.transform = `scale(${scale})`;
+    style.transformOrigin = "top left";
+  }
+
   return style;
 }
 
@@ -196,11 +215,12 @@ export function MemberCharacterPreview({
       .map((it, idx) => {
         const url = pickImgUrl(it);
         if (!url) return null;
+        const style = buildLayerStyle(it);
         return {
           key: `it-${uid}-${idx}`,
           kind: "item",
           url,
-          style: buildLayerStyle(it),
+          style,
         };
       })
       .filter(Boolean);
@@ -214,11 +234,12 @@ export function MemberCharacterPreview({
       .map((b, idx) => {
         const url = pickImgUrl(b);
         if (!url) return null;
+        const style = buildLayerStyle(b);
         return {
           key: `bd-${uid}-${idx}`,
           kind: "badge",
           url,
-          style: buildLayerStyle(b),
+          style,
         };
       })
       .filter(Boolean);

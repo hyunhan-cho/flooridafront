@@ -330,19 +330,11 @@ export default function Mypage() {
             <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
               <div
                 style={{
-                  width: "50px",
-                  height: "50px",
-                  background:
-                    equippedItems.length > 0 || equippedBadges.length > 0
-                      ? "transparent"
-                      : "#e5e7eb",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "32px",
+                  width: "60px",
+                  height: "66px",
                   position: "relative",
-                  overflow: "hidden", // 삐져나감 방지
-                  borderRadius: "50%" // 원형 클리핑 (선택사항)
+                  flexShrink: 0,
+                  overflow: "visible",
                 }}
               >
                 {/* CharacterDisplay 사용 */}
@@ -351,10 +343,10 @@ export default function Mypage() {
                   items={mergedItems}
                   badges={equippedBadges}
                   style={{
-                    width: "114px",
-                    height: "126px",
-                    transform: "scale(0.5)",
-                    transformOrigin: "center center",
+                    position: "absolute",
+                    top: "50%",
+                    left: "50%",
+                    transform: "translate(-50%, -50%) scale(0.52)",
                   }}
                 />
               </div>

@@ -2,15 +2,20 @@
 
 .character-display-container {
     position: relative;
-    /* 크기는 부모에서 제어 */
-    width: 100%;
-    height: 100%;
-    /* 픽셀 아트 렌더링 */
+    /* ✅ 기본 크기 고정 - 인라인 스타일로 덮어쓰기 가능 */
+    width: 114px !important;
+    height: 126px !important;
+    min-width: 114px;
+    min-height: 126px;
+    max-width: 114px;
+    max-height: 126px;
+    flex-shrink: 0;
     image-rendering: pixelated;
+    overflow: visible;
 }
 
-/* 로딩 깜빡임 방지 로직 제거하고 항상 보이게 수정 */
-.character-layer-img {
+/* 베이스 캐릭터 */
+.character-layer-base {
     position: absolute;
     top: 0;
     left: 0;
@@ -18,4 +23,18 @@
     height: 100%;
     object-fit: contain;
     pointer-events: none;
+}
+
+/* 아이템/뱃지 */
+.character-layer-item {
+    position: absolute;
+    top: 0;
+    left: 0;
+    object-fit: contain;
+    pointer-events: none;
+    visibility: hidden;
+}
+
+.character-layer-item[data-ready="true"] {
+    visibility: visible;
 }

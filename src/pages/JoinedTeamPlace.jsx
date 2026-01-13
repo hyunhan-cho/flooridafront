@@ -257,6 +257,8 @@ export default function JoinedTeamPlace() {
           align-items: center;
           justify-content: center;
           flex: 0 0 auto;
+          position: relative;
+          z-index: 10;
         }
 
         /* (기존에 있던 bottom 영역은 이제 안 씀 — 남겨둬도 무방하지만, 실사용은 안 함)

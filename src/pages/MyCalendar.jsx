@@ -80,8 +80,32 @@ export default function MyCalendar() {
   const [editingFloorText, setEditingFloorText] = useState(""); // 편집 중인 floor의 텍스트
 
   // 2. tasks를 상태(State)로 선언해야 화면이 업데이트됩니다.
-  const [tasks, setTasks] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // ✅ sessionStorage에서 캐시된 데이터 복원 (새로고침 시 즉시 표시)
+  const [tasks, setTasks] = useState(() => {
+    try {
+      const cached = sessionStorage.getItem("myCalendar_tasks_cache");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      // 캐시 파싱 실패 시 빈 배열
+    }
+    return [];
+  });
+  // ✅ 캐시된 데이터가 있으면 로딩 스피너 안 보여줌
+  const [loading, setLoading] = useState(() => {
+    try {
+      const cached = sessionStorage.getItem("myCalendar_tasks_cache");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        return !(Array.isArray(parsed) && parsed.length > 0);
+      }
+    } catch (e) { }
+    return true;
+  });
 
   // 선택된 날짜의 할 일 불러오기 (모든 floors를 가져온 후 날짜에 맞는 것만 필터링)
   const loadTasksForDate = async (date) => {
@@ -96,7 +120,9 @@ export default function MyCalendar() {
     const month = dateToUse.getMonth() + 1;
     const token = localStorage.getItem(AUTH_TOKEN_KEY);
 
-    setLoading(true);
+    // ✅ Stale-While-Revalidate: 기존 데이터가 있으면 로딩 스피너 안 보여줌
+    // 첫 로드(tasks가 비어있을 때)만 로딩 표시
+    setLoading((prev) => tasks.length === 0 ? true : prev);
 
     if (!token) {
       setTasks([]);
@@ -376,6 +402,17 @@ export default function MyCalendar() {
     loadTasks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentDate]);
+
+  // ✅ tasks가 변경될 때마다 sessionStorage에 캐시 저장
+  useEffect(() => {
+    if (tasks.length > 0) {
+      try {
+        sessionStorage.setItem("myCalendar_tasks_cache", JSON.stringify(tasks));
+      } catch (e) {
+        // sessionStorage 저장 실패 시 무시 (용량 초과 등)
+      }
+    }
+  }, [tasks]);
 
   // AI 생성 일정을 메인 목록에 추가하는 핸들러
   const handleConfirmAiSchedule = async () => {

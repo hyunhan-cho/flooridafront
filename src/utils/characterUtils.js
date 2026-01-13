@@ -45,17 +45,42 @@ export const buildLayerStyleFromServer = (raw, meta = {}) => {
     const y = toNum(yRaw);
     const w = toNum(wRaw);
     const h = toNum(hRaw);
-    const s = toNum(sRaw) ?? 1;
 
-    const style = { position: "absolute" };
+    const sNum = toNum(sRaw);
+    // 10보다 크면 백분율로 간주 (e.g. 85 -> 0.85)
+    const scale = sNum == null ? null : sNum > 10 ? sNum / 100 : sNum;
 
-    if (x !== null) style.left = `${x}px`;
-    if (y !== null) style.top = `${y}px`;
-    if (w !== null) style.width = `${w * s}px`;
-    if (h !== null) style.height = `${h * s}px`;
+    const style = {};
 
-    // 기본적으로 픽셀 아트 스타일링 (선명하게)
-    style.imageRendering = "pixelated";
+    if (x != null) style.left = `${x}px`;
+    if (y != null) style.top = `${y}px`;
+
+    // width/height가 3 이하(비율?)가 아니면 px로 적용
+    const looksLikeRatio = (n) => n != null && n > 0 && n <= 3;
+
+    if (w != null && !looksLikeRatio(w)) {
+        style.width = `${w}px`;
+    } else if (w == null) {
+        // ✅ width가 없으면 기본값 설정 (아이템 크기 제한)
+        style.width = "24px";
+    }
+
+    if (h != null && !looksLikeRatio(h)) {
+        style.height = `${h}px`;
+    } else if (h == null) {
+        // ✅ height가 없으면 기본값 설정 (아이템 크기 제한)
+        style.height = "24px";
+    }
+
+    // w/h가 없거나 비율이거나, scale이 있으면 transform 적용
+    if (
+        (w == null || h == null || looksLikeRatio(w) || looksLikeRatio(h)) &&
+        scale != null &&
+        scale !== 1
+    ) {
+        style.transform = `scale(${scale})`;
+        style.transformOrigin = "top left";
+    }
 
     return style;
 };

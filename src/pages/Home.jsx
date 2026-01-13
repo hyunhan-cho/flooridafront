@@ -139,10 +139,17 @@ export default function Home() {
   // ✅ 주간 모달: 팝업 큐 끝난 뒤에만
   const [showWeeklyModal, setShowWeeklyModal] = useState(false);
 
-  const [tasks, setTasks] = useState([]);
-  const [undoneTasks, setUndoneTasks] = useState([]); // 미달성 퀘스트
-  const [showUndoneQuests, setShowUndoneQuests] = useState(false); // 미달성 퀘스트 토글
-  const [loading, setLoading] = useState(false);
+  // ✅✅✅ Zustand store에서 캐싱된 데이터 사용 (모든 useEffect 전에 선언 필수!)
+  const {
+    profile: cachedProfile,
+    character: cachedCharacter,
+    todayFloors: cachedTodayFloors,
+    itemMetadata,
+    fetchProfile,
+    fetchCharacter,
+    fetchTodayFloors,
+    fetchItemMetadata,
+  } = useUserStore();
 
   const [personalLevel, setPersonalLevel] = useState(1); // 현재 층수
   const pendingFloorRef = useRef(null);
@@ -172,18 +179,6 @@ export default function Home() {
     return merged;
   });
 
-  // ✅✅✅ Zustand store에서 캐싱된 데이터 사용 (모든 useEffect 전에 선언 필수!)
-  const {
-    profile: cachedProfile,
-    character: cachedCharacter,
-    todayFloors: cachedTodayFloors,
-    itemMetadata,
-    fetchProfile,
-    fetchCharacter,
-    fetchTodayFloors,
-    fetchItemMetadata,
-  } = useUserStore();
-
   const goToFloor = (targetFloor) => {
     if (isMoving || !isOpen || currentFloor === targetFloor) {
       return;
@@ -203,6 +198,45 @@ export default function Home() {
       }, 500);
     }, 3500);
   };
+
+  // ✅ sessionStorage에서 캐시된 데이터 복원 (페이지 이동 후 즉시 표시)
+  const [tasks, setTasks] = useState(() => {
+    try {
+      const cached = sessionStorage.getItem("home_tasks_cache");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch (e) { }
+    return [];
+  });
+  const [undoneTasks, setUndoneTasks] = useState(() => {
+    try {
+      const cached = sessionStorage.getItem("home_undoneTasks_cache");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed)) {
+          return parsed;
+        }
+      }
+    } catch (e) { }
+    return [];
+  });
+  const [showUndoneQuests, setShowUndoneQuests] = useState(false);
+
+  // ✅ 캐시된 데이터가 있으면 로딩 false로 시작
+  const [loading, setLoading] = useState(() => {
+    try {
+      const cached = sessionStorage.getItem("home_tasks_cache");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        return !(Array.isArray(parsed) && parsed.length > 0);
+      }
+    } catch (e) { }
+    return true;
+  });
 
   // =========================
   // ✅✅✅ (이식) 뱃지 팝업 데이터
@@ -548,6 +582,22 @@ export default function Home() {
       });
     }
   }, [progressInfo.done, projectCount]);
+
+  // ✅ tasks가 변경될 때마다 sessionStorage에 캐시 저장
+  useEffect(() => {
+    if (tasks.length > 0) {
+      try {
+        sessionStorage.setItem("home_tasks_cache", JSON.stringify(tasks));
+      } catch (e) { }
+    }
+  }, [tasks]);
+
+  // ✅ undoneTasks가 변경될 때마다 sessionStorage에 캐시 저장
+  useEffect(() => {
+    try {
+      sessionStorage.setItem("home_undoneTasks_cache", JSON.stringify(undoneTasks));
+    } catch (e) { }
+  }, [undoneTasks]);
 
   // =========================
   // 오늘 날짜의 작업 목록 불러오기
