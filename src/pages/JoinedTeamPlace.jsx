@@ -5,11 +5,10 @@ import Navbar from "../components/Navbar.jsx";
 import TeamHeader from "../components/TeamHeader.jsx";
 import { getTeams } from "../services/api.js";
 import { getTeamMembersBadges } from "../services/badge.js";
+import { useTeamStore } from "../store/teamStore.js"; // ✅ Store import
 
 // ✅ 팀원 캐릭터 프리뷰 컴포넌트
 import { TeamCharactersPreview } from "../components/CharacterPreview.jsx";
-// ✅ 팀원 캐릭터 조회 API (GET /api/items/{teamId}/characters)
-import { getTeamCharacters } from "../services/team.js";
 
 // ✅ 여기만 너네 라우트에 맞게 필요시 수정
 const JOIN_ROUTE = "/teamplace/join";
@@ -18,6 +17,8 @@ const CREATE_ROUTE = "/teamplace/create";
 export default function JoinedTeamPlace() {
   const navigate = useNavigate();
   const location = useLocation();
+
+  const { fetchTeamCharacters, fetchTeamBadges } = useTeamStore(); // ✅ Store actions
 
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -364,8 +365,11 @@ export default function JoinedTeamPlace() {
                       <div className="teamplace-preview-wrap">
                         <TeamCharactersPreview
                           teamId={team.teamId}
-                          fetcher={getTeamCharacters}
-                          badgesFetcher={getTeamMembersBadges}
+                          fetcher={fetchTeamCharacters} // ✅ Store action 사용
+                          badgesFetcher={async (tid) => {
+                            const map = await fetchTeamBadges(tid);
+                            return Object.values(map || {});
+                          }}
                           max={999}
                           scale={0.5}
                           showNames={false}

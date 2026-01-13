@@ -23,6 +23,7 @@ import baseChar from "../assets/ch/cha_1.png";
 // ✅ 홈이 쓰는 이미지 그대로
 import floorBoardImg from "../assets/img/board 1.png";
 import FloorBackground from "../components/FloorBackground.jsx";
+import { useTeamStore } from "../store/teamStore.js"; // ✅ Store import
 
 function calcDday(targetDate) {
   const today = new Date();
@@ -406,40 +407,54 @@ export default function TeamPlaceHome() {
   // ✅ 초기 로딩 동안 '1' 깜빡임 제거: null이면 숫자 숨김
   const [teamLevel, setTeamLevel] = useState(null);
 
-  const [teamLoading, setTeamLoading] = useState(true);
+  // ✅ Store 사용 (캐싱 & 상태관리)
+  const { fetchTeamInfo, fetchTeamFloors, fetchTeamCharacters, fetchTeamBadges, teamCache } = useTeamStore();
+  const teamData = teamCache[teamId] || {};
 
-  // ✅ 오늘의 진행도(=팀 할일 진행도로 쓰기)
+  const teamFloors = teamData.floors || []; // teamFloors state 대체
+  const info = teamData.info || {};
+  const teamChars = teamData.characters || []; // teamChars state 대체 (배열)
+  const badgeByUserId = teamData.badges || {}; // badgeByUserId state 대체
+
+  // info에서 추출
+  const myRole = info.myRole || null;
+  const isOwner = (myRole ?? "").toLowerCase() === "owner";
+  const joinCode = info.joinCode || "";
+  const teamEndDate = info.endDate || null;
+
+  // ✅ 오늘의 진행도 (useEffect 대신 useMemo로 아래 teamProgress와 동일하게 처리되므로, 
+  // 여기 setTodayProgress 관련은 제거하거나 더미로 둡니다.)
+  // teamProgress가 바뀔 때 setTodayProgress를 호출하는 useEffect가 아래에 있으니
+  // todayProgress state는 살려두되, 초기값은 0으로 둡니다.
   const [todayProgress, setTodayProgress] = useState({
     percent: 0,
     done: 0,
     total: 0,
   });
 
-  // ✅ 모두의 할 일 (서버 데이터)
-  const [teamFloors, setTeamFloors] = useState([]);
-  const [floorsLoading, setFloorsLoading] = useState(true);
-  const [floorsError, setFloorsError] = useState("");
+  // ✅ teamLoading, floorsLoading 등은 Store에서 관리하면 좋지만, 
+  // 일단 데이터가 없으면 로딩중으로 간주할 수 있음. 
+  // 여기서는 호환성을 위해 더미 처리하거나 info가 없으면 로딩중 표시
+  const teamLoading = !teamData.info;
+  const floorsLoading = !teamData.floors;
+  const [floorsError, setFloorsError] = useState(""); // 에러 표시용 로컬 State 부활
 
   // ✅ 체크박스 상태 (rowKey 기반)
   const [checkedMap, setCheckedMap] = useState({});
   const [savingMap, setSavingMap] = useState({});
 
-  const [joinCode, setJoinCode] = useState("");
-  // ✅ 팀 마감일(endDate) 기반 D-day
-  const [teamEndDate, setTeamEndDate] = useState(null);
-
-  // ✅ myRole
-  const [myRole, setMyRole] = useState(null);
-  const isOwner = (myRole ?? "").toLowerCase() === "owner";
-
   // ✅ leave
   const [leaving, setLeaving] = useState(false);
   const [leaveOpen, setLeaveOpen] = useState(false);
 
-  // ✅ 팀 멤버 캐릭터: (1) map (2) array
-  const [charByUserId, setCharByUserId] = useState({});
-  const [teamChars, setTeamChars] = useState([]); // ✅ 엘리베이터에 전원 렌더용
-  const [badgeByUserId, setBadgeByUserId] = useState({}); // ✅ [KEEP]
+  // ✅ charByUserId (derived)
+  const charByUserId = useMemo(() => {
+    const map = {};
+    teamChars.forEach(u => {
+      if (u?.userId != null) map[u.userId] = u;
+    });
+    return map;
+  }, [teamChars]);
 
   // ✅ 코인 팝업
   const [coinPopupOpen, setCoinPopupOpen] = useState(false);
@@ -501,9 +516,7 @@ export default function TeamPlaceHome() {
     setTeamLevel(null);
     setCurrentFloor(1);
 
-    setCharByUserId({});
-    setTeamChars([]);
-    setBadgeByUserId({}); // ✅ [ADD] 팀 바뀌면 뱃지도 초기화
+    // Store 사용으로 로컬 state 초기화 불필요
   }, [teamId]);
 
   // ✅ 캐시된 teamLevel이 있으면 서버 오기 전 먼저 보여주기
@@ -519,182 +532,27 @@ export default function TeamPlaceHome() {
     } catch (_) { }
   }, [teamId, TEAM_LEVEL_CACHE_KEY]);
 
-  // ✅ teamId로 팀 정보 로드 (myRole, joinCode, level, endDate)
+  // ✅ Store를 이용한 데이터 로딩 (병렬 & 캐싱)
   useEffect(() => {
-    let ignore = false;
+    if (!Number.isFinite(teamId)) return;
 
-    const loadTeam = async () => {
-      const token = localStorage.getItem(AUTH_TOKEN_KEY);
-      if (!token || !Number.isFinite(teamId)) return;
+    // 캐시가 유효하면 네트워크 요청 안 함
+    fetchTeamInfo(teamId);
+    fetchTeamFloors(teamId);
+    fetchTeamCharacters(teamId);
+    fetchTeamBadges(teamId);
+  }, [teamId, fetchTeamInfo, fetchTeamFloors, fetchTeamCharacters, fetchTeamBadges]);
 
-      try {
-        setTeamLoading(true);
-
-        const team = await getTeam(teamId);
-        if (ignore) return;
-
-        setMyRole(team?.myRole ?? null);
-        setJoinCode(team?.joinCode ?? "");
-        setTeamEndDate(team?.endDate ?? null);
-
-        if (team?.level != null) {
-          applyTeamLevel(team.level, { animate: false });
-        }
-      } catch (e) {
-        if (e?.status === 401) return navigate("/login", { replace: true });
-        navigate("/home", { replace: true });
-      } finally {
-        if (!ignore) setTeamLoading(false);
-      }
-    };
-
-    loadTeam();
-    return () => {
-      ignore = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [teamId, navigate]);
-
-  // ✅ 팀 할 일 목록 + teamLevel 로드 (새 스펙 대응: {teamLevel, floors})
+  // ✅ teamLevel 변경 감지 및 애니메이션 적용
   useEffect(() => {
-    let ignore = false;
+    const lvl = info?.level;
+    if (lvl != null) {
+      applyTeamLevel(Number(lvl), { animate: false });
+    }
+  }, [info?.level]); // info 객체가 바뀌어도 levle이 같으면 동작 안함 (primitive check)
 
-    const loadTeamFloors = async () => {
-      const token = localStorage.getItem(AUTH_TOKEN_KEY);
-      if (!token || !Number.isFinite(teamId)) return;
+  // teamFloors가 변경되면 checkMap 리셋 등은 아래 useEffect([taskRows])에서 처리됨
 
-      try {
-        setFloorsLoading(true);
-        setFloorsError("");
-
-        const data = await getTeamFloors(teamId);
-
-        const nextTeamLevel =
-          data && typeof data === "object" && !Array.isArray(data)
-            ? data.teamLevel
-            : null;
-
-        const list =
-          data &&
-            typeof data === "object" &&
-            !Array.isArray(data) &&
-            Array.isArray(data.floors)
-            ? data.floors
-            : Array.isArray(data)
-              ? data
-              : [];
-
-        if (nextTeamLevel != null) {
-          applyTeamLevel(nextTeamLevel, { animate: false });
-        }
-
-        if (!ignore) setTeamFloors(list);
-      } catch (e) {
-        if (e?.status === 401) return navigate("/login", { replace: true });
-        if (!ignore)
-          setFloorsError(e?.message ?? "팀 할 일을 불러오지 못했어요.");
-      } finally {
-        if (!ignore) setFloorsLoading(false);
-      }
-    };
-
-    loadTeamFloors();
-    return () => {
-      ignore = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [teamId, navigate]);
-
-  // ✅ 팀 멤버 캐릭터 로드 (teamId 당 1번)  ← 여기서 엘리베이터용 array도 세팅
-  useEffect(() => {
-    let ignore = false;
-
-    const loadTeamCharacters = async () => {
-      if (!Number.isFinite(teamId)) return;
-
-      try {
-        const chars = await requestJson(
-          "GET",
-          `/api/items/${teamId}/characters`
-        );
-        if (ignore) return;
-
-        const arr = Array.isArray(chars) ? chars : [];
-
-        const map = {};
-        arr.forEach((u) => {
-          if (u?.userId != null) map[u.userId] = u;
-        });
-
-        setCharByUserId(map);
-        setTeamChars(arr); // ✅ 엘리베이터에 "전원" 렌더용
-      } catch (e) {
-        if (e?.status === 401) return navigate("/login", { replace: true });
-        if (!ignore) {
-          setCharByUserId({});
-          setTeamChars([]);
-        }
-      }
-    };
-
-    loadTeamCharacters();
-    return () => {
-      ignore = true;
-    };
-  }, [teamId, navigate]);
-
-  // ✅ [ADD] 팀원 뱃지 로드 (teamId 당 1번)
-  useEffect(() => {
-    let ignore = false;
-
-    const normalizeList = (raw) => {
-      if (Array.isArray(raw)) return raw;
-      if (Array.isArray(raw?.data)) return raw.data;
-      if (Array.isArray(raw?.result)) return raw.result;
-      if (Array.isArray(raw?.members)) return raw.members;
-      return [];
-    };
-
-    const pickEquippedBadge = (m) => {
-      const list =
-        (Array.isArray(m?.equippedBadges) && m.equippedBadges) ||
-        (Array.isArray(m?.equipped) && m.equipped) ||
-        (Array.isArray(m?.badges) && m.badges) ||
-        [];
-      // ✅ swagger 기준 equipped === true 우선
-      return list.find((b) => b?.equipped) ?? list[0] ?? null;
-    };
-
-    const loadTeamBadges = async () => {
-      if (!Number.isFinite(teamId)) return;
-
-      try {
-        const res = await getTeamMembersBadges(teamId);
-        if (ignore) return;
-
-        const arr = normalizeList(res);
-        const map = {};
-
-        arr.forEach((m) => {
-          const uid = m?.userId ?? m?.userid ?? m?.memberId;
-          if (uid == null) return;
-
-          const badge = pickEquippedBadge(m);
-          if (badge) map[uid] = badge;
-        });
-
-        setBadgeByUserId(map);
-      } catch (e) {
-        if (e?.status === 401) return navigate("/login", { replace: true });
-        if (!ignore) setBadgeByUserId({});
-      }
-    };
-
-    loadTeamBadges();
-    return () => {
-      ignore = true;
-    };
-  }, [teamId, navigate]);
 
   // ✅ 렌더용 rows: "floor + assignee" 조합으로 펼치기
   const taskRows = useMemo(() => {
@@ -832,11 +690,8 @@ export default function TeamPlaceHome() {
         applyTeamLevel(res.teamLevel, { animate: true });
       }
 
-      setTeamFloors((prev) =>
-        prev.map((f) =>
-          f.teamFloorId === teamFloorId ? { ...f, completed: nextChecked } : f
-        )
-      );
+      // ✅ Store 데이터 강제 갱신 (서버 최신 데이터 Load)
+      fetchTeamFloors(teamId, true);
     } catch (e) {
       setCheckedMap((prev) => ({ ...prev, [rowKey]: prevChecked }));
 
