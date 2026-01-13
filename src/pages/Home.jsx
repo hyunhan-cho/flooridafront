@@ -257,11 +257,9 @@ export default function Home() {
     try {
       const summary = await http.get("/api/me/badges/summary");
 
-      const asOfDate =
-        summary?.asOfDate ??
-        summary?.data?.asOfDate ??
-        summary?.result?.asOfDate ??
-        null;
+      // ✅ 서버 날짜 대신 클라이언트 오늘 날짜 사용 (타임존 이슈 방지)
+      const now = new Date();
+      const localToday = toYmdLocal(now);
 
       const badges =
         summary?.badges ??
@@ -269,29 +267,29 @@ export default function Home() {
         summary?.result?.badges ??
         [];
 
-      if (!asOfDate || !Array.isArray(badges)) {
-        return { asOfDate, earnedBadges: [] };
+      if (!Array.isArray(badges)) {
+        return { asOfDate: localToday, earnedBadges: [] };
       }
 
-      // ✅ 타임존 안전: earnedAt을 로컬로 변환해서 asOfDate와 비교
+      // ✅ 오늘(클라이언트 기준) 획득한 뱃지만 필터링
       const earnedToday = badges.filter((b) => {
         const earnedAt = b?.earnedAt;
         if (!earnedAt) return false;
-        return toYmdLocal(earnedAt) === asOfDate;
+        return toYmdLocal(earnedAt) === localToday;
       });
 
-      // ✅ 이미 본 뱃지는 제외(여러개 대응)
+      // ✅ 이미 본 뱃지는 제외
       const filtered = earnedToday.filter((b) => {
         const badgeId = b?.badgeId ?? b?.id ?? null;
         const badgeKey =
           badgeId != null
             ? String(badgeId)
             : `${b?.name ?? "badge"}:${b?.earnedAt ?? ""}`;
-        const seenKey = `badge_popup_seen:${asOfDate}:${badgeKey}`;
+        const seenKey = `badge_popup_seen:${localToday}:${badgeKey}`;
         return localStorage.getItem(seenKey) !== "1";
       });
 
-      return { asOfDate, earnedBadges: filtered };
+      return { asOfDate: localToday, earnedBadges: filtered };
     } catch {
       return { asOfDate: null, earnedBadges: [] };
     }
@@ -333,20 +331,18 @@ export default function Home() {
         q.push({ type: "coin", coinAmount: 10 });
       }
 
-      // 3) 오늘 획득 뱃지(들) — 출석 보상 받은 날만 의미있어 체크
-      if (dailyRewardGiven || firstLoginBonusGiven) {
-        const { asOfDate, earnedBadges } = await fetchTodayEarnedBadges();
-        if (asOfDate && earnedBadges.length > 0) {
-          earnedBadges.forEach((badge) => {
-            const badgeId = badge?.badgeId ?? badge?.id ?? null;
-            const badgeKey =
-              badgeId != null
-                ? String(badgeId)
-                : `${badge?.name ?? "badge"}:${badge?.earnedAt ?? ""}`;
-            const seenKey = `badge_popup_seen:${asOfDate}:${badgeKey}`;
-            q.push({ type: "badge", badge, asOfDate, seenKey });
-          });
-        }
+      // 3) 오늘 획득 뱃지(들) — 로그인 시 항상 체크 (첫 회원가입 포함)
+      const { asOfDate, earnedBadges } = await fetchTodayEarnedBadges();
+      if (asOfDate && earnedBadges.length > 0) {
+        earnedBadges.forEach((badge) => {
+          const badgeId = badge?.badgeId ?? badge?.id ?? null;
+          const badgeKey =
+            badgeId != null
+              ? String(badgeId)
+              : `${badge?.name ?? "badge"}:${badge?.earnedAt ?? ""}`;
+          const seenKey = `badge_popup_seen:${asOfDate}:${badgeKey}`;
+          q.push({ type: "badge", badge, asOfDate, seenKey });
+        });
       }
 
       setPopupQueue(q);
