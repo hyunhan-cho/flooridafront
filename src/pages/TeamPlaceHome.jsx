@@ -396,6 +396,15 @@ export default function TeamPlaceHome() {
   const { teamId: teamIdParam } = useParams();
   const teamId = Number(teamIdParam);
 
+  // [Preload] 배경 이미지 미리 로드 (깜빡임/지연 방지)
+  useEffect(() => {
+    const toPreload = [elevatorInsideImg, floorBoardImg];
+    toPreload.forEach((src) => {
+      const img = new Image();
+      img.src = src;
+    });
+  }, []);
+
   const TEAM_LEVEL_CACHE_KEY = `teamLevel:${teamId}`;
 
   const getInitialLevel = () => {
