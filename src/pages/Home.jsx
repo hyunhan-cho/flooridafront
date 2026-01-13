@@ -257,9 +257,7 @@ export default function Home() {
     try {
       const summary = await http.get("/api/me/badges/summary");
 
-      // ✅ 서버 날짜 대신 클라이언트 오늘 날짜 사용 (타임존 이슈 방지)
       const now = new Date();
-      const localToday = toYmdLocal(now);
 
       const badges =
         summary?.badges ??
@@ -267,26 +265,43 @@ export default function Home() {
         summary?.result?.badges ??
         [];
 
+      console.log("[Home DEBUG] badges fetched:", badges.length, badges);
+
       if (!Array.isArray(badges)) {
-        return { asOfDate: localToday, earnedBadges: [] };
+        return { asOfDate: null, earnedBadges: [] };
       }
 
-      // ✅ 오늘(클라이언트 기준) 획득한 뱃지만 필터링
+      // ✅ (수정) "오늘" 날짜 비교 대신 "최근 24시간 이내" 획득한 뱃지 필터링
+      // 타임존 차이나 자정 경계 문제를 피하기 위함
       const earnedToday = badges.filter((b) => {
         const earnedAt = b?.earnedAt;
         if (!earnedAt) return false;
-        return toYmdLocal(earnedAt) === localToday;
+
+        const earnedTime = new Date(earnedAt).getTime();
+        const nowTime = now.getTime();
+        const diffHours = (nowTime - earnedTime) / (1000 * 60 * 60);
+
+        // 미래 시간이 아니고, 24시간 이내
+        const isRecent = diffHours >= -0.1 && diffHours < 24;
+        console.log(`[Home DEBUG] badge ${b.name}, earnedAt: ${earnedAt}, diffHours: ${diffHours.toFixed(2)}, match: ${isRecent}`);
+        return isRecent;
       });
 
-      // ✅ 이미 본 뱃지는 제외
+      // ✅ 이미 본 뱃지는 제외 (키에 날짜 대신 뱃지 고유 ID 사용 권장하지만, 기존 포맷 유지 위해 로컬 날짜 사용)
+      const localToday = toYmdLocal(now);
       const filtered = earnedToday.filter((b) => {
         const badgeId = b?.badgeId ?? b?.id ?? null;
         const badgeKey =
           badgeId != null
             ? String(badgeId)
             : `${b?.name ?? "badge"}:${b?.earnedAt ?? ""}`;
+
+        // seenKey에 localToday를 쓰면 날짜 바뀌면 다시 뜰 수 있음 -> badge_popup_seen:BADGE_ID 로 변경 고려
+        // 일단 기존 유지하되 날짜 의존성 줄임
         const seenKey = `badge_popup_seen:${localToday}:${badgeKey}`;
-        return localStorage.getItem(seenKey) !== "1";
+        const seen = localStorage.getItem(seenKey) === "1";
+        console.log(`[Home DEBUG] badge ${b.name} seen check: ${seenKey} -> ${seen}`);
+        return !seen;
       });
 
       return { asOfDate: localToday, earnedBadges: filtered };
