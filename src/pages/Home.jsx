@@ -324,6 +324,9 @@ export default function Home() {
     });
   };
 
+  // ✅ 팝업 체크 중인지 여부 (초기값 true -> 체크 완료 후 false)
+  const [isCheckingPopups, setIsCheckingPopups] = useState(true);
+
   // ✅✅✅ Home 진입 시 팝업 큐 구성 (50 → 10 → 뱃지(들))
   useEffect(() => {
     const firstLoginBonusGiven = Boolean(
@@ -341,12 +344,11 @@ export default function Home() {
       }
 
       // 2) 출석 10코인
-      // swagger 정책상 "첫 로그인 날도 출석 10코인"이 같이 지급될 수 있음 → 방어
       if (dailyRewardGiven || firstLoginBonusGiven) {
         q.push({ type: "coin", coinAmount: 10 });
       }
 
-      // 3) 오늘 획득 뱃지(들) — 로그인 시 항상 체크 (첫 회원가입 포함)
+      // 3) 오늘 획득 뱃지(들) — 로그인 시 항상 체크
       const { asOfDate, earnedBadges } = await fetchTodayEarnedBadges();
       if (asOfDate && earnedBadges.length > 0) {
         earnedBadges.forEach((badge) => {
@@ -361,9 +363,9 @@ export default function Home() {
       }
 
       setPopupQueue(q);
+      setIsCheckingPopups(false); // ✅ 체크 완료
 
-      // ✅ 주간모달은 "기존 유저(온보딩 완료)"만, 그리고 큐 끝난 뒤에만 띄우기 위해 pending만 저장
-      // 또한, 이번 세션에서 이미 본 적이 없어야 함 (has_shown_weekly_modal)
+      // ✅ 주간모달 처리 (기존 로직 유지)
       const hasShownWeekly = sessionStorage.getItem("has_shown_weekly_modal") === "1";
       if (!firstLoginBonusGiven && !needsOnboarding && !hasShownWeekly) {
         sessionStorage.setItem("weekly_modal_pending", "1");
@@ -375,7 +377,8 @@ export default function Home() {
 
   // ✅ 큐 종료 후 후처리: 온보딩 이동 / 주간모달
   useEffect(() => {
-    if (popupQueue.length !== 0) return;
+    // 팝업 체크 중이거나 큐에 내용이 있으면 대기
+    if (isCheckingPopups || popupQueue.length !== 0) return;
 
     const needsOnboarding = Boolean(entryFlags?.needsOnboarding);
 
