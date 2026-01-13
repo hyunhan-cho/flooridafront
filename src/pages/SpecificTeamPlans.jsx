@@ -765,6 +765,9 @@ export default function SpecificTeamPlans({ onBack, onSuccess }) {
                 placeholder="세부 계획을 입력하세요"
                 autoFocus
               />
+              <button className="stp-iconBtn" type="button" tabIndex={-1}>
+                <PencilIcon />
+              </button>
             </div>
           </div>
 
@@ -778,6 +781,9 @@ export default function SpecificTeamPlans({ onBack, onSuccess }) {
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
               />
+              <button className="stp-iconBtn" type="button" tabIndex={-1}>
+                <PencilIcon />
+              </button>
             </div>
           </div>
 
