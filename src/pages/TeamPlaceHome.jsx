@@ -5,6 +5,7 @@ import QuestList from "../components/QuestList.jsx";
 import BackButton from "../components/BackButton.jsx";
 import Navbar from "../components/Navbar.jsx";
 import CoinPopup from "../components/CoinPopup.jsx";
+import CharacterDisplay from "../components/CharacterDisplay.jsx";
 import { getTeamMembersBadges } from "../services/badge.js";
 
 import {
@@ -205,10 +206,10 @@ function CharacterThumb({ user, badge }) {
     BACKGROUND: 0,
     BODY: 1,
     CLOTH: 2,
+    HAT: 2.5,
     HAIR: 3,
     FACE: 4,
-    ACCESSORY: 5,
-    HAT: 6,
+    ACCESSORY: 6,
   };
 
   const sorted = [...items].sort((a, b) => {
@@ -236,8 +237,8 @@ function CharacterThumb({ user, badge }) {
   // ✅ Don't overlay FACE twice if used as base
   const layerItems = faceItem
     ? sorted.filter(
-        (it) => String((it?.itemType ?? it?.type) || "").toUpperCase() !== "FACE"
-      )
+      (it) => String((it?.itemType ?? it?.type) || "").toUpperCase() !== "FACE"
+    )
     : sorted;
 
   const VIEW = 56;
@@ -307,31 +308,11 @@ function ElevatorCharacterThumb({ user, badge, size = 120 }) {
   const items = Array.isArray(user?.equippedItems) ? user.equippedItems : [];
   if (!user) return null;
 
-  const badgeSrc =
-    badge?.imageUrl ??
-    badge?.imgUrl ??
-    badge?.badgeImageUrl ??
-    badge?.iconUrl ??
-    null;
+  // ✅ 뱃지 이미지 처리
+  const equippedBadges = badge ? [badge] : [];
 
-  const order = {
-    BACKGROUND: 0,
-    BODY: 1,
-    CLOTH: 2,
-    HAIR: 3,
-    FACE: 4,
-    ACCESSORY: 5,
-    HAT: 6,
-  };
-
-  const sorted = [...items].sort((a, b) => {
-    const ao = order[a?.itemType] ?? 50;
-    const bo = order[b?.itemType] ?? 50;
-    return ao - bo;
-  });
-
-  // ✅ Base image selection for elevator: FACE item -> user's character -> baseChar
-  const faceItem = sorted.find(
+  // ✅ FACE 아이템을 base로 사용
+  const faceItem = items.find(
     (it) => String((it?.itemType ?? it?.type) || "").toUpperCase() === "FACE"
   );
   const baseUrl =
@@ -346,98 +327,29 @@ function ElevatorCharacterThumb({ user, badge, size = 120 }) {
     ) ||
     baseChar;
 
-  // ✅ Don't overlay FACE twice if used as base
+  // ✅ FACE를 base로 쓰면 아이템 목록에서 제외
   const layerItems = faceItem
-    ? sorted.filter(
-        (it) => String((it?.itemType ?? it?.type) || "").toUpperCase() !== "FACE"
-      )
-    : sorted;
+    ? items.filter(
+      (it) => String((it?.itemType ?? it?.type) || "").toUpperCase() !== "FACE"
+    )
+    : items;
 
-  const VIEW = size;
-  const scale = Math.min(VIEW / BASE_W, VIEW / BASE_H);
-
-  // 가운데 정렬 (원치 않으면 dx/dy를 0으로 두면 됨)
-  const dx = Math.round((VIEW - BASE_W * scale) / 2);
-  const dy = Math.round((VIEW - BASE_H * scale) / 2);
+  // ✅ Home.jsx와 동일한 방식: 고정 114x126 캔버스에 scale로 확대
+  const scaleFactor = size / BASE_H; // 대략 size/126 비율
 
   return (
-    <div style={{ width: VIEW, height: VIEW, position: "relative" }}>
-      <div
-        style={{
-          position: "absolute",
-          left: dx,
-          top: dy,
-          width: BASE_W,
-          height: BASE_H,
-          transform: `scale(${scale})`,
-          transformOrigin: "top left",
-        }}
-      >
-        {/* ✅ Base character always rendered (handles no-items case too) */}
-        {baseUrl ? (
-          <img
-            src={baseUrl}
-            alt=""
-            style={{
-              position: "absolute",
-              left: 0,
-              top: 0,
-              width: BASE_W,
-              height: BASE_H,
-              objectFit: "contain",
-              imageRendering: "pixelated",
-              display: "block",
-              zIndex: 0,
-            }}
-            onError={(e) => {
-              e.currentTarget.style.display = "none";
-            }}
-            draggable={false}
-          />
-        ) : null}
-
-        {layerItems.map((it, idx) => {
-          const w = Number(it?.width) || BASE_W;
-          const h = Number(it?.height) || BASE_H;
-          const ox = Number(it?.offsetX) || 0;
-          const oy = Number(it?.offsetY) || 0;
-
-          return (
-            <img
-              key={`${user.userId}-${it.itemId}-${idx}`}
-              src={it.imageUrl}
-              alt=""
-              style={{
-                position: "absolute",
-                left: ox,
-                top: oy,
-                width: w,
-                height: h,
-                imageRendering: "pixelated",
-                pointerEvents: "none",
-                userSelect: "none",
-                zIndex: idx + 1,
-              }}
-            />
-          );
-        })}
-      </div>
-
-      {/* ✅ [ADD] 엘리베이터용 배지 오버레이 (레이아웃 영향 X) */}
-      {badgeSrc && (
-        <img
-          src={badgeSrc}
-          alt=""
-          style={getBadgeOverlayStyle(badge, {
-            scale,
-            dx,
-            dy,
-            fallbackPx: 22,
-            forceChest: true,
-          })}
-        />
-      )}
-    </div>
+    <CharacterDisplay
+      base={baseUrl}
+      items={layerItems}
+      badges={equippedBadges}
+      style={{
+        position: "relative",
+        width: `${BASE_W}px`,
+        height: `${BASE_H}px`,
+        transform: `scale(${scaleFactor})`,
+        transformOrigin: "top left",
+      }}
+    />
   );
 }
 
@@ -1290,9 +1202,9 @@ export default function TeamPlaceHome() {
                 // ✅ 인원수에 따라 전혀 다른 정렬
                 let scale, bottom, zIndex, spread, xOffset, brightness;
                 if (teamChars.length === 1) {
-                  // 혼자: 가운데 앞, 크게
-                  scale = 1.4;
-                  bottom = -30;
+                  // 혼자: 가운데 안정적으로
+                  scale = 1.15;
+                  bottom = 35;
                   zIndex = 12;
                   spread = 0;
                   xOffset = 0;
@@ -1300,7 +1212,7 @@ export default function TeamPlaceHome() {
                 } else if (teamChars.length === 2) {
                   // 두 명: 앞쪽에 나란히
                   scale = 1.2;
-                  bottom = 0;
+                  bottom = 20;
                   zIndex = 11;
                   spread = 55;
                   xOffset = col === 0 ? -spread : spread;
@@ -1308,7 +1220,7 @@ export default function TeamPlaceHome() {
                 } else {
                   // 세 명 이상: 기존 로직 (뒤/중간/앞 줄)
                   scale = 0.9 + (row * 0.2);
-                  bottom = 130 - (row * 75);
+                  bottom = 140 - (row * 75);
                   zIndex = 10 + row;
                   spread = 60 + (row * 15);
                   xOffset = col === 0 ? -spread : spread;

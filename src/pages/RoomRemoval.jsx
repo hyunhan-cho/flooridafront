@@ -137,6 +137,7 @@ export default function RoomRemoval() {
           padding: 0 18px;
           font-size: 16px;
           font-weight: 800;
+          color: #111;
           outline: none;
           box-sizing: border-box;
         }

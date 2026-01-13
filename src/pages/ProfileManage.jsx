@@ -1,20 +1,32 @@
 // pages/ProfileManage.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar.jsx";
 import PersonalHeader from "../components/PersonalHeader.jsx";
+import CharacterDisplay from "../components/CharacterDisplay.jsx";
 import { getMyCharacter, getMyUsername, updateUsername } from "../services/api.js";
+import { getMyEquippedItems } from "../services/store.js";
+import { getMyEquippedBadges } from "../services/badge.js";
+import { useUserStore } from "../store/userStore.js";
 import { AUTH_USER_KEY, AUTH_TOKEN_KEY } from "../config.js";
 import settingIcon from "../assets/navvar/button_setting.png";
 
 const DEBUG_PROFILE_SAVE = true;
 
+function pickImageUrl(item) {
+  return item?.imgUrl ?? item?.imageUrl ?? null;
+}
+
 export default function ProfileManage() {
   const navigate = useNavigate();
+  const { itemMetadata, fetchItemMetadata } = useUserStore();
+
   const [user, setUser] = useState(null);
   const [nickname, setNickname] = useState("");
   const [originalNickname, setOriginalNickname] = useState("");
   const [characterImageUrl, setCharacterImageUrl] = useState(null);
+  const [equippedItems, setEquippedItems] = useState([]);
+  const [equippedBadges, setEquippedBadges] = useState([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -47,7 +59,7 @@ export default function ProfileManage() {
         }
       }
 
-      // 캐릭터 이미지 로드
+      // 캐릭터 기본 이미지 로드
       try {
         const data = await getMyCharacter();
         if (data && data.imageUrl) {
@@ -56,10 +68,44 @@ export default function ProfileManage() {
       } catch (error) {
         console.error("캐릭터 이미지 로드 실패:", error);
       }
+
+      // ✅ 장착 아이템 로드
+      try {
+        const items = await getMyEquippedItems();
+        const itemList = Array.isArray(items) ? items : [];
+        setEquippedItems(itemList.filter((item) => item?.equipped !== false));
+        fetchItemMetadata(); // 메타데이터 로드
+      } catch (error) {
+        console.error("장착 아이템 로드 실패:", error);
+      }
+
+      // ✅ 장착 뱃지 로드
+      try {
+        const badges = await getMyEquippedBadges();
+        const badgeList = Array.isArray(badges) ? badges : badges ? [badges] : [];
+        setEquippedBadges(badgeList.filter((badge) => badge?.equipped !== false));
+      } catch (error) {
+        console.error("장착 뱃지 로드 실패:", error);
+      }
     };
 
     loadData();
-  }, []);
+  }, [fetchItemMetadata]);
+
+  // ✅ 메타데이터 적용된 아이템 리스트 생성
+  const mergedItems = useMemo(() => {
+    return equippedItems.map(item => {
+      const id = item.itemId || item.id;
+      const meta = itemMetadata?.[id] || {};
+      return { ...meta, ...item };
+    });
+  }, [equippedItems, itemMetadata]);
+
+  // ✅ FACE 아이템을 base로 사용
+  const baseCharacterImg = useMemo(() => {
+    const face = mergedItems.find(it => it.type === "FACE" || it.uiCategory === "face");
+    return pickImageUrl(face) || characterImageUrl || null;
+  }, [mergedItems, characterImageUrl]);
 
   const handleSave = async () => {
     const normalized = nickname.trim();
@@ -80,7 +126,7 @@ export default function ProfileManage() {
     try {
       // 닉네임 업데이트 API 호출
       await updateUsername(normalized);
-      
+
       // localStorage 업데이트
       const userData = localStorage.getItem(AUTH_USER_KEY);
       if (userData) {
@@ -92,7 +138,7 @@ export default function ProfileManage() {
           console.error("사용자 정보 업데이트 실패:", e);
         }
       }
-      
+
       navigate("/mypage");
     } catch (error) {
       if (DEBUG_PROFILE_SAVE) {
@@ -182,7 +228,7 @@ export default function ProfileManage() {
             </h2>
           </div>
 
-          {/* 캐릭터 아바타 */}
+          {/* ✅ 캐릭터 아바타 - CharacterDisplay 사용 */}
           <div
             style={{
               width: "120px",
@@ -191,19 +237,20 @@ export default function ProfileManage() {
               alignItems: "center",
               justifyContent: "center",
               marginTop: "16px",
+              overflow: "visible",
             }}
           >
-            {characterImageUrl && (
-              <img
-                src={characterImageUrl}
-                alt="캐릭터"
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "contain",
-                }}
-              />
-            )}
+            <CharacterDisplay
+              base={baseCharacterImg}
+              items={mergedItems}
+              badges={equippedBadges}
+              style={{
+                width: "114px",
+                height: "126px",
+                transform: "scale(0.95)",
+                transformOrigin: "center center",
+              }}
+            />
           </div>
 
           {/* 닉네임 입력 */}
