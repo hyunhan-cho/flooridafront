@@ -12,7 +12,7 @@ export default function RoomManagement() {
       <TeamHeader />
 
       <style>{`
-        .room-management .rm-wrap{ width: var(--panel-width); max-width: 100%; }
+        .room-management .rm-wrap{ width: 100%; max-width: 100%; }
         .room-management .rm-top{ margin-top: 10px; padding: 10px 2px 6px; color: #fff; }
         .room-management .rm-title-row{ display:flex; align-items:center; gap:10px; margin-bottom:6px; }
         .room-management .rm-back{ width:34px; height:34px; border:0; background:transparent; color:#fff;
@@ -21,14 +21,14 @@ export default function RoomManagement() {
         .room-management .rm-sub{ margin:0 0 12px 44px; font-size:14px; opacity:0.9; font-weight:700; }
 
         .room-management .rm-cards{ display:flex; flex-direction:column; gap:16px; margin-top:6px; }
-        .room-management .rm-card{ width:92%; margin:0 auto; border:0; background:#fff; border-radius:26px;
-          padding:22px 25px; box-shadow:0 14px 28px rgba(0,0,0,0.22); display:flex; align-items:center;
+        .room-management .rm-card{ width:96%; max-width: 460px; margin:0 auto; border:0; background:#fff; border-radius:20px;
+          padding:24px 28px; box-sizing: border-box; box-shadow:0 8px 16px rgba(0,0,0,0.12); display:flex; align-items:center;
           justify-content:space-between; cursor:pointer; text-align:left; }
         .room-management .rm-card:active{ transform: translateY(1px); }
 
         .room-management .rm-card-texts{ display:flex; flex-direction:column; gap:8px; }
-        .room-management .rm-card-title{ margin:0; font-size:19px; font-weight:900; color:#2f6f6d; letter-spacing:-0.2px; }
-        .room-management .rm-card-desc{ margin:0; font-size:14px; font-weight:700; color: rgba(0,0,0,0.6); }
+        .room-management .rm-card-title{ margin:0; font-size:18px; font-weight:900; color:#346c69; letter-spacing:-0.2px; }
+        .room-management .rm-card-desc{ margin:4px 0 0; font-size:14px; font-weight:600; color: #4b5563; word-break: keep-all; letter-spacing: -0.5px; }
         .room-management .rm-chevron{ font-size:30px; font-weight:900; color: rgba(0,0,0,0.65); margin-left:14px; transform: translateY(-1px); }
       `}</style>
 

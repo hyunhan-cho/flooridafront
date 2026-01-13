@@ -30,6 +30,19 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* ✅ 글로벌 스크롤바 숨기기 (모든 요소) */
+* {
+  scrollbar-width: none;
+  /* Firefox */
+  -ms-overflow-style: none;
+  /* IE/Edge */
+}
+
+*::-webkit-scrollbar {
+  display: none;
+  /* Chrome, Safari, Opera */
+}
+
 html,
 body,
 #root {

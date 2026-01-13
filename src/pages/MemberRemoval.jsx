@@ -377,12 +377,12 @@ export default function MemberRemoval() {
       <TeamHeader />
 
       <style>{`
-        .member-removal .mr-wrap{ width: var(--panel-width); max-width: 100%; }
+        .member-removal .mr-wrap{ width: 100%; max-width: 480px; margin: 0 auto; box-sizing: border-box; }
         .member-removal .mr-top{ margin-top: 10px; padding: 10px 2px 6px; color:#fff; }
         .member-removal .mr-back{ width:34px; height:34px; border:0; background:transparent; color:#fff; font-size:34px; cursor:pointer; padding:0; line-height:1; }
         .member-removal .mr-card{
-          width:92%; margin:12px auto 0; background:#fff; border-radius:28px;
-          padding:28px 26px 24px; box-shadow:0 14px 28px rgba(0,0,0,.22);
+          width:96%; max-width: 460px; margin:12px auto 0; background:#fff; border-radius:28px;
+          padding:28px 26px 24px; box-sizing: border-box; box-shadow:0 14px 28px rgba(0,0,0,.22);
         }
         .member-removal .mr-card-title{ margin:0 0 8px; font-size:20px; font-weight:900; color: #2f6f6d; }
         .member-removal .mr-card-desc{ margin:0 0 18px; font-size:14px; font-weight:700; color:rgba(0,0,0,.6); }
@@ -485,9 +485,8 @@ export default function MemberRemoval() {
                   return (
                     <div
                       key={m.userId}
-                      className={`mr-item ${selected ? "selected" : ""} ${
-                        disabled ? "disabled" : ""
-                      }`}
+                      className={`mr-item ${selected ? "selected" : ""} ${disabled ? "disabled" : ""
+                        }`}
                       onClick={() => !disabled && toggle(m.userId)}
                     >
                       <div className="mr-left">
