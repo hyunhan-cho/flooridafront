@@ -34,7 +34,7 @@ import {
 import { getMyEquippedItems } from "../services/store.js";
 import { getMyEquippedBadges } from "../services/badge.js";
 
-import { AUTH_TOKEN_KEY } from "../config.js";
+import { AUTH_TOKEN_KEY, AUTH_USER_KEY } from "../config.js";
 
 import "../App.css";
 import floorBoardImg from "../assets/img/board 1.png";
@@ -250,7 +250,53 @@ export default function Home() {
   // =========================
   const fetchTodayEarnedBadges = async () => {
     const token = localStorage.getItem(AUTH_TOKEN_KEY);
-    if (!token) return { asOfDate: null, earnedBadges: [] };
+    if (!token) return { asOfDate: null, userKey: null, earnedBadges: [] };
+
+    let userKey = null;
+    try {
+      const raw = localStorage.getItem(AUTH_USER_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      userKey =
+        parsed?.userId ??
+        parsed?.memberId ??
+        parsed?.id ??
+        parsed?.email ??
+        parsed?.username ??
+        parsed?.name ??
+        null;
+      if (userKey != null) userKey = String(userKey);
+    } catch {
+      userKey = null;
+    }
+
+    if (userKey == null) {
+      const fromCache =
+        cachedProfile?.userId ??
+        cachedProfile?.memberId ??
+        cachedProfile?.id ??
+        cachedProfile?.email ??
+        cachedProfile?.username ??
+        cachedProfile?.name ??
+        null;
+      if (fromCache != null) userKey = String(fromCache);
+    }
+
+    if (userKey == null) {
+      try {
+        const profile = await fetchProfile();
+        const fromProfile =
+          profile?.userId ??
+          profile?.memberId ??
+          profile?.id ??
+          profile?.email ??
+          profile?.username ??
+          profile?.name ??
+          null;
+        if (fromProfile != null) userKey = String(fromProfile);
+      } catch {
+        userKey = null;
+      }
+    }
 
     try {
       const summary = await http.get("/api/me/badges/summary");
@@ -296,15 +342,15 @@ export default function Home() {
 
         // seenKey에 localToday를 쓰면 날짜 바뀌면 다시 뜰 수 있음 -> badge_popup_seen:BADGE_ID 로 변경 고려
         // 일단 기존 유지하되 날짜 의존성 줄임
-        const seenKey = `badge_popup_seen:${localToday}:${badgeKey}`;
+        const seenKey = `badge_popup_seen:${userKey ?? "anon"}:${localToday}:${badgeKey}`;
         const seen = localStorage.getItem(seenKey) === "1";
         console.log(`[Home DEBUG] badge ${b.name} seen check: ${seenKey} -> ${seen}`);
         return !seen;
       });
 
-      return { asOfDate: localToday, earnedBadges: filtered };
+      return { asOfDate: localToday, userKey, earnedBadges: filtered };
     } catch {
-      return { asOfDate: null, earnedBadges: [] };
+      return { asOfDate: null, userKey: null, earnedBadges: [] };
     }
   };
 
@@ -328,34 +374,45 @@ export default function Home() {
   // ✅✅✅ Home 진입 시 팝업 큐 구성 (50 → 10 → 뱃지(들))
   // ✅✅✅ Home 진입 시 팝업 큐 구성 (50 → 10 → 뱃지(들))
   useEffect(() => {
-    // 1️⃣ 온보딩 필요 여부 우선 확인
-    const needsOnboarding = Boolean(entryFlags?.needsOnboarding);
-
-    if (needsOnboarding) {
-      // 🚨 온보딩이 필요하면 팝업 띄우지 말고 정보 저장 후 이동
-      // 온보딩 완료 후 돌아왔을 때 띄우기 위함
-      sessionStorage.setItem("deferred_home_flags", JSON.stringify(entryFlags));
-      navigate("/tendency");
-      return;
-    }
-
-    // 2️⃣ 대기 중이던 플래그 복원 (온보딩 마치고 돌아온 경우)
+    // 1️⃣ 대기 중이던 플래그 복원 (온보딩 마치고 돌아온 경우)
     let currentFlags = { ...entryFlags };
+    let hasDeferredFlags = false;
+
     try {
       const deferred = sessionStorage.getItem("deferred_home_flags");
       if (deferred) {
         const parsed = JSON.parse(deferred);
         currentFlags = { ...parsed, ...currentFlags };
-        sessionStorage.removeItem("deferred_home_flags");
+        hasDeferredFlags = true;
       }
     } catch (e) {
       console.error(e);
+    }
+
+    // 2️⃣ 온보딩 필요 여부 우선 확인 (단, 온보딩에서 돌아온 경우엔 재리다이렉트 방지)
+    const needsOnboarding = Boolean(entryFlags?.needsOnboarding) && !hasDeferredFlags;
+
+    if (needsOnboarding) {
+      // 🚨 온보딩이 필요하면 팝업 띄우지 말고 정보 저장 후 이동
+      // 온보딩 완료 후 돌아왔을 때 띄우기 위함
+      sessionStorage.setItem("deferred_home_flags", JSON.stringify(entryFlags));
+      // ✅ 온보딩 완료 후 /home 복귀 시 무한 리다이렉트 방지
+      sessionStorage.removeItem("home_entry_flags");
+      navigate("/tendency");
+      return;
     }
 
     const firstLoginBonusGiven = Boolean(
       currentFlags?.firstLoginBonusGiven || currentFlags?.isFirstLogin
     );
     const dailyRewardGiven = Boolean(currentFlags?.dailyRewardGiven);
+
+    // ✅ 온보딩 복귀 또는 로그인 보상 플래그가 있을 때만 팝업 처리
+    // (일반적인 홈 재진입에서는 팝업 띄우지 않음)
+    if (!hasDeferredFlags && !firstLoginBonusGiven && !dailyRewardGiven) {
+      setIsCheckingPopups(false);
+      return;
+    }
 
     (async () => {
       const q = [];
@@ -371,7 +428,7 @@ export default function Home() {
       }
 
       // 3) 오늘(최근 24시간) 획득 뱃지(들)
-      const { asOfDate, earnedBadges } = await fetchTodayEarnedBadges();
+      const { asOfDate, userKey, earnedBadges } = await fetchTodayEarnedBadges();
       if (asOfDate && earnedBadges.length > 0) {
         earnedBadges.forEach((badge) => {
           const badgeId = badge?.badgeId ?? badge?.id ?? null;
@@ -379,7 +436,7 @@ export default function Home() {
             badgeId != null
               ? String(badgeId)
               : `${badge?.name ?? "badge"}:${badge?.earnedAt ?? ""}`;
-          const seenKey = `badge_popup_seen:${asOfDate}:${badgeKey}`;
+          const seenKey = `badge_popup_seen:${userKey ?? "anon"}:${asOfDate}:${badgeKey}`;
           q.push({ type: "badge", badge, asOfDate, seenKey });
         });
       }
@@ -413,6 +470,7 @@ export default function Home() {
 
     // 홈 진입 플래그 정리
     sessionStorage.removeItem("home_entry_flags");
+    sessionStorage.removeItem("deferred_home_flags");
   }, [popupQueue.length, isCheckingPopups]);
 
   // =========================

@@ -26,8 +26,10 @@ export default function Login() {
       // 1) 로그인 (services/auth.js에서 token 저장 + data return)
       const loginRes = await login({ email, password });
 
-      const dailyRewardGiven = Boolean(loginRes?.dailyRewardGiven);
-      const firstLoginBonusGiven = Boolean(loginRes?.firstLoginBonusGiven);
+      const signupComplete = localStorage.getItem("signup_complete") === "true";
+
+      const firstLoginBonusGiven = Boolean(loginRes?.firstLoginBonusGiven) || signupComplete;
+      const dailyRewardGiven = Boolean(loginRes?.dailyRewardGiven) || firstLoginBonusGiven;
 
       // 2) 프로필 조회로 온보딩 완료 여부 판단
       let needsOnboarding = false;
@@ -53,6 +55,10 @@ export default function Login() {
         isFirstLogin: firstLoginBonusGiven, // 기존 호환
         needsOnboarding,
       };
+
+      if (signupComplete) {
+        localStorage.removeItem("signup_complete");
+      }
 
       // 새로고침/리렌더로 location.state 유실될 수 있어 sessionStorage에도 저장
       sessionStorage.setItem("home_entry_flags", JSON.stringify(state));
