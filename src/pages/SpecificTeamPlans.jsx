@@ -1,5 +1,5 @@
 // src/pages/teamcalendar/SpecificTeamPlans.jsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import TeamHeader from "../components/TeamHeader.jsx";
 import Navbar from "../components/Navbar.jsx";
@@ -256,6 +256,7 @@ export default function SpecificTeamPlans({ onBack, onSuccess }) {
   // 입력값
   const [title, setTitle] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const dateInputRef = useRef(null);
 
   // 편집 토글
   const [isEditingTitle, setIsEditingTitle] = useState(true);
@@ -776,12 +777,17 @@ export default function SpecificTeamPlans({ onBack, onSuccess }) {
             <div className="stp-label">마감일</div>
             <div className="stp-box">
               <input
+                ref={dateInputRef}
                 className="stp-dateInput"
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
               />
-              <button className="stp-iconBtn" type="button" tabIndex={-1}>
+              <button
+                className="stp-iconBtn"
+                type="button"
+                onClick={() => dateInputRef.current?.showPicker?.()}
+              >
                 <PencilIcon />
               </button>
             </div>
