@@ -12,7 +12,7 @@ export default function RoomManagement() {
       <TeamHeader />
 
       <style>{`
-        .room-management .rm-wrap{ width: 100%; max-width: 100%; }
+        .room-management .rm-wrap{ width: 100vw; max-width: 480px; margin: 0 auto; box-sizing: border-box; }
         .room-management .rm-top{ margin-top: 10px; padding: 10px 2px 6px; color: #fff; }
         .room-management .rm-title-row{ display:flex; align-items:center; gap:10px; margin-bottom:6px; }
         .room-management .rm-back{ width:34px; height:34px; border:0; background:transparent; color:#fff;
