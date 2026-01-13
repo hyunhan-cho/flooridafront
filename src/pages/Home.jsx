@@ -13,6 +13,7 @@ import CharacterDisplay from "../components/CharacterDisplay.jsx";
 // ✅ 팝업(이식)
 import CoinPopup from "../components/CoinPopup.jsx";
 import BadgePopup from "../components/BadgePopup.jsx";
+import WarningModal from "../components/WarningModal.jsx";
 
 // ✅ Zustand 전역 상태
 import { useUserStore } from "../store/userStore.js";
@@ -242,6 +243,9 @@ export default function Home() {
     } catch (e) { }
     return true;
   });
+
+  // ✅ 완료 취소 경고 팝업 상태 { task, subtask }
+  const [uncompleteWarning, setUncompleteWarning] = useState(null);
 
   // =========================
   // ✅✅✅ (이식) 뱃지 팝업 데이터
@@ -928,8 +932,107 @@ export default function Home() {
   };
 
   // =========================
-  // 이하 토글 로직(원본 그대로)
+  // 이하 토글 로직
   // =========================
+
+  // ✅ 실제 취소 처리 (경고 팝업 확인 후 실행)
+  const processUncomplete = async () => {
+    if (!uncompleteWarning) return;
+    const { task, subtask } = uncompleteWarning;
+
+    try {
+      const uncompleteResult = await uncompleteFloor(subtask.floorId);
+
+      const newTasks = tasks.map((t) => {
+        if (t.id !== task.id) return t;
+        const updatedSubtasks = t.subtasks.map((s) =>
+          s.id === subtask.id ? { ...s, done: false } : s
+        );
+        const doneCount = updatedSubtasks.filter((s) => s.done).length;
+        return {
+          ...t,
+          subtasks: updatedSubtasks,
+          progress: `${doneCount}/${updatedSubtasks.length}`,
+        };
+      });
+
+      const sortedTasks = [...newTasks].sort((a, b) => {
+        const aAllDone =
+          a.subtasks.length > 0 && a.subtasks.every((s) => s.done);
+        const bAllDone =
+          b.subtasks.length > 0 && b.subtasks.every((s) => s.done);
+        if (aAllDone && !bAllDone) return 1;
+        if (!aAllDone && bAllDone) return -1;
+        return 0;
+      });
+
+      setTasks(sortedTasks);
+
+      const statusDate = getStatusDateForSubtask(subtask);
+      try {
+        const updatedStatus = await getFloorsStatusByDate(statusDate);
+        if (Array.isArray(updatedStatus)) {
+          const total = updatedStatus.length;
+          const done = updatedStatus.filter((f) =>
+            isFloorCompleted(f)
+          ).length;
+          const percent = total > 0 ? Math.round((done / total) * 100) : 0;
+
+          setTodayProgress({
+            done,
+            total,
+            percent,
+          });
+        }
+      } catch (progressError) {
+        const updatedTodayFloors = await fetchTodayFloors(true);
+        if (Array.isArray(updatedTodayFloors)) {
+          const total = updatedTodayFloors.length;
+          let done = 0;
+          for (const floor of updatedTodayFloors) {
+            if (isFloorCompleted(floor)) done++;
+          }
+          const percent = total > 0 ? Math.round((done / total) * 100) : 0;
+          setTodayProgress({ done, total, percent });
+        }
+      }
+
+      const profile = await getMyProfile();
+      const currentFloorBeforeUpdate = currentFloor;
+      const apiLevel =
+        profile?.personalLevel ?? uncompleteResult?.personalLevel;
+      const normalizedApiLevel = Number(apiLevel);
+      const fallbackLevel = Math.max(1, currentFloorBeforeUpdate - 1);
+      const nextPersonalLevel =
+        Number.isFinite(normalizedApiLevel) &&
+          normalizedApiLevel !== currentFloorBeforeUpdate
+          ? normalizedApiLevel
+          : fallbackLevel;
+      if (nextPersonalLevel !== undefined) {
+        const desired = Math.max(1, nextPersonalLevel);
+        if (desired !== currentFloor && !isMoving) {
+          goToFloor(desired);
+          setPersonalLevel(nextPersonalLevel);
+        } else {
+          setPersonalLevel(nextPersonalLevel);
+        }
+      }
+    } catch (error) {
+      if (error.status === 400) {
+        await loadTasks();
+      } else if (error.status === 403) {
+        alert(
+          "이 항목을 취소할 권한이 없습니다. 개인 플랜의 항목만 취소할 수 있습니다."
+        );
+        await loadTasks();
+      } else {
+        await loadTasks();
+      }
+    } finally {
+      setUncompleteWarning(null);
+    }
+  };
+
   const handleSubtaskToggle = async (task, subtask, e) => {
     if (subtask.isTeamPlan) {
       e.preventDefault();
@@ -981,97 +1084,7 @@ export default function Home() {
     }
 
     if (serverCompleted === true) {
-      try {
-        const uncompleteResult = await uncompleteFloor(subtask.floorId);
-
-        const newTasks = tasks.map((t) => {
-          if (t.id !== task.id) return t;
-          const updatedSubtasks = t.subtasks.map((s) =>
-            s.id === subtask.id ? { ...s, done: false } : s
-          );
-          const doneCount = updatedSubtasks.filter((s) => s.done).length;
-          return {
-            ...t,
-            subtasks: updatedSubtasks,
-            progress: `${doneCount}/${updatedSubtasks.length}`,
-          };
-        });
-
-        const sortedTasks = [...newTasks].sort((a, b) => {
-          const aAllDone =
-            a.subtasks.length > 0 && a.subtasks.every((s) => s.done);
-          const bAllDone =
-            b.subtasks.length > 0 && b.subtasks.every((s) => s.done);
-          if (aAllDone && !bAllDone) return 1;
-          if (!aAllDone && bAllDone) return -1;
-          return 0;
-        });
-
-        setTasks(sortedTasks);
-
-        const statusDate = getStatusDateForSubtask(subtask);
-        try {
-          const updatedStatus = await getFloorsStatusByDate(statusDate);
-          if (Array.isArray(updatedStatus)) {
-            const total = updatedStatus.length;
-            const done = updatedStatus.filter((f) =>
-              isFloorCompleted(f)
-            ).length;
-            const percent = total > 0 ? Math.round((done / total) * 100) : 0;
-
-            setTodayProgress({
-              done,
-              total,
-              percent,
-            });
-          }
-        } catch (progressError) {
-          const updatedTodayFloors = await fetchTodayFloors(true);
-          if (Array.isArray(updatedTodayFloors)) {
-            const total = updatedTodayFloors.length;
-            let done = 0;
-            for (const floor of updatedTodayFloors) {
-              if (isFloorCompleted(floor)) done++;
-            }
-            const percent = total > 0 ? Math.round((done / total) * 100) : 0;
-            setTodayProgress({ done, total, percent });
-          }
-        }
-
-        const profile = await getMyProfile();
-        const currentFloorBeforeUpdate = currentFloor;
-        const apiLevel =
-          profile?.personalLevel ?? uncompleteResult?.personalLevel;
-        const normalizedApiLevel = Number(apiLevel);
-        const fallbackLevel = Math.max(1, currentFloorBeforeUpdate - 1);
-        const nextPersonalLevel =
-          Number.isFinite(normalizedApiLevel) &&
-            normalizedApiLevel !== currentFloorBeforeUpdate
-            ? normalizedApiLevel
-            : fallbackLevel;
-        if (nextPersonalLevel !== undefined) {
-          const desired = Math.max(1, nextPersonalLevel);
-          if (desired !== currentFloor && !isMoving) {
-            goToFloor(desired);
-            setPersonalLevel(nextPersonalLevel);
-          } else {
-            setPersonalLevel(nextPersonalLevel);
-          }
-        }
-      } catch (error) {
-        if (error.status === 400) {
-          await loadTasks();
-          return;
-        }
-        if (error.status === 403) {
-          alert(
-            "이 항목을 취소할 권한이 없습니다. 개인 플랜의 항목만 취소할 수 있습니다."
-          );
-          await loadTasks();
-          return;
-        }
-        await loadTasks();
-      }
+      setUncompleteWarning({ task, subtask });
       return;
     }
 
@@ -1432,6 +1445,34 @@ export default function Home() {
       {popupQueue.length === 0 && showWeeklyModal && (
         <WeeklyAchievementModal onClose={() => setShowWeeklyModal(false)} />
       )}
+
+      {/* ✅ 완료 취소 경고 모달 (컴포넌트 사용) */}
+      <WarningModal
+        open={!!uncompleteWarning}
+        title="경고"
+        content={
+          <>
+            완료를 취소하시겠습니까?
+            <br />
+            <span
+              style={{
+                color: "#d32f2f",
+                fontSize: "13px",
+                marginTop: "4px",
+                display: "block",
+              }}
+            >
+              (취소 시 10 코인이 차감되며,
+              <br />
+              층수가 내려갈 수 있습니다.)
+            </span>
+          </>
+        }
+        onConfirm={processUncomplete}
+        onClose={() => setUncompleteWarning(null)}
+        confirmText="취소하기"
+        cancelText="닫기"
+      />
     </div>
   );
 }
