@@ -132,19 +132,36 @@ function computeBBox(layers) {
 }
 
 // ✅ (중요) 스케일링 로직 절대 건드리지 않음: transform 미사용, 좌표/크기 자체를 스케일링
+// ✅ (중요) 스케일링 로직 절대 건드리지 않음: transform 미사용, 좌표/크기 자체를 스케일링
 const CharacterAvatar = memo(function CharacterAvatar({
+  key, // key prop 전달
   className,
   size = 48,
   member,
   badgeMember,
 }) {
-  const equippedItems = member?.equippedItems;
-  const equippedBadges = badgeMember?.equippedBadges;
+  const equippedItems = member?.equippedItems || [];
+  const equippedBadges = badgeMember?.equippedBadges || [];
 
-  const layers = useMemo(
-    () => normalizeLayers(equippedItems, equippedBadges),
-    [equippedItems, equippedBadges]
+  // ✅ FACE 아이템 찾기 (TeamPlaceHome과 로직 통일)
+  const faceItem = equippedItems.find(
+    (it) => String((it?.itemType ?? it?.type) || "").toUpperCase() === "FACE"
   );
+
+  // ✅ FACE 아이템이 있으면 그걸 베이스로 사용, 없으면 기본 떡(baseChar)
+  // 단, FACE 아이템도 layers에 포함해서 좌표 계산에는 참여해야 함 (또는 base처리를 따로 하거나)
+  // TeamPlaceHome 로직: FACE를 base로 쓰고 layers에서는 뺌.
+
+  const baseImgUrl = faceItem?.imageUrl || baseChar;
+
+  const layers = useMemo(() => {
+    // FACE 아이템은 베이스로 깔리므로 레이어 목록에서는 제외 (중복 렌더링 방지)
+    const itemsFiltered = faceItem
+      ? equippedItems.filter(it => it !== faceItem)
+      : equippedItems;
+
+    return normalizeLayers(itemsFiltered, equippedBadges);
+  }, [equippedItems, equippedBadges, faceItem]);
 
   const bbox = useMemo(() => computeBBox(layers), [layers]);
   const scale = Math.min(size / bbox.w, size / bbox.h);
@@ -159,6 +176,7 @@ const CharacterAvatar = memo(function CharacterAvatar({
 
   return (
     <div
+      key={key}
       className={className}
       style={{
         width: size,
@@ -172,9 +190,9 @@ const CharacterAvatar = memo(function CharacterAvatar({
       }}
       aria-hidden="true"
     >
-      {/* ✅ 기본 바디 */}
+      {/* ✅ 기본 바디 (FACE 아이템 or 기본 떡) */}
       <img
-        src={baseChar}
+        src={baseImgUrl}
         alt=""
         draggable={false}
         style={{
@@ -187,6 +205,7 @@ const CharacterAvatar = memo(function CharacterAvatar({
           display: "block",
         }}
         onError={(e) => {
+          // 이미지 로드 실패 시 숨기지 않고 투명처리 or 대체
           e.currentTarget.style.display = "none";
         }}
       />
@@ -305,15 +324,25 @@ export default function TeamBoardDetail() {
   }, [membersChars, membersBadges]);
 
   const resolveMember = (userId, username) => {
-    if (userId != null)
-      return charById.get(userId) ?? charByName.get(String(username));
-    return charByName.get(String(username));
+    if (userId != null) {
+      const numId = Number(userId);
+      if (Number.isFinite(numId)) {
+        const byId = charById.get(numId);
+        if (byId) return byId;
+      }
+    }
+    return charByName.get(String(username ?? ""));
   };
 
   const resolveBadgeMember = (userId, username) => {
-    if (userId != null)
-      return badgeById.get(userId) ?? badgeByName.get(String(username));
-    return badgeByName.get(String(username));
+    if (userId != null) {
+      const numId = Number(userId);
+      if (Number.isFinite(numId)) {
+        const byId = badgeById.get(numId);
+        if (byId) return byId;
+      }
+    }
+    return badgeByName.get(String(username ?? ""));
   };
 
   useEffect(() => {
@@ -484,6 +513,7 @@ export default function TeamBoardDetail() {
           <div className="tp-post-card tp-figma-frame">
             {/* ====== (1) 게시글 헤더 ====== */}
             <CharacterAvatar
+              key={`post-avatar-${vm.writerId ?? "anon"}-${postMember?.userId ?? "none"}`}
               className="tp-figma-post-avatar"
               size={48}
               member={postMember}
