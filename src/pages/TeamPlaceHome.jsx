@@ -64,73 +64,69 @@ function pick(obj, ...keys) {
   return null;
 }
 
-// ✅ DB 좌표(offsetX/offsetY)는 "BASE 좌표계"로 가정하고 -> 화면(px)로 변환해서 오버레이로 렌더
-function getBadgeOverlayStyle(
-  badgeRaw,
-  { scale, dx = 0, dy = 0, fallbackPx = 18, forceChest = false }
-) {
-  const b = badgeRaw?.badge ?? badgeRaw ?? {};
-
-  // 1) DB에서 좌표/크기 읽기(키 후보 넉넉히)
-  const x = toNum(pick(b, "offsetX", "offset_x", "x", "left", "posX"));
-  const y = toNum(pick(b, "offsetY", "offset_y", "y", "top", "posY"));
-  const w0 = toNum(pick(b, "width", "w", "itemWidth", "badgeWidth"));
-  const h0 = toNum(pick(b, "height", "h", "itemHeight", "badgeHeight"));
-
-  // 2) 위치: DB 있으면 사용, 없으면 우하단 fallback(※ 우하단도 BASE 기준)
-  const baseW = w0 && w0 > 0 ? w0 : 40; // 대충 badge 원본이 40쯤인 케이스가 많아서 안전값
-  const baseH = h0 && h0 > 0 ? h0 : 40;
-
-  let bx, by;
-
-  if (forceChest) {
-    // ✅ 가슴팍 강제 위치 (중앙 하단)
-    // BASE_W(114)의 중앙 ≈ 57, 근데 badge width 절반 빼야 함
-    bx = (BASE_W - baseW) / 2 + 5; // +5는 살짝 우측 보정 (캐릭터 몸통 기준)
-    by = 65;
-  } else {
-    bx = x != null ? x : BASE_W - baseW - 4;
-    by = y != null ? y : BASE_H - baseH - 4;
-  }
-
-  // 3) 화면(px)로 변환 (stage의 transform을 “수동 적용”)
-  const leftPx = dx + bx * scale;
-  const topPx = dy + by * scale;
-
-  // 4) 크기: DB크기*scale을 우선 시도하되,
-  //    너무 크거나/너무 작으면 fallbackPx로 자동 보정
-  let wPx = w0 != null && w0 > 0 ? w0 * scale : fallbackPx;
-  let hPx = h0 != null && h0 > 0 ? h0 * scale : fallbackPx;
-
-  const minPx = Math.max(10, Math.round(fallbackPx * 0.7));
-  const maxPx = Math.round(fallbackPx * 1.8);
-
-  if (wPx < minPx || hPx < minPx || wPx > maxPx || hPx > maxPx) {
-    wPx = fallbackPx;
-    hPx = fallbackPx;
-  }
-
-  return {
-    position: "absolute",
-    left: `${leftPx}px`,
-    top: `${topPx}px`,
-    width: `${wPx}px`,
-    height: `${hPx}px`,
-    pointerEvents: "none",
-    userSelect: "none",
-    imageRendering: "pixelated",
-    zIndex: 9999,
+// ✅ API Response -> CSS Style 변환 (Customize.jsx 로직 이식)
+function buildLayerStyleFromServer(raw, meta) {
+  const pickVal = (...vals) => {
+    for (const v of vals) {
+      if (v !== undefined && v !== null && v !== "") return v;
+    }
+    return null;
   };
+
+  const xRaw = pickVal(
+    raw?.offsetX, raw?.offset_x, raw?.x, raw?.posX, raw?.left,
+    meta?.offsetX, meta?.offset_x, meta?.x, meta?.posX, meta?.left
+  );
+  const yRaw = pickVal(
+    raw?.offsetY, raw?.offset_y, raw?.y, raw?.posY, raw?.top,
+    meta?.offsetY, meta?.offset_y, meta?.y, meta?.posY, meta?.top
+  );
+  const wRaw = pickVal(raw?.width, raw?.itemWidth, raw?.w, meta?.width);
+  const hRaw = pickVal(raw?.height, raw?.itemHeight, raw?.h, meta?.height);
+  const sRaw = pickVal(raw?.scale, raw?.size, meta?.scale, meta?.size);
+
+  const x = toNum(xRaw);
+  const y = toNum(yRaw);
+  const w = toNum(wRaw);
+  const h = toNum(hRaw);
+
+  const sNum = toNum(sRaw);
+  const scale = sNum == null ? null : sNum > 10 ? sNum / 100 : sNum;
+
+  const style = { position: "absolute" }; // 기본 absolute
+  if (x != null) style.left = `${x}px`;
+  if (y != null) style.top = `${y}px`;
+
+  const looksLikeRatio = (n) => n != null && n > 0 && n <= 3;
+  if (w != null && !looksLikeRatio(w)) style.width = `${w}px`;
+  if (h != null && !looksLikeRatio(h)) style.height = `${h}px`;
+
+  if (
+    (w == null || h == null || looksLikeRatio(w) || looksLikeRatio(h)) &&
+    scale != null &&
+    scale !== 1
+  ) {
+    style.transform = `scale(${scale})`;
+    style.transformOrigin = "top left";
+  }
+
+  style.imageRendering = "pixelated";
+  style.pointerEvents = "none";
+  style.userSelect = "none";
+  style.objectFit = "contain"; // ✅ Customize.css .cust-layer-img 모방하여 비율 유지
+
+  // ✅ Customize.css 기본값 적용 (좌표/크기 없을 경우 캔버스 꽉 채우기)
+  if (style.width === undefined) style.width = "100%";
+  if (style.height === undefined) style.height = "100%";
+  if (style.left === undefined) style.left = 0;
+  if (style.top === undefined) style.top = 0;
+
+  return style;
 }
 
 const elevatorInsideImg = "/images/frame.png";
 
 // ... (중략) ...
-
-
-
-
-
 
 /** ✅ 캐릭터 썸네일(모두의 할 일 좌측) */
 function CharacterThumb({ user, badge }) {
@@ -163,12 +159,10 @@ function CharacterThumb({ user, badge }) {
               <img
                 src={badgeSrc}
                 alt=""
-                style={getBadgeOverlayStyle(badge, {
-                  scale: 1, // Full size for fallback
-                  dx: 0,
-                  dy: 0,
-                  fallbackPx: 18,
-                })}
+                style={{
+                  ...buildLayerStyleFromServer(badge, badge),
+                  zIndex: 9999,
+                }}
               />
             )}
           </div>
@@ -260,10 +254,8 @@ function CharacterThumb({ user, badge }) {
             const src = it?.imageUrl ?? it?.imgUrl; // 서버 키 차이 대비
             if (!src) return null;
 
-            const w = Number(it?.width) || BASE_W;
-            const h = Number(it?.height) || BASE_H;
-            const ox = Number(it?.offsetX) || 0;
-            const oy = Number(it?.offsetY) || 0;
+            // ✅ DB 좌표/크기 적용 (Customize.jsx 로직 + CSS 기본값)
+            const style = buildLayerStyleFromServer(it, it);
 
             return (
               <img
@@ -271,14 +263,7 @@ function CharacterThumb({ user, badge }) {
                 src={src}
                 alt=""
                 style={{
-                  position: "absolute",
-                  left: `${ox}px`,
-                  top: `${oy}px`,
-                  width: `${w}px`,
-                  height: `${h}px`,
-                  imageRendering: "pixelated",
-                  pointerEvents: "none",
-                  userSelect: "none",
+                  ...style,
                   zIndex: idx + 1,
                 }}
               />
@@ -288,16 +273,28 @@ function CharacterThumb({ user, badge }) {
 
         {/* ✅ [ADD] 배지 오버레이 */}
         {badgeSrc && (
-          <img
-            src={badgeSrc}
-            alt=""
-            style={getBadgeOverlayStyle(badge, {
-              scale,
-              dx: 0,
-              dy: 0,
-              fallbackPx: 18,
-            })}
-          />
+          <div
+            className="member-avatarStage"
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: `${BASE_W}px`,
+              height: `${BASE_H}px`,
+              transform: `scale(${scale})`,
+              transformOrigin: "top left",
+              pointerEvents: "none",
+            }}
+          >
+            <img
+              src={badgeSrc}
+              alt=""
+              style={{
+                ...buildLayerStyleFromServer(badge, badge),
+                zIndex: 9999,
+              }}
+            />
+          </div>
         )}
       </div>
     </div>
