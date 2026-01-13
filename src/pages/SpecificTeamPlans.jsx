@@ -431,7 +431,7 @@ export default function SpecificTeamPlans({ onBack, onSuccess }) {
       if (e?.status === 404) {
         alert(
           "세부 계획 생성 API가 아직 없거나 URL이 달라요.\n" +
-            "백엔드 엔드포인트 확인되면 여기 URL/바디 맞춰줄게."
+          "백엔드 엔드포인트 확인되면 여기 URL/바디 맞춰줄게."
         );
         return;
       }
@@ -537,6 +537,17 @@ export default function SpecificTeamPlans({ onBack, onSuccess }) {
           outline: none;
           background: transparent;
           font-family: var(--font-sans);
+          cursor: pointer;
+          flex: 1;
+        }
+        .stp-dateInput::-webkit-calendar-picker-indicator {
+          cursor: pointer;
+          padding: 4px;
+          margin-left: 8px;
+          opacity: 0.8;
+        }
+        .stp-dateInput::-webkit-calendar-picker-indicator:hover {
+          opacity: 1;
         }
 
         .stp-iconBtn {
@@ -746,29 +757,14 @@ export default function SpecificTeamPlans({ onBack, onSuccess }) {
           <div className="stp-field">
             <div className="stp-label">세부 계획</div>
             <div className="stp-box">
-              {isEditingTitle ? (
-                <input
-                  className="stp-input"
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="세부 계획을 입력하세요"
-                  autoFocus
-                />
-              ) : (
-                <span className="stp-text">
-                  {title || "세부 계획을 입력하세요"}
-                </span>
-              )}
-
-              <button
-                className="stp-iconBtn"
-                aria-label="세부 계획 수정"
-                onClick={() => setIsEditingTitle((v) => !v)}
-                type="button"
-              >
-                <PencilIcon />
-              </button>
+              <input
+                className="stp-input"
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="세부 계획을 입력하세요"
+                autoFocus
+              />
             </div>
           </div>
 
@@ -776,28 +772,12 @@ export default function SpecificTeamPlans({ onBack, onSuccess }) {
           <div className="stp-field">
             <div className="stp-label">마감일</div>
             <div className="stp-box">
-              {isEditingDueDate ? (
-                <input
-                  className="stp-dateInput"
-                  type="date"
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
-                  onBlur={() => setIsEditingDueDate(false)}
-                />
-              ) : (
-                <span className="stp-text stp-dateText">
-                  {dueDate ? `${fmtDot(dueDate)}.` : "마감일을 선택하세요"}
-                </span>
-              )}
-
-              <button
-                className="stp-iconBtn"
-                aria-label="마감일 수정"
-                onClick={() => setIsEditingDueDate((v) => !v)}
-                type="button"
-              >
-                <PencilIcon />
-              </button>
+              <input
+                className="stp-dateInput"
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+              />
             </div>
           </div>
 
@@ -824,9 +804,8 @@ export default function SpecificTeamPlans({ onBack, onSuccess }) {
                     return (
                       <div
                         key={m.userId}
-                        className={`stp-inlineItem ${
-                          selected ? "selected" : ""
-                        }`}
+                        className={`stp-inlineItem ${selected ? "selected" : ""
+                          }`}
                         onClick={() => toggleUser(m.userId)}
                         role="button"
                         tabIndex={0}
