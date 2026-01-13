@@ -1068,13 +1068,20 @@ export default function TeamPlaceHome() {
                   xOffset = col === 0 ? -spread : spread;
                   brightness = '1';
                 } else {
-                  // 세 명 이상: 기존 로직 (뒤/중간/앞 줄)
-                  scale = 0.9 + (row * 0.2);
-                  bottom = 140 - (row * 75);
+                  // 세 명 이상: 뒤/중간/앞 줄 배치 (원근감 수정: 더 크게, 더 앞으로)
+                  scale = 1.2 + row * 0.15;
+                  bottom = 80 - row * 45;
                   zIndex = 10 + row;
-                  spread = 60 + (row * 15);
-                  xOffset = col === 0 ? -spread : spread;
-                  brightness = row === 0 ? '0.9' : (row === 1 ? '0.97' : '1');
+                  spread = 75 + row * 15;
+
+                  // [FIX] 홀수 인원일 때 마지막 사람은 중앙 정렬 (예: 3명일 때 3번째는 앞줄 중앙)
+                  if (teamChars.length % 2 !== 0 && i === teamChars.length - 1) {
+                    xOffset = 0;
+                  } else {
+                    xOffset = col === 0 ? -spread : spread;
+                  }
+
+                  brightness = row === 0 ? "0.9" : row === 1 ? "0.97" : "1";
                 }
 
                 return (
