@@ -216,12 +216,22 @@ const Customize = () => {
       if (coin !== undefined && coin !== null) {
         setUserCoins(Number(coin));
       }
-    } catch { }
+    } catch {}
   };
 
   // =========================
   // --- 데이터 로딩 useEffect들 ---
   // =========================
+
+  useEffect(() => {
+    (async () => {
+      if (cachedProfile?.coin !== undefined && cachedProfile?.coin !== null) {
+        setUserCoins(Number(cachedProfile.coin));
+      }
+      await syncCoinsFromServer();
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const {
     profile: cachedProfile,
@@ -255,7 +265,7 @@ const Customize = () => {
         const my = await getMyItems();
         const list = Array.isArray(my) ? my : my?.result ?? my?.data ?? [];
         setOwnedSet(new Set(list.map((x) => Number(x.itemId ?? x.id))));
-      } catch { }
+      } catch {}
     })();
   }, [cachedProfile, cachedCharacter, fetchProfile, fetchCharacter]);
 
@@ -307,7 +317,7 @@ const Customize = () => {
         });
 
         setCatalogMetaById({ face: faceMeta, item: itemMeta });
-      } catch { }
+      } catch {}
     })();
   }, []);
 
@@ -363,7 +373,7 @@ const Customize = () => {
       setEquippedSet(newSet);
       setPreviewItems((prev) => ({ ...prev, ...newPreview }));
       setPreviewStyles((prev) => ({ ...prev, ...newStyles }));
-    } catch { }
+    } catch {}
   };
 
   useEffect(() => {
@@ -437,7 +447,9 @@ const Customize = () => {
               equipped: equippedSet.has(`${cat}:${id}`),
               imgUrl,
               fileName,
-              isBasicFace: cat === "face" && (item.name?.toLowerCase() === "basic" || item.name === "기본"),
+              isBasicFace:
+                cat === "face" &&
+                (item.name?.toLowerCase() === "basic" || item.name === "기본"),
             };
           })
           .filter(Boolean)
@@ -496,7 +508,9 @@ const Customize = () => {
 
     if (selectedItem.isBasicFace) {
       try {
-        const equippedFaceKey = [...equippedSet].find(key => key.startsWith("face:"));
+        const equippedFaceKey = [...equippedSet].find((key) =>
+          key.startsWith("face:")
+        );
         if (equippedFaceKey) {
           const faceId = Number(equippedFaceKey.split(":")[1]);
           if (!isNaN(faceId)) {
@@ -531,7 +545,11 @@ const Customize = () => {
           const toRemove = equippedBadges[0]; // 첫 번째 배지를 교체 대상으로 선정
           const removeName = toRemove.name || toRemove.title || "기존 배지";
 
-          if (window.confirm(`뱃지 장착 슬롯이 가득 찼습니다.\n'${removeName}'을(를) 해제하고 장착하시겠습니까?`)) {
+          if (
+            window.confirm(
+              `뱃지 장착 슬롯이 가득 찼습니다.\n'${removeName}'을(를) 해제하고 장착하시겠습니까?`
+            )
+          ) {
             try {
               const rmId = toRemove.badgeId ?? toRemove.id;
               await unequipBadge(rmId);
@@ -541,7 +559,9 @@ const Customize = () => {
               closePopup();
               return;
             } catch (retryErr) {
-              alert("교체 실패: " + (retryErr?.message || "다시 시도해주세요."));
+              alert(
+                "교체 실패: " + (retryErr?.message || "다시 시도해주세요.")
+              );
               return;
             }
           }
@@ -603,34 +623,37 @@ const Customize = () => {
                   className="cust-layer-img"
                   style={{ ...previewStyles.face, zIndex: 0 }}
                   alt="base"
-                  onLoad={(e) => { e.currentTarget.dataset.ready = "true"; }}
+                  onLoad={(e) => {
+                    e.currentTarget.dataset.ready = "true";
+                  }}
                   onError={(e) => (e.currentTarget.style.display = "none")}
                 />
               )
             );
           })()}
 
-          {getPreviewSource("item") && (() => {
-            let itemStyle = previewStyles.item;
-            if (selectedItem && selectedItem.uiCategory === "item") {
-              const meta = catalogMetaById?.item?.[selectedItem.id];
-              itemStyle = buildLayerStyleFromServer(selectedItem, meta);
-            }
-            const hasPosition = itemStyle?.top || itemStyle?.left;
-            return (
-              <img
-                src={getPreviewSource("item")}
-                className="cust-layer-img"
-                style={{ ...itemStyle, zIndex: 2 }}
-                alt="item"
-                onLoad={(e) => {
-                  if (hasPosition) e.currentTarget.dataset.ready = "true";
-                }}
-                data-ready={hasPosition ? "true" : "false"}
-                onError={(e) => (e.currentTarget.style.display = "none")}
-              />
-            );
-          })()}
+          {getPreviewSource("item") &&
+            (() => {
+              let itemStyle = previewStyles.item;
+              if (selectedItem && selectedItem.uiCategory === "item") {
+                const meta = catalogMetaById?.item?.[selectedItem.id];
+                itemStyle = buildLayerStyleFromServer(selectedItem, meta);
+              }
+              const hasPosition = itemStyle?.top || itemStyle?.left;
+              return (
+                <img
+                  src={getPreviewSource("item")}
+                  className="cust-layer-img"
+                  style={{ ...itemStyle, zIndex: 2 }}
+                  alt="item"
+                  onLoad={(e) => {
+                    if (hasPosition) e.currentTarget.dataset.ready = "true";
+                  }}
+                  data-ready={hasPosition ? "true" : "false"}
+                  onError={(e) => (e.currentTarget.style.display = "none")}
+                />
+              );
+            })()}
 
           {equippedBadges.map((b, idx) => (
             <img
@@ -644,9 +667,7 @@ const Customize = () => {
                   e.currentTarget.dataset.ready = "true";
                 }
               }}
-              data-ready={
-                (b.style?.top || b.style?.left) ? "true" : "false"
-              }
+              data-ready={b.style?.top || b.style?.left ? "true" : "false"}
               onError={(e) => (e.currentTarget.style.display = "none")}
             />
           ))}
@@ -684,17 +705,20 @@ const Customize = () => {
               />
             </div>
             <div
-              className={`cust-price-tag ${item.uiCategory === "badge"
-                ? item.owned
-                  ? "is-owned"
-                  : "is-hidden"
-                : item.owned
+              className={`cust-price-tag ${
+                item.uiCategory === "badge"
+                  ? item.owned
+                    ? "is-owned"
+                    : "is-hidden"
+                  : item.owned
                   ? "is-owned"
                   : "is-price"
-                }`}
+              }`}
             >
               {item.uiCategory === "badge" ? (
-                item.owned ? <span className="owned-label">보유</span> : null
+                item.owned ? (
+                  <span className="owned-label">보유</span>
+                ) : null
               ) : item.owned ? (
                 <span className="owned-label">보유</span>
               ) : (
@@ -736,12 +760,18 @@ const Customize = () => {
               {selectedItem.isBasicFace ? (
                 selectedItem.equipped ? (
                   // 이미 장착중 -> 아무것도 안함 or '현재 장착중' 표시
-                  <button className="cust-btn-yes" onClick={closePopup}>확인</button>
+                  <button className="cust-btn-yes" onClick={closePopup}>
+                    확인
+                  </button>
                 ) : (
                   // 장착 안됨 -> 변경 가능
                   <>
-                    <button className="cust-btn-yes" onClick={handleEquip}>변경</button>
-                    <button className="cust-btn-no" onClick={closePopup}>취소</button>
+                    <button className="cust-btn-yes" onClick={handleEquip}>
+                      변경
+                    </button>
+                    <button className="cust-btn-no" onClick={closePopup}>
+                      취소
+                    </button>
                   </>
                 )
               ) : selectedItem.owned ? (
@@ -786,14 +816,23 @@ const Customize = () => {
         <div className="popup-overlay">
           <div className="popup-box">
             <h3 className="popup-title">저장 완료!</h3>
-            <div className="popup-content" style={{ flexDirection: "column", gap: "10px" }}>
+            <div
+              className="popup-content"
+              style={{ flexDirection: "column", gap: "10px" }}
+            >
               <img
                 src={paintIcon}
                 alt="저장"
                 className="coin-img"
                 style={{ width: "50px", height: "50px" }}
               />
-              <span style={{ fontSize: "16px", fontWeight: "700", wordBreak: "keep-all" }}>
+              <span
+                style={{
+                  fontSize: "16px",
+                  fontWeight: "700",
+                  wordBreak: "keep-all",
+                }}
+              >
                 현재 장착 상태로 저장되었습니다!
               </span>
             </div>

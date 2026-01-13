@@ -155,8 +155,6 @@ export default function Home() {
   // ✅ 주간 모달: 팝업 큐 끝난 뒤에만
   const [showWeeklyModal, setShowWeeklyModal] = useState(false);
 
-
-
   const [personalLevel, setPersonalLevel] = useState(initialLevel); // 현재 층수
   const pendingFloorRef = useRef(null);
   const hasInitialFloorSyncRef = useRef(false);
@@ -215,7 +213,7 @@ export default function Home() {
           return parsed;
         }
       }
-    } catch (e) { }
+    } catch (e) {}
     return [];
   });
   const [undoneTasks, setUndoneTasks] = useState(() => {
@@ -227,7 +225,7 @@ export default function Home() {
           return parsed;
         }
       }
-    } catch (e) { }
+    } catch (e) {}
     return [];
   });
   const [showUndoneQuests, setShowUndoneQuests] = useState(false);
@@ -240,7 +238,7 @@ export default function Home() {
         const parsed = JSON.parse(cached);
         return !(Array.isArray(parsed) && parsed.length > 0);
       }
-    } catch (e) { }
+    } catch (e) {}
     return true;
   });
 
@@ -365,8 +363,10 @@ export default function Home() {
       setPopupQueue(q);
       setIsCheckingPopups(false); // ✅ 체크 완료
 
-      // ✅ 주간모달 처리 (기존 로직 유지)
-      const hasShownWeekly = sessionStorage.getItem("has_shown_weekly_modal") === "1";
+      // ✅ 주간모달은 "기존 유저(온보딩 완료)"만, 그리고 큐 끝난 뒤에만 띄우기 위해 pending만 저장
+      // 또한, 이번 세션에서 이미 본 적이 없어야 함 (has_shown_weekly_modal)
+      const hasShownWeekly =
+        sessionStorage.getItem("has_shown_weekly_modal") === "1";
       if (!firstLoginBonusGiven && !needsOnboarding && !hasShownWeekly) {
         sessionStorage.setItem("weekly_modal_pending", "1");
       } else {
@@ -429,7 +429,7 @@ export default function Home() {
           // 진행 상태 확인용 추가 API 호출 (이건 가벼우니 유지하거나, 이것도 캐싱 고려 가능)
           const statusDate = getStatusDateFromFloors(floors);
           todayFloorsStatus = await getFloorsStatusByDate(statusDate);
-        } catch (error) { }
+        } catch (error) {}
 
         let done = 0;
         for (const floor of floors) {
@@ -458,7 +458,7 @@ export default function Home() {
                 if (detailFloor) {
                   isCompleted = isFloorCompleted(detailFloor);
                 }
-              } catch (err) { }
+              } catch (err) {}
             }
           }
           if (isCompleted) done++;
@@ -492,8 +492,6 @@ export default function Home() {
     }
   }, [projectCount]);
 
-
-
   // ✅ 캐릭터 기본 로드 (캐시 우선)
   useEffect(() => {
     if (cachedCharacter) {
@@ -503,7 +501,8 @@ export default function Home() {
         const url = await fetchCharacter();
         // fetchCharacter가 url 문자열을 반환한다고 가정 (userStore.js 참고)
         if (url) {
-          const actualUrl = typeof url === "string" ? url : url.imageUrl || url.character;
+          const actualUrl =
+            typeof url === "string" ? url : url.imageUrl || url.character;
           if (actualUrl) setCharacterImageUrl(actualUrl);
         }
       };
@@ -541,7 +540,7 @@ export default function Home() {
 
   // ✅ 메타데이터 적용된 아이템 리스트 생성
   const mergedItems = React.useMemo(() => {
-    return equippedItems.map(item => {
+    return equippedItems.map((item) => {
       // item.itemId 혹은 item.id로 매칭
       const id = item.itemId || item.id;
       const meta = itemMetadata?.[id] || {};
@@ -611,15 +610,18 @@ export default function Home() {
     if (tasks.length > 0) {
       try {
         sessionStorage.setItem("home_tasks_cache", JSON.stringify(tasks));
-      } catch (e) { }
+      } catch (e) {}
     }
   }, [tasks]);
 
   // ✅ undoneTasks가 변경될 때마다 sessionStorage에 캐시 저장
   useEffect(() => {
     try {
-      sessionStorage.setItem("home_undoneTasks_cache", JSON.stringify(undoneTasks));
-    } catch (e) { }
+      sessionStorage.setItem(
+        "home_undoneTasks_cache",
+        JSON.stringify(undoneTasks)
+      );
+    } catch (e) {}
   }, [undoneTasks]);
 
   // =========================
@@ -667,7 +669,7 @@ export default function Home() {
         try {
           const statusDate = getStatusDateFromFloors(todayFloors);
           todayFloorsStatus = await getFloorsStatusByDate(statusDate);
-        } catch (error) { }
+        } catch (error) {}
 
         const todayTasks = await Promise.all(
           Array.from(scheduleMap.values()).map(async (schedule) => {
@@ -698,8 +700,8 @@ export default function Home() {
               if (targetFloorId && todayFloorsStatus) {
                 const statusFloor = Array.isArray(todayFloorsStatus)
                   ? todayFloorsStatus.find(
-                    (f) => getFloorIdValue(f) === targetFloorId
-                  )
+                      (f) => getFloorIdValue(f) === targetFloorId
+                    )
                   : null;
                 if (statusFloor) {
                   completedStatus = isFloorCompleted(statusFloor);
@@ -747,7 +749,10 @@ export default function Home() {
                 id: schedule.scheduleId?.toString() || `task-${Date.now()}`,
                 title: schedule.title,
                 // ✅ 디자인 요구사항: "전체 할 일 중 몇 번째인지" (예: 7/10)
-                progress: `${Math.min(daysDiff + 1, detail.floors?.length || 1)}/${detail.floors?.length || 1}`,
+                progress: `${Math.min(
+                  daysDiff + 1,
+                  detail.floors?.length || 1
+                )}/${detail.floors?.length || 1}`,
                 subtasks,
                 color: schedule.color,
                 startDate: detail.startDate,
@@ -779,8 +784,8 @@ export default function Home() {
           const missedSchedules = Array.isArray(missedResponse)
             ? missedResponse
             : missedResponse
-              ? [missedResponse]
-              : [];
+            ? [missedResponse]
+            : [];
           const undoneQuestsList = missedSchedules.map(
             (schedule, scheduleIndex) => {
               const scheduleFloors = schedule.floors || [];
@@ -860,7 +865,7 @@ export default function Home() {
                 if (detailFloor) {
                   isCompleted = isFloorCompleted(detailFloor);
                 }
-              } catch (err) { }
+              } catch (err) {}
             }
           }
           if (isCompleted) done++;
@@ -880,7 +885,7 @@ export default function Home() {
           if (profile && profile.personalLevel !== undefined) {
             setPersonalLevel(profile.personalLevel);
           }
-        } catch (error) { }
+        } catch (error) {}
       } else {
         setTasks([]);
         setUndoneTasks([]);
@@ -987,9 +992,7 @@ export default function Home() {
         const updatedStatus = await getFloorsStatusByDate(statusDate);
         if (Array.isArray(updatedStatus)) {
           const total = updatedStatus.length;
-          const done = updatedStatus.filter((f) =>
-            isFloorCompleted(f)
-          ).length;
+          const done = updatedStatus.filter((f) => isFloorCompleted(f)).length;
           const percent = total > 0 ? Math.round((done / total) * 100) : 0;
 
           setTodayProgress({
@@ -1019,7 +1022,7 @@ export default function Home() {
       const fallbackLevel = Math.max(1, currentFloorBeforeUpdate - 1);
       const nextPersonalLevel =
         Number.isFinite(normalizedApiLevel) &&
-          normalizedApiLevel !== currentFloorBeforeUpdate
+        normalizedApiLevel !== currentFloorBeforeUpdate
           ? normalizedApiLevel
           : fallbackLevel;
       if (nextPersonalLevel !== undefined) {
@@ -1075,7 +1078,7 @@ export default function Home() {
             serverCompleted = isFloorCompleted(statusFloor);
           }
         }
-      } catch (statusError) { }
+      } catch (statusError) {}
 
       if (!serverCompleted) {
         try {
@@ -1087,7 +1090,7 @@ export default function Home() {
           if (detailFloor) {
             serverCompleted = isFloorCompleted(detailFloor);
           }
-        } catch (scheduleError) { }
+        } catch (scheduleError) {}
       }
 
       if (!serverCompleted && subtask.done === true) {
@@ -1178,7 +1181,7 @@ export default function Home() {
       const fallbackLevel = Math.max(1, currentFloorBeforeUpdate + 1);
       const nextPersonalLevel =
         Number.isFinite(normalizedApiLevel) &&
-          normalizedApiLevel !== currentFloorBeforeUpdate
+        normalizedApiLevel !== currentFloorBeforeUpdate
           ? normalizedApiLevel
           : fallbackLevel;
       if (nextPersonalLevel !== undefined) {
@@ -1266,7 +1269,7 @@ export default function Home() {
         const fallbackLevel = Math.max(1, currentFloorBeforeUpdate - 1);
         const nextPersonalLevel =
           Number.isFinite(normalizedApiLevel) &&
-            normalizedApiLevel !== currentFloorBeforeUpdate
+          normalizedApiLevel !== currentFloorBeforeUpdate
             ? normalizedApiLevel
             : fallbackLevel;
         if (nextPersonalLevel !== undefined) {
@@ -1341,7 +1344,7 @@ export default function Home() {
       const fallbackLevel = Math.max(1, currentFloorBeforeUpdate + 1);
       const nextPersonalLevel =
         Number.isFinite(normalizedApiLevel) &&
-          normalizedApiLevel !== currentFloorBeforeUpdate
+        normalizedApiLevel !== currentFloorBeforeUpdate
           ? normalizedApiLevel
           : fallbackLevel;
       if (nextPersonalLevel !== undefined) {
@@ -1404,7 +1407,7 @@ export default function Home() {
                 className="elevator-character"
                 style={{
                   position: "absolute",
-                  bottom: "25px",  // 발 위치 조정
+                  bottom: "25px", // 발 위치 조정
                   left: "50%",
                   // 원본 크기(114x126) 유지하고 scale로만 확대해야 좌표가 맞음
                   width: "114px",
