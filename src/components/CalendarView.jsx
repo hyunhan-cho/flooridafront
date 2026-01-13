@@ -26,8 +26,15 @@ function extractPlannedDatesFromRange(startDateStr, endDateStr, year, month) {
   const end = new Date(endDateStr);
   if (isNaN(start) || isNaN(end)) return [];
 
+  // [FIX] 시간 오차로 인한 마지막 날 누락 방지 (00:00:00 초기화)
+  start.setHours(0, 0, 0, 0);
+  end.setHours(0, 0, 0, 0);
+
   const monthStart = new Date(year, month, 1);
+  monthStart.setHours(0, 0, 0, 0);
+
   const monthEnd = new Date(year, month + 1, 0);
+  monthEnd.setHours(0, 0, 0, 0);
 
   // 해당 월과 겹치는 구간으로 클램프
   const from = start > monthStart ? start : monthStart;
