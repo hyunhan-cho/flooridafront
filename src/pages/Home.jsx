@@ -213,7 +213,7 @@ export default function Home() {
           return parsed;
         }
       }
-    } catch (e) {}
+    } catch (e) { }
     return [];
   });
   const [undoneTasks, setUndoneTasks] = useState(() => {
@@ -225,7 +225,7 @@ export default function Home() {
           return parsed;
         }
       }
-    } catch (e) {}
+    } catch (e) { }
     return [];
   });
   const [showUndoneQuests, setShowUndoneQuests] = useState(false);
@@ -238,7 +238,7 @@ export default function Home() {
         const parsed = JSON.parse(cached);
         return !(Array.isArray(parsed) && parsed.length > 0);
       }
-    } catch (e) {}
+    } catch (e) { }
     return true;
   });
 
@@ -326,12 +326,36 @@ export default function Home() {
   const [isCheckingPopups, setIsCheckingPopups] = useState(true);
 
   // ✅✅✅ Home 진입 시 팝업 큐 구성 (50 → 10 → 뱃지(들))
+  // ✅✅✅ Home 진입 시 팝업 큐 구성 (50 → 10 → 뱃지(들))
   useEffect(() => {
-    const firstLoginBonusGiven = Boolean(
-      entryFlags?.firstLoginBonusGiven || entryFlags?.isFirstLogin
-    );
-    const dailyRewardGiven = Boolean(entryFlags?.dailyRewardGiven);
+    // 1️⃣ 온보딩 필요 여부 우선 확인
     const needsOnboarding = Boolean(entryFlags?.needsOnboarding);
+
+    if (needsOnboarding) {
+      // 🚨 온보딩이 필요하면 팝업 띄우지 말고 정보 저장 후 이동
+      // 온보딩 완료 후 돌아왔을 때 띄우기 위함
+      sessionStorage.setItem("deferred_home_flags", JSON.stringify(entryFlags));
+      navigate("/tendency");
+      return;
+    }
+
+    // 2️⃣ 대기 중이던 플래그 복원 (온보딩 마치고 돌아온 경우)
+    let currentFlags = { ...entryFlags };
+    try {
+      const deferred = sessionStorage.getItem("deferred_home_flags");
+      if (deferred) {
+        const parsed = JSON.parse(deferred);
+        currentFlags = { ...parsed, ...currentFlags };
+        sessionStorage.removeItem("deferred_home_flags");
+      }
+    } catch (e) {
+      console.error(e);
+    }
+
+    const firstLoginBonusGiven = Boolean(
+      currentFlags?.firstLoginBonusGiven || currentFlags?.isFirstLogin
+    );
+    const dailyRewardGiven = Boolean(currentFlags?.dailyRewardGiven);
 
     (async () => {
       const q = [];
@@ -346,7 +370,7 @@ export default function Home() {
         q.push({ type: "coin", coinAmount: 10 });
       }
 
-      // 3) 오늘 획득 뱃지(들) — 로그인 시 항상 체크
+      // 3) 오늘(최근 24시간) 획득 뱃지(들)
       const { asOfDate, earnedBadges } = await fetchTodayEarnedBadges();
       if (asOfDate && earnedBadges.length > 0) {
         earnedBadges.forEach((badge) => {
@@ -363,11 +387,9 @@ export default function Home() {
       setPopupQueue(q);
       setIsCheckingPopups(false); // ✅ 체크 완료
 
-      // ✅ 주간모달은 "기존 유저(온보딩 완료)"만, 그리고 큐 끝난 뒤에만 띄우기 위해 pending만 저장
-      // 또한, 이번 세션에서 이미 본 적이 없어야 함 (has_shown_weekly_modal)
-      const hasShownWeekly =
-        sessionStorage.getItem("has_shown_weekly_modal") === "1";
-      if (!firstLoginBonusGiven && !needsOnboarding && !hasShownWeekly) {
+      // ✅ 주간모달 처리
+      const hasShownWeekly = sessionStorage.getItem("has_shown_weekly_modal") === "1";
+      if (!firstLoginBonusGiven && !hasShownWeekly) {
         sessionStorage.setItem("weekly_modal_pending", "1");
       } else {
         sessionStorage.removeItem("weekly_modal_pending");
@@ -376,23 +398,13 @@ export default function Home() {
   }, [entryFlags]);
 
   // ✅ 큐 종료 후 후처리: 온보딩 이동 / 주간모달
+  // ✅ 큐 종료 후 후처리: 주간모달만 처리 (온보딩 이동은 위에서 처리함)
   useEffect(() => {
     // 팝업 체크 중이거나 큐에 내용이 있으면 대기
     if (isCheckingPopups || popupQueue.length !== 0) return;
 
-    const needsOnboarding = Boolean(entryFlags?.needsOnboarding);
-
-    // 1) 온보딩 필요면 팝업 끝난 뒤 성향조사로
-    if (needsOnboarding) {
-      sessionStorage.removeItem("home_entry_flags");
-      sessionStorage.removeItem("weekly_modal_pending");
-      navigate("/tendency");
-      return;
-    }
-
-    // 2) 기존유저면 주간모달
-    const pendingWeekly =
-      sessionStorage.getItem("weekly_modal_pending") === "1";
+    // 기존유저면 주간모달
+    const pendingWeekly = sessionStorage.getItem("weekly_modal_pending") === "1";
     if (pendingWeekly) {
       setShowWeeklyModal(true);
       sessionStorage.setItem("has_shown_weekly_modal", "1"); // ✅ 봤음 처리
@@ -401,7 +413,7 @@ export default function Home() {
 
     // 홈 진입 플래그 정리
     sessionStorage.removeItem("home_entry_flags");
-  }, [popupQueue.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [popupQueue.length, isCheckingPopups]);
 
   // =========================
   // ✅ 오늘 날짜의 진행도 로드
@@ -429,7 +441,7 @@ export default function Home() {
           // 진행 상태 확인용 추가 API 호출 (이건 가벼우니 유지하거나, 이것도 캐싱 고려 가능)
           const statusDate = getStatusDateFromFloors(floors);
           todayFloorsStatus = await getFloorsStatusByDate(statusDate);
-        } catch (error) {}
+        } catch (error) { }
 
         let done = 0;
         for (const floor of floors) {
@@ -458,7 +470,7 @@ export default function Home() {
                 if (detailFloor) {
                   isCompleted = isFloorCompleted(detailFloor);
                 }
-              } catch (err) {}
+              } catch (err) { }
             }
           }
           if (isCompleted) done++;
@@ -610,7 +622,7 @@ export default function Home() {
     if (tasks.length > 0) {
       try {
         sessionStorage.setItem("home_tasks_cache", JSON.stringify(tasks));
-      } catch (e) {}
+      } catch (e) { }
     }
   }, [tasks]);
 
@@ -621,7 +633,7 @@ export default function Home() {
         "home_undoneTasks_cache",
         JSON.stringify(undoneTasks)
       );
-    } catch (e) {}
+    } catch (e) { }
   }, [undoneTasks]);
 
   // =========================
@@ -669,7 +681,7 @@ export default function Home() {
         try {
           const statusDate = getStatusDateFromFloors(todayFloors);
           todayFloorsStatus = await getFloorsStatusByDate(statusDate);
-        } catch (error) {}
+        } catch (error) { }
 
         const todayTasks = await Promise.all(
           Array.from(scheduleMap.values()).map(async (schedule) => {
@@ -700,8 +712,8 @@ export default function Home() {
               if (targetFloorId && todayFloorsStatus) {
                 const statusFloor = Array.isArray(todayFloorsStatus)
                   ? todayFloorsStatus.find(
-                      (f) => getFloorIdValue(f) === targetFloorId
-                    )
+                    (f) => getFloorIdValue(f) === targetFloorId
+                  )
                   : null;
                 if (statusFloor) {
                   completedStatus = isFloorCompleted(statusFloor);
@@ -784,8 +796,8 @@ export default function Home() {
           const missedSchedules = Array.isArray(missedResponse)
             ? missedResponse
             : missedResponse
-            ? [missedResponse]
-            : [];
+              ? [missedResponse]
+              : [];
           const undoneQuestsList = missedSchedules.map(
             (schedule, scheduleIndex) => {
               const scheduleFloors = schedule.floors || [];
@@ -865,7 +877,7 @@ export default function Home() {
                 if (detailFloor) {
                   isCompleted = isFloorCompleted(detailFloor);
                 }
-              } catch (err) {}
+              } catch (err) { }
             }
           }
           if (isCompleted) done++;
@@ -885,7 +897,7 @@ export default function Home() {
           if (profile && profile.personalLevel !== undefined) {
             setPersonalLevel(profile.personalLevel);
           }
-        } catch (error) {}
+        } catch (error) { }
       } else {
         setTasks([]);
         setUndoneTasks([]);
@@ -1022,7 +1034,7 @@ export default function Home() {
       const fallbackLevel = Math.max(1, currentFloorBeforeUpdate - 1);
       const nextPersonalLevel =
         Number.isFinite(normalizedApiLevel) &&
-        normalizedApiLevel !== currentFloorBeforeUpdate
+          normalizedApiLevel !== currentFloorBeforeUpdate
           ? normalizedApiLevel
           : fallbackLevel;
       if (nextPersonalLevel !== undefined) {
@@ -1078,7 +1090,7 @@ export default function Home() {
             serverCompleted = isFloorCompleted(statusFloor);
           }
         }
-      } catch (statusError) {}
+      } catch (statusError) { }
 
       if (!serverCompleted) {
         try {
@@ -1090,7 +1102,7 @@ export default function Home() {
           if (detailFloor) {
             serverCompleted = isFloorCompleted(detailFloor);
           }
-        } catch (scheduleError) {}
+        } catch (scheduleError) { }
       }
 
       if (!serverCompleted && subtask.done === true) {
@@ -1181,7 +1193,7 @@ export default function Home() {
       const fallbackLevel = Math.max(1, currentFloorBeforeUpdate + 1);
       const nextPersonalLevel =
         Number.isFinite(normalizedApiLevel) &&
-        normalizedApiLevel !== currentFloorBeforeUpdate
+          normalizedApiLevel !== currentFloorBeforeUpdate
           ? normalizedApiLevel
           : fallbackLevel;
       if (nextPersonalLevel !== undefined) {
@@ -1269,7 +1281,7 @@ export default function Home() {
         const fallbackLevel = Math.max(1, currentFloorBeforeUpdate - 1);
         const nextPersonalLevel =
           Number.isFinite(normalizedApiLevel) &&
-          normalizedApiLevel !== currentFloorBeforeUpdate
+            normalizedApiLevel !== currentFloorBeforeUpdate
             ? normalizedApiLevel
             : fallbackLevel;
         if (nextPersonalLevel !== undefined) {
@@ -1344,7 +1356,7 @@ export default function Home() {
       const fallbackLevel = Math.max(1, currentFloorBeforeUpdate + 1);
       const nextPersonalLevel =
         Number.isFinite(normalizedApiLevel) &&
-        normalizedApiLevel !== currentFloorBeforeUpdate
+          normalizedApiLevel !== currentFloorBeforeUpdate
           ? normalizedApiLevel
           : fallbackLevel;
       if (nextPersonalLevel !== undefined) {
