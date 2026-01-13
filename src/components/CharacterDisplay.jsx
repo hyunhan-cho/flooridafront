@@ -22,8 +22,8 @@ export default function CharacterDisplay({
         (it) => it.type === "FACE" || it.uiCategory === "face"
     );
 
-    // 베이스 이미지: props로 받은 base -> FACE 아이템 -> 기본 캐릭터
-    const baseImg = base || pickImgUrl(faceItem) || baseChar;
+    // 베이스 이미지: FACE 아이템(우선) -> props로 받은 base -> 기본 캐릭터
+    const baseImg = pickImgUrl(faceItem) || base || baseChar;
 
     // FACE가 아닌 아이템들 (액세서리)
     const accessoryItems = items.filter(

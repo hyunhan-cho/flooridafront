@@ -276,7 +276,7 @@ export default function JoinedTeamPlace() {
   margin-top: 2px;
   align-items: flex-end;
   position: relative; /* 버튼 기준점 */
-  transform: translateY(32px); /* 엘베 앞쪽으로 당김 */
+  transform: translateY(10px); /* 다시 위로 올림 (32px -> 10px) */
   min-height: 50px; /* 버튼 높이 확보 */
 }
 
