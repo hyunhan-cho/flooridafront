@@ -892,7 +892,19 @@ export default function TeamPlaceHome() {
           background: #fff;
         }
         .checkbox-wrap input:checked + .checkbox-ui {
-          background: rgba(0, 0, 0, 0.2);
+          background: #1f9a95;
+          border-color: #1f9a95;
+        }
+        .checkbox-wrap input:checked + .checkbox-ui::after {
+          content: '✓';
+          color: #fff;
+          font-size: 14px;
+          font-weight: 900;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          height: 100%;
         }
 
         .teamplace-room-btn {
@@ -992,10 +1004,11 @@ export default function TeamPlaceHome() {
         }
 
         .dday-value {
-          font-size: 34px;
-          font-weight: 1000;
+          font-size: 26px;
+          font-weight: 900;
           color: #111;
           letter-spacing: -1px;
+          margin-right: 8px;
         }
 
         .dday-value--over {
@@ -1178,7 +1191,8 @@ export default function TeamPlaceHome() {
             taskRows.map((r) => {
               const diff = r.dueDate ? calcDday(new Date(r.dueDate)) : null;
               const metaText = diff == null ? "-" : formatDdayLabel(diff);
-              const isOverdue = diff != null && diff < 0;
+              const isChecked = !!checkedMap[r.rowKey];
+              const isOverdue = diff != null && diff < 0 && !isChecked;
 
               const busy = !!savingMap[r.rowKey];
 
