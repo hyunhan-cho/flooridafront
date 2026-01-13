@@ -3,11 +3,15 @@ import "./CoinPopup.css";
 // 주의: src/assets/coin.png 파일이 존재해야 합니다.
 import coinImg from "../assets/coin.png";
 
-export default function CoinPopup({ onClose, coinAmount = 10 }) {
+export default function CoinPopup({ onClose, coinAmount = 10, recipient = null }) {
+  const title = recipient
+    ? `${recipient}님이 코인을 획득했습니다!`
+    : "코인을 획득했습니다!";
+
   return (
     <div className="popup-overlay">
       <div className="popup-box">
-        <h3 className="popup-title">코인을 획득했습니다!</h3>
+        <h3 className="popup-title">{title}</h3>
 
         <div className="popup-content">
           {/* 이미지가 없을 경우를 대비해 onError 추가 */}

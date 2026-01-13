@@ -12,7 +12,7 @@ import {
   getTeamBoardComments,
   toggleTeamBoardLike,
 } from "../services/teamBoard.js";
-import { http } from "../services/api.js";
+import { http, getTeamCharacters } from "../services/api.js";
 
 // ✅ 기본 바디
 import baseChar from "../assets/ch/cha_1.png";
@@ -132,19 +132,36 @@ function computeBBox(layers) {
 }
 
 // ✅ (중요) 스케일링 로직 절대 건드리지 않음: transform 미사용, 좌표/크기 자체를 스케일링
+// ✅ (중요) 스케일링 로직 절대 건드리지 않음: transform 미사용, 좌표/크기 자체를 스케일링
 const CharacterAvatar = memo(function CharacterAvatar({
+  key, // key prop 전달
   className,
   size = 48,
   member,
   badgeMember,
 }) {
-  const equippedItems = member?.equippedItems;
-  const equippedBadges = badgeMember?.equippedBadges;
+  const equippedItems = member?.equippedItems || [];
+  const equippedBadges = badgeMember?.equippedBadges || [];
 
-  const layers = useMemo(
-    () => normalizeLayers(equippedItems, equippedBadges),
-    [equippedItems, equippedBadges]
+  // ✅ FACE 아이템 찾기 (TeamPlaceHome과 로직 통일)
+  const faceItem = equippedItems.find(
+    (it) => String((it?.itemType ?? it?.type) || "").toUpperCase() === "FACE"
   );
+
+  // ✅ FACE 아이템이 있으면 그걸 베이스로 사용, 없으면 기본 떡(baseChar)
+  // 단, FACE 아이템도 layers에 포함해서 좌표 계산에는 참여해야 함 (또는 base처리를 따로 하거나)
+  // TeamPlaceHome 로직: FACE를 base로 쓰고 layers에서는 뺌.
+
+  const baseImgUrl = faceItem?.imageUrl || baseChar;
+
+  const layers = useMemo(() => {
+    // FACE 아이템은 베이스로 깔리므로 레이어 목록에서는 제외 (중복 렌더링 방지)
+    const itemsFiltered = faceItem
+      ? equippedItems.filter(it => it !== faceItem)
+      : equippedItems;
+
+    return normalizeLayers(itemsFiltered, equippedBadges);
+  }, [equippedItems, equippedBadges, faceItem]);
 
   const bbox = useMemo(() => computeBBox(layers), [layers]);
   const scale = Math.min(size / bbox.w, size / bbox.h);
@@ -159,6 +176,7 @@ const CharacterAvatar = memo(function CharacterAvatar({
 
   return (
     <div
+      key={key}
       className={className}
       style={{
         width: size,
@@ -172,9 +190,9 @@ const CharacterAvatar = memo(function CharacterAvatar({
       }}
       aria-hidden="true"
     >
-      {/* ✅ 기본 바디 */}
+      {/* ✅ 기본 바디 (FACE 아이템 or 기본 떡) */}
       <img
-        src={baseChar}
+        src={baseImgUrl}
         alt=""
         draggable={false}
         style={{
@@ -187,6 +205,7 @@ const CharacterAvatar = memo(function CharacterAvatar({
           display: "block",
         }}
         onError={(e) => {
+          // 이미지 로드 실패 시 숨기지 않고 투명처리 or 대체
           e.currentTarget.style.display = "none";
         }}
       />
@@ -232,6 +251,7 @@ export default function TeamBoardDetail() {
 
   const [commentText, setCommentText] = useState("");
   const [sending, setSending] = useState(false);
+  const [liking, setLiking] = useState(false);
 
   // ✅ 팀원 캐릭터/뱃지 상태
   const [membersChars, setMembersChars] = useState([]);
@@ -245,14 +265,16 @@ export default function TeamBoardDetail() {
 
       try {
         const [charsRes, badgesRes] = await Promise.allSettled([
-          http.get(`/api/items/${teamId}/characters`),
+          getTeamCharacters(teamId),
           http.get(`/api/badges/team/${teamId}/members`),
         ]);
 
         if (ignore) return;
 
         const chars =
-          charsRes.status === "fulfilled" ? normalizeList(charsRes.value) : [];
+          charsRes.status === "fulfilled"
+            ? (Array.isArray(charsRes.value) ? charsRes.value : normalizeList(charsRes.value))
+            : [];
         const badges =
           badgesRes.status === "fulfilled"
             ? normalizeList(badgesRes.value)
@@ -302,15 +324,25 @@ export default function TeamBoardDetail() {
   }, [membersChars, membersBadges]);
 
   const resolveMember = (userId, username) => {
-    if (userId != null)
-      return charById.get(userId) ?? charByName.get(String(username));
-    return charByName.get(String(username));
+    if (userId != null) {
+      const numId = Number(userId);
+      if (Number.isFinite(numId)) {
+        const byId = charById.get(numId);
+        if (byId) return byId;
+      }
+    }
+    return charByName.get(String(username ?? ""));
   };
 
   const resolveBadgeMember = (userId, username) => {
-    if (userId != null)
-      return badgeById.get(userId) ?? badgeByName.get(String(username));
-    return badgeByName.get(String(username));
+    if (userId != null) {
+      const numId = Number(userId);
+      if (Number.isFinite(numId)) {
+        const byId = badgeById.get(numId);
+        if (byId) return byId;
+      }
+    }
+    return badgeByName.get(String(username ?? ""));
   };
 
   useEffect(() => {
@@ -379,19 +411,21 @@ export default function TeamBoardDetail() {
   }, [post]);
 
   const onToggleLike = async () => {
-    if (!post) return;
+    if (!post || liking) return;
 
+    const prevLiked = !!(
+      post.liked ??
+      post.isLiked ??
+      post.myLike ??
+      post._liked
+    );
+    const prevCount = toNum(post.likeCount, 0);
+
+    // Optimistic Update
     setPost((prev) => {
       if (!prev) return prev;
-      const nowLiked = !!(
-        prev.liked ??
-        prev.isLiked ??
-        prev.myLike ??
-        prev._liked
-      );
-      const nowCount = toNum(prev.likeCount, 0);
-      const nextLiked = !nowLiked;
-      const nextCount = Math.max(0, nowCount + (nextLiked ? 1 : -1));
+      const nextLiked = !prevLiked;
+      const nextCount = Math.max(0, prevCount + (nextLiked ? 1 : -1));
       return {
         ...prev,
         _liked: nextLiked,
@@ -400,6 +434,7 @@ export default function TeamBoardDetail() {
       };
     });
 
+    setLiking(true);
     try {
       const res = await toggleTeamBoardLike(teamId, boardId);
       if (res && typeof res === "object" && res.likeCount != null) {
@@ -410,24 +445,18 @@ export default function TeamBoardDetail() {
         );
       }
     } catch (_) {
+      // 에러 시 원복
       setPost((prev) => {
         if (!prev) return prev;
-        const nowLiked = !!(
-          prev.liked ??
-          prev.isLiked ??
-          prev.myLike ??
-          prev._liked
-        );
-        const nowCount = toNum(prev.likeCount, 0);
-        const nextLiked = !nowLiked;
-        const nextCount = Math.max(0, nowCount + (nextLiked ? 1 : -1));
         return {
           ...prev,
-          _liked: nextLiked,
-          liked: nextLiked,
-          likeCount: nextCount,
+          _liked: prevLiked,
+          liked: prevLiked,
+          likeCount: prevCount,
         };
       });
+    } finally {
+      setLiking(false);
     }
   };
 
@@ -484,6 +513,7 @@ export default function TeamBoardDetail() {
           <div className="tp-post-card tp-figma-frame">
             {/* ====== (1) 게시글 헤더 ====== */}
             <CharacterAvatar
+              key={`post-avatar-${vm.writerId ?? "anon"}-${postMember?.userId ?? "none"}`}
               className="tp-figma-post-avatar"
               size={48}
               member={postMember}
@@ -496,9 +526,8 @@ export default function TeamBoardDetail() {
             </div>
 
             <button
-              className={`tp-like-pill tp-figma-like ${
-                vm.liked ? "is-liked" : ""
-              }`}
+              className={`tp-like-pill tp-figma-like ${vm.liked ? "is-liked" : ""
+                }`}
               onClick={onToggleLike}
               type="button"
               aria-label="좋아요"

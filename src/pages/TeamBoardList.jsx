@@ -7,13 +7,19 @@ import "./TeamBoardList.css";
 
 import { HeartIcon } from "../components/teamBoard/BoardIcons.jsx";
 import { getTeamBoards } from "../services/teamBoard.js";
-import { http } from "../services/api.js";
+import { http, getTeamCharacters } from "../services/api.js";
 
 import baseChar from "../assets/ch/cha_1.png";
 
 // ===================================
 // 1. Helpers
 // ===================================
+function getUserId(obj) {
+  const v = obj?.userId ?? obj?.userid ?? obj?.writerId ?? obj?.authorId;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
 function toNum(v, fallback = 0) {
   const n = Number(v);
   return Number.isFinite(n) ? n : fallback;
@@ -121,19 +127,30 @@ function computeBBox(layers) {
   return { minX, minY, w: Math.max(w, BASE_W), h: Math.max(h, BASE_H) };
 }
 
+// ✅ (중요) 스케일링 로직 절대 건드리지 않음: transform 미사용, 좌표/크기 자체를 스케일링
 const CharacterAvatar = memo(function CharacterAvatar({
   className,
   size = 44,
   member,
   badgeMember,
 }) {
-  const equippedItems = member?.equippedItems;
-  const equippedBadges = badgeMember?.equippedBadges;
+  const equippedItems = member?.equippedItems || [];
+  const equippedBadges = badgeMember?.equippedBadges || [];
 
-  const layers = useMemo(
-    () => normalizeLayers(equippedItems, equippedBadges),
-    [equippedItems, equippedBadges]
+  // ✅ FACE 아이템 찾기 (TeamPlaceHome과 로직 통일)
+  const faceItem = equippedItems.find(
+    (it) => String((it?.itemType ?? it?.type) || "").toUpperCase() === "FACE"
   );
+  const baseImgUrl = faceItem?.imageUrl || baseChar;
+
+  const layers = useMemo(() => {
+    // FACE 아이템은 베이스로 깔리므로 레이어 목록에서는 제외
+    const itemsFiltered = faceItem
+      ? equippedItems.filter(it => it !== faceItem)
+      : equippedItems;
+
+    return normalizeLayers(itemsFiltered, equippedBadges);
+  }, [equippedItems, equippedBadges, faceItem]);
 
   const bbox = useMemo(() => computeBBox(layers), [layers]);
   const scale = Math.min(size / bbox.w, size / bbox.h);
@@ -156,7 +173,7 @@ const CharacterAvatar = memo(function CharacterAvatar({
       aria-hidden="true"
     >
       <img
-        src={baseChar}
+        src={baseImgUrl}
         alt=""
         draggable={false}
         style={{
@@ -231,12 +248,14 @@ export default function TeamBoardList() {
 
         // 2. 캐릭터/뱃지 (비동기 병렬)
         Promise.allSettled([
-          http.get(`/api/items/${teamId}/characters`),
+          getTeamCharacters(teamId),
           http.get(`/api/badges/team/${teamId}/members`),
         ]).then(([cRes, bRes]) => {
           if (ignore) return;
           const chars =
-            cRes.status === "fulfilled" ? normalizeList(cRes.value) : [];
+            cRes.status === "fulfilled"
+              ? (Array.isArray(cRes.value) ? cRes.value : normalizeList(cRes.value))
+              : [];
           const badges =
             bRes.status === "fulfilled" ? normalizeList(bRes.value) : [];
           setMembersChars(chars);
@@ -262,26 +281,42 @@ export default function TeamBoardList() {
     const cId = new Map();
     const cName = new Map();
     for (const m of membersChars) {
-      const id = toNum(pick(m, "userId", "userid", "writerId"));
+      const id = getUserId(m);
       const name = pick(m, "username", "userName", "name");
-      if (id) cId.set(id, m);
+      if (id != null) cId.set(id, m);
       if (name) cName.set(String(name), m);
     }
     const bId = new Map();
     const bName = new Map();
     for (const m of membersBadges) {
-      const id = toNum(pick(m, "userId", "userid", "writerId"));
+      const id = getUserId(m);
       const name = pick(m, "username", "userName", "name");
-      if (id) bId.set(id, m);
+      if (id != null) bId.set(id, m);
       if (name) bName.set(String(name), m);
     }
     return { charById: cId, charByName: cName, badgeById: bId, badgeByName: bName };
   }, [membersChars, membersBadges]);
 
-  const resolveMember = (uId, uName) =>
-    (uId && charById.get(uId)) || charByName.get(String(uName));
-  const resolveBadgeMember = (uId, uName) =>
-    (uId && badgeById.get(uId)) || badgeByName.get(String(uName));
+  const resolveMember = (uId, uName) => {
+    if (uId != null) {
+      const numId = Number(uId);
+      if (Number.isFinite(numId)) {
+        const byId = charById.get(numId);
+        if (byId) return byId;
+      }
+    }
+    return charByName.get(String(uName ?? ""));
+  };
+  const resolveBadgeMember = (uId, uName) => {
+    if (uId != null) {
+      const numId = Number(uId);
+      if (Number.isFinite(numId)) {
+        const byId = badgeById.get(numId);
+        if (byId) return byId;
+      }
+    }
+    return badgeByName.get(String(uName ?? ""));
+  };
 
   return (
     <div className="tp-board-page">
@@ -352,6 +387,7 @@ export default function TeamBoardList() {
                 >
                   <div className="tp-board-card-top">
                     <CharacterAvatar
+                      key={`list-avatar-${wId ?? "anon"}-${member?.userId ?? "none"}`}
                       className="tp-avatar"
                       size={44}
                       member={member}
