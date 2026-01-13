@@ -47,9 +47,8 @@ export default function TeamCalendarView({
     d.getMonth() === today.getMonth() &&
     d.getDate() === today.getDate();
 
-  const monthYear = `${currentDate.getFullYear()}년 ${
-    currentDate.getMonth() + 1
-  }월`;
+  const monthYear = `${currentDate.getFullYear()}년 ${currentDate.getMonth() + 1
+    }월`;
 
   const goToPrevMonth = () =>
     setCurrentDate(
@@ -198,8 +197,8 @@ export default function TeamCalendarView({
             const borderFinal = isSelectedDate
               ? "2px solid #F97316"
               : isTodayCell
-              ? "2px solid #111827"
-              : "none";
+                ? "2px solid #111827"
+                : "none";
 
             return (
               <div

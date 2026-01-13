@@ -234,19 +234,19 @@ export default function AiPlanResult({
         <div className="aiScheduleList">
           {floors && floors.length > 0 ? (
             floors.slice(0, 5).map((floor, index) => {
-              const floorDate = floor.scheduledDate 
+              const floorDate = floor.scheduledDate
                 ? new Date(floor.scheduledDate)
                 : (() => {
-                    const date = new Date(startDate);
-                    date.setDate(date.getDate() + index);
-                    return date;
-                  })();
-              
+                  const date = new Date(startDate);
+                  date.setDate(date.getDate() + index);
+                  return date;
+                })();
+
               const weekdays = ["일", "월", "화", "수", "목", "금", "토"];
               const weekday = weekdays[floorDate.getDay()];
               const month = floorDate.getMonth() + 1;
               const day = floorDate.getDate();
-              
+
               return (
                 <div key={floor.floorId || index} className="aiScheduleItem">
                   <div className="aiScheduleDate">
