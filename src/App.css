@@ -30,6 +30,9 @@
   /* ✅ [해결 A 핵심] 네비 관련 CSS 변수를 전역(:root)으로 올림 */
   --nav-height: clamp(68px, 10dvh, 96px);
   --nav-icon-size: clamp(28px, 8vw, 40px);
+
+  /* ✅ 모든 하위 페이지 너비 강제 조정 */
+  --panel-width: 100%;
 }
 
 /* 전역 폰트 설정 - 한글과 영어 자동 구분 */

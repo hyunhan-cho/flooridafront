@@ -90,7 +90,7 @@ export default function RoomRemoval() {
       <TeamHeader />
 
       <style>{`
-        .room-removal .rr-wrap{ width: var(--panel-width); max-width: 100%; }
+        .room-removal .rr-wrap{ width: 100%; max-width: 480px; margin: 0 auto; box-sizing: border-box; }
         .room-removal .rr-top{ margin-top: 10px; padding: 10px 2px 6px; color:#fff; }
         .room-removal .rr-back{
           width:34px; height:34px; border:0; background:transparent; color:#fff;
@@ -98,11 +98,13 @@ export default function RoomRemoval() {
         }
 
         .room-removal .rr-card{
-          width:92%;
+          width:96%;
+          max-width: 460px;
           margin:12px auto 0;
           background:#fff;
           border-radius:28px;
           padding:28px 26px 24px;
+          box-sizing: border-box;
           box-shadow:0 14px 28px rgba(0,0,0,.22);
         }
 
