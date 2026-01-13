@@ -24,6 +24,7 @@ import baseChar from "../assets/ch/cha_1.png";
 import floorBoardImg from "../assets/img/board 1.png";
 import FloorBackground from "../components/FloorBackground.jsx";
 import { useTeamStore } from "../store/teamStore.js"; // ✅ Store import
+import { useUserStore } from "../store/userStore.js"; // ✅ User Store import
 
 function calcDday(targetDate) {
   const today = new Date();
@@ -427,6 +428,8 @@ export default function TeamPlaceHome() {
 
   // ✅ Store 사용 (캐싱 & 상태관리)
   const { fetchTeamInfo, fetchTeamFloors, fetchTeamCharacters, fetchTeamBadges, teamCache } = useTeamStore();
+  const { cachedProfile } = useUserStore();
+  const myUserId = cachedProfile?.userId ?? cachedProfile?.id ?? null;
   const teamData = teamCache[teamId] || {};
 
   const teamFloors = teamData.floors || []; // teamFloors state 대체
@@ -477,6 +480,7 @@ export default function TeamPlaceHome() {
   // ✅ 코인 팝업
   const [coinPopupOpen, setCoinPopupOpen] = useState(false);
   const [coinPopupAmount, setCoinPopupAmount] = useState(10);
+  const [coinPopupRecipient, setCoinPopupRecipient] = useState(null);
 
   // ✅ 홈.jsx랑 같은 이동 함수(엘리베이터 애니메이션)
   const goToFloor = (targetFloor) => {
@@ -685,6 +689,9 @@ export default function TeamPlaceHome() {
 
           if (isAssigned && awarded > 0 && notAlreadyCompleted) {
             setCoinPopupAmount(awarded);
+            // ✅ 본인이 아니면 담당자 이름 표시
+            const isMine = myUserId != null && Number(row.userId) === Number(myUserId);
+            setCoinPopupRecipient(isMine ? null : (row.username || "담당 팀원"));
             setCoinPopupOpen(true);
           }
         } else {
@@ -1307,6 +1314,7 @@ export default function TeamPlaceHome() {
       {coinPopupOpen && (
         <CoinPopup
           coinAmount={coinPopupAmount}
+          recipient={coinPopupRecipient}
           onClose={() => setCoinPopupOpen(false)}
         />
       )}
